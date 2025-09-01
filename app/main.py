@@ -8,7 +8,18 @@ import uvicorn
 import os
 
 from .database import get_db, create_tables
-from .routers import chef, customer, admin, feedback, loyalty, selection_offer, table, analytics, settings, system
+from .routers import (
+    chef,
+    customer,
+    admin,
+    feedback,
+    loyalty,
+    selection_offer,
+    table,
+    analytics,
+    settings,
+    system,
+)
 from .middleware import SessionMiddleware
 
 # Create FastAPI app
@@ -95,8 +106,7 @@ async def admin_dishes_page(request: Request):
     return templates.TemplateResponse("admin/dishes.html", {"request": request})
 
 
-
-
-
 if __name__ == "__main__":
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+    host = os.getenv("HOST", "0.0.0.0")
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run("app.main:app", host=host, port=port, reload=True)

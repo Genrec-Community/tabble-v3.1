@@ -21,6 +21,7 @@ import uuid
 # Base declarative class
 Base = declarative_base()
 
+
 # Session-based database manager with hotel context
 class DatabaseManager:
     def __init__(self):
@@ -30,26 +31,28 @@ class DatabaseManager:
 
     def get_session_id(self, request_headers: dict) -> str:
         """Generate or retrieve session ID from request headers"""
-        session_id = request_headers.get('x-session-id')
+        session_id = request_headers.get("x-session-id")
         if not session_id:
             session_id = str(uuid.uuid4())
         return session_id
 
-    def get_database_connection(self, session_id: str, hotel_id: Optional[int] = None) -> dict:
+    def get_database_connection(
+        self, session_id: str, hotel_id: Optional[int] = None
+    ) -> dict:
         """Get or create database connection for session with hotel context"""
         with self.lock:
             if session_id not in self.sessions:
                 # Create new session with unified database
                 self.sessions[session_id] = self._create_connection(hotel_id)
-            elif hotel_id and self.sessions[session_id].get('hotel_id') != hotel_id:
+            elif hotel_id and self.sessions[session_id].get("hotel_id") != hotel_id:
                 # Update hotel context for existing session
-                self.sessions[session_id]['hotel_id'] = hotel_id
+                self.sessions[session_id]["hotel_id"] = hotel_id
 
             return self.sessions[session_id]
 
     def _create_connection(self, hotel_id: Optional[int] = None) -> dict:
         """Create a new database connection to unified database"""
-        database_url = f"sqlite:///./Tabble.db"
+        database_url = f"sqlite:///./Tabblev3_1.db"
         engine = create_engine(database_url, connect_args={"check_same_thread": False})
         session_factory = sessionmaker(autocommit=False, autoflush=False, bind=engine)
         session_local = scoped_session(session_factory)
@@ -58,19 +61,19 @@ class DatabaseManager:
         Base.metadata.create_all(bind=engine)
 
         return {
-            'database_name': self.unified_database,
-            'database_url': database_url,
-            'engine': engine,
-            'session_local': session_local,
-            'hotel_id': hotel_id
+            "database_name": self.unified_database,
+            "database_url": database_url,
+            "engine": engine,
+            "session_local": session_local,
+            "hotel_id": hotel_id,
         }
 
     def _dispose_connection(self, session_id: str):
         """Dispose of database connection for session"""
         if session_id in self.sessions:
             connection = self.sessions[session_id]
-            connection['session_local'].remove()
-            connection['engine'].dispose()
+            connection["session_local"].remove()
+            connection["engine"].dispose()
 
     def set_hotel_context(self, session_id: str, hotel_id: int) -> bool:
         """Set hotel context for a specific session"""
@@ -85,7 +88,7 @@ class DatabaseManager:
     def get_current_hotel_id(self, session_id: str) -> Optional[int]:
         """Get current hotel_id for session"""
         if session_id in self.sessions:
-            return self.sessions[session_id].get('hotel_id')
+            return self.sessions[session_id].get("hotel_id")
         return None
 
     def get_current_database(self, session_id: str) -> str:
@@ -97,13 +100,15 @@ class DatabaseManager:
         try:
             # Use global engine to query hotels table
             from sqlalchemy.orm import sessionmaker
+
             Session = sessionmaker(bind=engine)
             db = Session()
 
-            hotel = db.query(Hotel).filter(
-                Hotel.hotel_name == hotel_name,
-                Hotel.password == password
-            ).first()
+            hotel = (
+                db.query(Hotel)
+                .filter(Hotel.hotel_name == hotel_name, Hotel.password == password)
+                .first()
+            )
 
             db.close()
 
@@ -120,6 +125,7 @@ class DatabaseManager:
             if session_id in self.sessions:
                 self._dispose_connection(session_id)
                 del self.sessions[session_id]
+
 
 # Global database manager instance
 db_manager = DatabaseManager()
@@ -168,7 +174,9 @@ class Dish(Base):
     hotel_id = Column(Integer, ForeignKey("hotels.id"), nullable=False, index=True)
     name = Column(String, index=True)
     description = Column(Text, nullable=True)
-    category = Column(String, index=True)  # Now stores JSON array for multiple categories
+    category = Column(
+        String, index=True
+    )  # Now stores JSON array for multiple categories
     price = Column(Float)
     quantity = Column(Integer, default=0)  # Made optional in forms, but keeps default
     image_path = Column(String, nullable=True)
@@ -203,8 +211,12 @@ class Order(Base):
     total_amount = Column(Float, nullable=True)  # Final amount paid after all discounts
     subtotal_amount = Column(Float, nullable=True)  # Original amount before discounts
     loyalty_discount_amount = Column(Float, default=0)  # Loyalty discount applied
-    selection_offer_discount_amount = Column(Float, default=0)  # Selection offer discount applied
-    loyalty_discount_percentage = Column(Float, default=0)  # Loyalty discount percentage applied
+    selection_offer_discount_amount = Column(
+        Float, default=0
+    )  # Selection offer discount applied
+    loyalty_discount_percentage = Column(
+        Float, default=0
+    )  # Loyalty discount percentage applied
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(
         DateTime,
@@ -232,8 +244,8 @@ class Person(Base):
 
     # Unique constraints per hotel
     __table_args__ = (
-        UniqueConstraint('hotel_id', 'username', name='uq_person_hotel_username'),
-        UniqueConstraint('hotel_id', 'phone_number', name='uq_person_hotel_phone'),
+        UniqueConstraint("hotel_id", "username", name="uq_person_hotel_username"),
+        UniqueConstraint("hotel_id", "phone_number", name="uq_person_hotel_phone"),
     )
 
     # Relationships
@@ -292,7 +304,7 @@ class LoyaltyProgram(Base):
 
     # Unique constraint per hotel
     __table_args__ = (
-        UniqueConstraint('hotel_id', 'visit_count', name='uq_loyalty_hotel_visits'),
+        UniqueConstraint("hotel_id", "visit_count", name="uq_loyalty_hotel_visits"),
     )
 
     # Relationships
@@ -340,7 +352,7 @@ class Table(Base):
 
     # Unique constraint per hotel
     __table_args__ = (
-        UniqueConstraint('hotel_id', 'table_number', name='uq_table_hotel_number'),
+        UniqueConstraint("hotel_id", "table_number", name="uq_table_hotel_number"),
     )
 
     # Relationships
@@ -367,9 +379,7 @@ class Settings(Base):
     )
 
     # Unique constraint per hotel
-    __table_args__ = (
-        UniqueConstraint('hotel_id', name='uq_settings_hotel'),
-    )
+    __table_args__ = (UniqueConstraint("hotel_id", name="uq_settings_hotel"),)
 
     # Relationships
     hotel = relationship("Hotel", back_populates="settings")
@@ -382,7 +392,9 @@ class OtpRequest(Base):
     hotel_id = Column(Integer, ForeignKey("hotels.id"), nullable=False, index=True)
     phone_number = Column(String, nullable=False, index=True)
     otp_code = Column(String, nullable=False)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+    created_at = Column(
+        DateTime, default=lambda: datetime.now(timezone.utc), index=True
+    )
     verified = Column(Boolean, default=False)
 
     hotel = relationship("Hotel", back_populates="otp_requests")
@@ -398,7 +410,11 @@ def switch_database(database_name):
 
         # Update global variables
         CURRENT_DATABASE = database_name
-        DATABASE_URL = f"sqlite:///./tabble_new.db" if database_name == "tabble_new.db" else f"sqlite:///./{database_name}"
+        DATABASE_URL = (
+            f"sqlite:///./tabble_new.db"
+            if database_name == "tabble_new.db"
+            else f"sqlite:///./{database_name}"
+        )
 
         # Dispose of the old engine and create a new one
         engine.dispose()
@@ -440,7 +456,7 @@ def get_db():
 def get_session_db(session_id: str, hotel_id: Optional[int] = None):
     """Get database session for a specific session ID with hotel context"""
     connection = db_manager.get_database_connection(session_id, hotel_id)
-    db = connection['session_local']()
+    db = connection["session_local"]()
     try:
         yield db
     finally:

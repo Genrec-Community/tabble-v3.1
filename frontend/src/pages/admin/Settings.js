@@ -424,7 +424,7 @@ const AdminSettings = () => {
                   {logoPreview && (
                     <Box mt={2} mb={3}>
                       <img
-                        src={logoPreview.startsWith('/') ? `http://localhost:8000${logoPreview}` : logoPreview}
+                        src={logoPreview.startsWith('/') ? `${process.env.REACT_APP_API_BASE_URL}${logoPreview}` : logoPreview}
                         alt="Hotel Logo Preview"
                         style={{ maxWidth: '200px', maxHeight: '100px', objectFit: 'contain' }}
                       />
@@ -469,7 +469,7 @@ const AdminSettings = () => {
               >
                 {logoPreview ? (
                   <img
-                    src={logoPreview.startsWith('/') ? `http://localhost:8000${logoPreview}` : logoPreview}
+                    src={logoPreview.startsWith('/') ? `${process.env.REACT_APP_API_BASE_URL}${logoPreview}` : logoPreview}
                     alt="Hotel Logo"
                     style={{ maxWidth: '80%', maxHeight: '80%', objectFit: 'contain' }}
                   />
