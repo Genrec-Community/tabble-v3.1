@@ -17,9 +17,54 @@ import os
 import threading
 from typing import Dict, Optional
 import uuid
+import csv
 
 # Base declarative class
 Base = declarative_base()
+
+
+# Import hotels from hotels.csv to database
+def import_hotels_from_csv(db_session):
+    """Import hotels from hotels.csv to database if not already present"""
+    try:
+        print("Attempting to import hotels from CSV...")
+        # Check if hotels table already has data
+        existing_hotels = db_session.query(Hotel).count()
+        print(f"Found {existing_hotels} existing hotels in database")
+
+        if existing_hotels > 0:
+            print(f"Hotels already exist in database ({existing_hotels} hotels), skipping import")
+            return
+
+        # Read from hotels.csv
+        hotels_imported = 0
+        print("Reading hotels.csv...")
+        with open("hotels.csv", "r") as file:
+            reader = csv.DictReader(file)
+            print("CSV columns:", reader.fieldnames)
+            for row in reader:
+                print(f"Processing CSV row: {row}")
+                # Check if hotel already exists
+                existing = db_session.query(Hotel).filter(
+                    Hotel.hotel_name == row["hotel_name"]
+                ).first()
+
+                if not existing:
+                    hotel = Hotel(
+                        hotel_name=row["hotel_name"],
+                        password=row["password"]
+                    )
+                    db_session.add(hotel)
+                    hotels_imported += 1
+                    print(f"Added hotel: {row['hotel_name']}")
+
+        if hotels_imported > 0:
+            db_session.commit()
+            print(f"Imported {hotels_imported} hotels from CSV")
+
+    except Exception as e:
+        print(f"Error importing hotels from CSV: {e}")
+        db_session.rollback()
 
 
 # Session-based database manager with hotel context
@@ -52,13 +97,20 @@ class DatabaseManager:
 
     def _create_connection(self, hotel_id: Optional[int] = None) -> dict:
         """Create a new database connection to unified database"""
-        database_url = f"sqlite:///./Tabblev3_1.db"
+        database_url = f"sqlite:///./Tabble.db"
         engine = create_engine(database_url, connect_args={"check_same_thread": False})
         session_factory = sessionmaker(autocommit=False, autoflush=False, bind=engine)
         session_local = scoped_session(session_factory)
 
         # Create tables in the database if they don't exist
         Base.metadata.create_all(bind=engine)
+
+        # Import hotels from CSV if tables were just created
+        with session_local() as db_session:
+            try:
+                import_hotels_from_csv(db_session)
+            except Exception as e:
+                print(f"Failed to import hotels: {e}")
 
         return {
             "database_name": self.unified_database,
@@ -103,7 +155,7 @@ class DatabaseManager:
 
             Session = sessionmaker(bind=engine)
             db = Session()
-
+            print(f"{hotel_name=}|{password=}")
             hotel = (
                 db.query(Hotel)
                 .filter(Hotel.hotel_name == hotel_name, Hotel.password == password)
