@@ -67,7 +67,7 @@ if has_react_build:
     app.mount("/", StaticFiles(directory=react_build_dir, html=True), name="react")
 
 # Healthz Page
-@app.get("/health)
+@app.get("/health")
 async def health_check(request: Request):
     """Just for the usage in railways"""
     return {"status": "healthy"}
