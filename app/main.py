@@ -66,7 +66,11 @@ if has_react_build:
     # Mount the React build folder
     app.mount("/", StaticFiles(directory=react_build_dir, html=True), name="react")
 
-
+# Healthz Page
+@app.get("/health)
+async def health_check(request: Request):
+    """Just for the usage in railways"""
+    return {"status": "healthy"}
 # Chef page
 @app.get("/chef", response_class=HTMLResponse)
 async def chef_page(request: Request):
