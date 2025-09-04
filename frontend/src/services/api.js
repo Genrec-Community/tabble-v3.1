@@ -1,23 +1,11 @@
 import axios from 'axios';
 
-// Get the base URL from environment variables or fallback to dynamic detection
 const getBaseUrl = () => {
-  // First, try to get from environment variable
-  if (process.env.REACT_APP_API_BASE_URL) {
-    return process.env.REACT_APP_API_BASE_URL;
+  const baseURL = process.env.REACT_APP_API_BASE_URL;
+  if (!baseURL) {
+    throw new Error('REACT_APP_API_BASE_URL is not defined. Please check your .env file.');
   }
-
-  // Fallback for production builds
-  if (process.env.NODE_ENV === 'production') {
-    return '/api';
-  }
-
-  // Fallback for development (legacy behavior)
-  const protocol = window.location.protocol;
-  const hostname = window.location.hostname;
-  const port = '8000'; // Backend port
-
-  return `${protocol}//${hostname}:${port}`;
+  return baseURL;
 };
 
 // Session management
