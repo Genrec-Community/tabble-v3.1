@@ -7,7 +7,17 @@ import shutil
 from datetime import datetime, timezone
 from ..utils.pdf_generator import generate_bill_pdf, generate_multi_order_bill_pdf
 
-from ..database import get_db, Order, Dish, OrderItem, Person, Settings, get_session_db, get_session_current_database, get_hotel_id_from_request
+from ..database import (
+    get_db,
+    Order,
+    Dish,
+    OrderItem,
+    Person,
+    Settings,
+    get_session_db,
+    get_session_current_database,
+    get_hotel_id_from_request,
+)
 from ..models.order import Order as OrderModel
 from ..models.dish import Dish as DishModel, DishCreate, DishUpdate
 from ..middleware import get_session_id
@@ -27,7 +37,9 @@ def get_session_database(request: Request):
 
 # Get all orders with customer information
 @router.get("/orders", response_model=List[OrderModel])
-def get_all_orders(request: Request, status: str = None, db: Session = Depends(get_session_database)):
+def get_all_orders(
+    request: Request, status: str = None, db: Session = Depends(get_session_database)
+):
     hotel_id = get_hotel_id_from_request(request)
 
     query = db.query(Order).filter(Order.hotel_id == hotel_id)
@@ -41,10 +53,11 @@ def get_all_orders(request: Request, status: str = None, db: Session = Depends(g
     # Load person information for each order
     for order in orders:
         if order.person_id:
-            person = db.query(Person).filter(
-                Person.hotel_id == hotel_id,
-                Person.id == order.person_id
-            ).first()
+            person = (
+                db.query(Person)
+                .filter(Person.hotel_id == hotel_id, Person.id == order.person_id)
+                .first()
+            )
             if person:
                 # Add person information to the order
                 order.person_name = person.username
@@ -53,10 +66,11 @@ def get_all_orders(request: Request, status: str = None, db: Session = Depends(g
         # Load dish information for each order item
         for item in order.items:
             if not hasattr(item, "dish") or item.dish is None:
-                dish = db.query(Dish).filter(
-                    Dish.hotel_id == hotel_id,
-                    Dish.id == item.dish_id
-                ).first()
+                dish = (
+                    db.query(Dish)
+                    .filter(Dish.hotel_id == hotel_id, Dish.id == item.dish_id)
+                    .first()
+                )
                 if dish:
                     item.dish = dish
 
@@ -74,8 +88,7 @@ def get_all_dishes(
     hotel_id = get_hotel_id_from_request(request)
 
     query = db.query(Dish).filter(
-        Dish.hotel_id == hotel_id,
-        Dish.visibility == 1
+        Dish.hotel_id == hotel_id, Dish.visibility == 1
     )  # Only visible dishes for this hotel
 
     if is_offer is not None:
@@ -92,11 +105,11 @@ def get_all_dishes(
 @router.get("/api/offers", response_model=List[DishModel])
 def get_offer_dishes(request: Request, db: Session = Depends(get_session_database)):
     hotel_id = get_hotel_id_from_request(request)
-    dishes = db.query(Dish).filter(
-        Dish.hotel_id == hotel_id,
-        Dish.is_offer == 1,
-        Dish.visibility == 1
-    ).all()
+    dishes = (
+        db.query(Dish)
+        .filter(Dish.hotel_id == hotel_id, Dish.is_offer == 1, Dish.visibility == 1)
+        .all()
+    )
     return dishes
 
 
@@ -104,23 +117,25 @@ def get_offer_dishes(request: Request, db: Session = Depends(get_session_databas
 @router.get("/api/specials", response_model=List[DishModel])
 def get_special_dishes(request: Request, db: Session = Depends(get_session_database)):
     hotel_id = get_hotel_id_from_request(request)
-    dishes = db.query(Dish).filter(
-        Dish.hotel_id == hotel_id,
-        Dish.is_special == 1,
-        Dish.visibility == 1
-    ).all()
+    dishes = (
+        db.query(Dish)
+        .filter(Dish.hotel_id == hotel_id, Dish.is_special == 1, Dish.visibility == 1)
+        .all()
+    )
     return dishes
 
 
 # Get dish by ID (only if visible)
 @router.get("/api/dishes/{dish_id}", response_model=DishModel)
-def get_dish(dish_id: int, request: Request, db: Session = Depends(get_session_database)):
+def get_dish(
+    dish_id: int, request: Request, db: Session = Depends(get_session_database)
+):
     hotel_id = get_hotel_id_from_request(request)
-    dish = db.query(Dish).filter(
-        Dish.hotel_id == hotel_id,
-        Dish.id == dish_id,
-        Dish.visibility == 1
-    ).first()
+    dish = (
+        db.query(Dish)
+        .filter(Dish.hotel_id == hotel_id, Dish.id == dish_id, Dish.visibility == 1)
+        .first()
+    )
     if dish is None:
         raise HTTPException(status_code=404, detail="Dish not found")
     return dish
@@ -130,12 +145,13 @@ def get_dish(dish_id: int, request: Request, db: Session = Depends(get_session_d
 @router.get("/api/categories")
 def get_all_categories(request: Request, db: Session = Depends(get_session_database)):
     hotel_id = get_hotel_id_from_request(request)
-    categories = db.query(Dish.category).filter(
-        Dish.hotel_id == hotel_id
-    ).distinct().all()
+    categories = (
+        db.query(Dish.category).filter(Dish.hotel_id == hotel_id).distinct().all()
+    )
 
     # Parse JSON categories and flatten them
     import json
+
     unique_categories = set()
 
     for category_tuple in categories:
@@ -156,6 +172,7 @@ def get_all_categories(request: Request, db: Session = Depends(get_session_datab
 
     # Parse categories from JSON format and flatten into unique list
     import json
+
     unique_categories = set()
 
     for category_data in categories:
@@ -177,15 +194,18 @@ def get_all_categories(request: Request, db: Session = Depends(get_session_datab
 
 # Create new category
 @router.post("/api/categories")
-def create_category(request: Request, category_name: str = Form(...), db: Session = Depends(get_session_database)):
+def create_category(
+    request: Request,
+    category_name: str = Form(...),
+    db: Session = Depends(get_session_database),
+):
     hotel_id = get_hotel_id_from_request(request)
 
     # Check if category already exists for this hotel
     existing_category = (
-        db.query(Dish.category).filter(
-            Dish.hotel_id == hotel_id,
-            Dish.category == category_name
-        ).first()
+        db.query(Dish.category)
+        .filter(Dish.hotel_id == hotel_id, Dish.category == category_name)
+        .first()
     )
     if existing_category:
         raise HTTPException(status_code=400, detail="Category already exists")
@@ -199,7 +219,9 @@ async def create_dish(
     request: Request,
     name: str = Form(...),
     description: Optional[str] = Form(None),
-    category: str = Form(...),
+    category: Optional[str] = Form(
+        None
+    ),  # Made optional since frontend sends 'categories'
     new_category: Optional[str] = Form(None),  # New field for custom category
     categories: Optional[str] = Form(None),  # JSON array of multiple categories
     price: float = Form(...),
@@ -207,7 +229,9 @@ async def create_dish(
     discount: Optional[float] = Form(0),  # Discount amount (percentage)
     is_offer: Optional[int] = Form(0),  # Whether this dish is part of offers
     is_special: Optional[int] = Form(0),  # Whether this dish is today's special
-    is_vegetarian: int = Form(...),  # Required: 1 = vegetarian, 0 = non-vegetarian
+    is_vegetarian: Optional[int] = Form(
+        1
+    ),  # Optional with default: 1 = vegetarian, 0 = non-vegetarian
     image: Optional[UploadFile] = File(None),
     db: Session = Depends(get_session_database),
 ):
@@ -215,10 +239,11 @@ async def create_dish(
 
     # Handle categories - support both single and multiple categories
     import json
+
     final_category = None
 
     if categories:
-        # Multiple categories provided as JSON array
+        # Multiple categories provided as JSON array (primary method from frontend)
         try:
             category_list = json.loads(categories)
             final_category = json.dumps(category_list)  # Store as JSON string
@@ -227,9 +252,12 @@ async def create_dish(
     elif new_category:
         # Single new category
         final_category = json.dumps([new_category])
-    else:
-        # Single existing category
+    elif category:
+        # Single existing category (fallback)
         final_category = json.dumps([category])
+    else:
+        # Default category if nothing provided
+        final_category = json.dumps(["General"])
 
     # Create dish object
     db_dish = Dish(
@@ -254,6 +282,7 @@ async def create_dish(
     if image:
         # Get hotel info for organizing images
         from ..database import Hotel
+
         hotel = db.query(Hotel).filter(Hotel.id == hotel_id).first()
         hotel_name_for_path = hotel.hotel_name if hotel else f"hotel_{hotel_id}"
 
@@ -267,7 +296,9 @@ async def create_dish(
             shutil.copyfileobj(image.file, buffer)
 
         # Update dish with image path (URL path for serving)
-        db_dish.image_path = f"/static/images/dishes/{hotel_name_for_path}/{db_dish.id}_{image.filename}"
+        db_dish.image_path = (
+            f"/static/images/dishes/{hotel_name_for_path}/{db_dish.id}_{image.filename}"
+        )
         db.commit()
         db.refresh(db_dish)
 
@@ -296,10 +327,9 @@ async def update_dish(
     hotel_id = get_hotel_id_from_request(request)
 
     # Get existing dish for this hotel
-    db_dish = db.query(Dish).filter(
-        Dish.hotel_id == hotel_id,
-        Dish.id == dish_id
-    ).first()
+    db_dish = (
+        db.query(Dish).filter(Dish.hotel_id == hotel_id, Dish.id == dish_id).first()
+    )
     if db_dish is None:
         raise HTTPException(status_code=404, detail="Dish not found")
 
@@ -311,6 +341,7 @@ async def update_dish(
 
     # Handle categories - support both single and multiple categories
     import json
+
     if categories:
         # Multiple categories provided as JSON array
         try:
@@ -352,7 +383,9 @@ async def update_dish(
             shutil.copyfileobj(image.file, buffer)
 
         # Update dish with image path (URL path for serving)
-        db_dish.image_path = f"/static/images/dishes/{current_db}/{db_dish.id}_{image.filename}"
+        db_dish.image_path = (
+            f"/static/images/dishes/{current_db}/{db_dish.id}_{image.filename}"
+        )
 
     # Update timestamp
     db_dish.updated_at = datetime.now(timezone.utc)
@@ -366,14 +399,16 @@ async def update_dish(
 
 # Soft delete dish (set visibility to 0)
 @router.delete("/api/dishes/{dish_id}")
-def delete_dish(dish_id: int, request: Request, db: Session = Depends(get_session_database)):
+def delete_dish(
+    dish_id: int, request: Request, db: Session = Depends(get_session_database)
+):
     hotel_id = get_hotel_id_from_request(request)
 
-    db_dish = db.query(Dish).filter(
-        Dish.hotel_id == hotel_id,
-        Dish.id == dish_id,
-        Dish.visibility == 1
-    ).first()
+    db_dish = (
+        db.query(Dish)
+        .filter(Dish.hotel_id == hotel_id, Dish.id == dish_id, Dish.visibility == 1)
+        .first()
+    )
     if db_dish is None:
         raise HTTPException(status_code=404, detail="Dish not found")
 
@@ -391,8 +426,12 @@ def get_order_stats(request: Request, db: Session = Depends(get_session_database
     from sqlalchemy import func, and_
 
     # Get today's date range (start and end of today in UTC)
-    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-    today_end = datetime.now(timezone.utc).replace(hour=23, minute=59, second=59, microsecond=999999)
+    today_start = datetime.now(timezone.utc).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    today_end = datetime.now(timezone.utc).replace(
+        hour=23, minute=59, second=59, microsecond=999999
+    )
 
     # Overall statistics
     total_orders = db.query(Order).count()
@@ -404,52 +443,61 @@ def get_order_stats(request: Request, db: Session = Depends(get_session_database
     paid_orders = db.query(Order).filter(Order.status == "paid").count()
 
     # Today's statistics
-    total_orders_today = db.query(Order).filter(
-        and_(Order.created_at >= today_start, Order.created_at <= today_end)
-    ).count()
+    total_orders_today = (
+        db.query(Order)
+        .filter(and_(Order.created_at >= today_start, Order.created_at <= today_end))
+        .count()
+    )
 
-    pending_orders_today = db.query(Order).filter(
-        and_(
-            Order.status == "pending",
-            Order.created_at >= today_start,
-            Order.created_at <= today_end
+    pending_orders_today = (
+        db.query(Order)
+        .filter(
+            and_(
+                Order.status == "pending",
+                Order.created_at >= today_start,
+                Order.created_at <= today_end,
+            )
         )
-    ).count()
+        .count()
+    )
 
-    completed_orders_today = db.query(Order).filter(
-        and_(
-            Order.status == "completed",
-            Order.created_at >= today_start,
-            Order.created_at <= today_end
+    completed_orders_today = (
+        db.query(Order)
+        .filter(
+            and_(
+                Order.status == "completed",
+                Order.created_at >= today_start,
+                Order.created_at <= today_end,
+            )
         )
-    ).count()
+        .count()
+    )
 
-    paid_orders_today = db.query(Order).filter(
-        and_(
-            Order.status == "paid",
-            Order.created_at >= today_start,
-            Order.created_at <= today_end
+    paid_orders_today = (
+        db.query(Order)
+        .filter(
+            and_(
+                Order.status == "paid",
+                Order.created_at >= today_start,
+                Order.created_at <= today_end,
+            )
         )
-    ).count()
+        .count()
+    )
 
     # Calculate today's revenue from paid orders
     revenue_today_query = (
-        db.query(
-            func.sum(Dish.price * OrderItem.quantity).label("revenue_today")
-        )
+        db.query(func.sum(Dish.price * OrderItem.quantity).label("revenue_today"))
         .join(OrderItem, Dish.id == OrderItem.dish_id)
         .join(Order, OrderItem.order_id == Order.id)
         .filter(Order.status == "paid")
-        .filter(
-            and_(
-                Order.created_at >= today_start,
-                Order.created_at <= today_end
-            )
-        )
+        .filter(and_(Order.created_at >= today_start, Order.created_at <= today_end))
     )
 
     revenue_today_result = revenue_today_query.first()
-    revenue_today = revenue_today_result.revenue_today if revenue_today_result.revenue_today else 0
+    revenue_today = (
+        revenue_today_result.revenue_today if revenue_today_result.revenue_today else 0
+    )
 
     return {
         "total_orders": total_orders,
@@ -467,7 +515,9 @@ def get_order_stats(request: Request, db: Session = Depends(get_session_database
 
 # Mark order as paid
 @router.put("/orders/{order_id}/paid")
-def mark_order_paid(order_id: int, request: Request, db: Session = Depends(get_session_database)):
+def mark_order_paid(
+    order_id: int, request: Request, db: Session = Depends(get_session_database)
+):
     db_order = db.query(Order).filter(Order.id == order_id).first()
     if db_order is None:
         raise HTTPException(status_code=404, detail="Order not found")
@@ -483,7 +533,9 @@ def mark_order_paid(order_id: int, request: Request, db: Session = Depends(get_s
 
 # Generate bill PDF for a single order
 @router.get("/orders/{order_id}/bill")
-def generate_bill(order_id: int, request: Request, db: Session = Depends(get_session_database)):
+def generate_bill(
+    order_id: int, request: Request, db: Session = Depends(get_session_database)
+):
     # Get order with all details
     db_order = db.query(Order).filter(Order.id == order_id).first()
     if db_order is None:
@@ -529,13 +581,15 @@ def generate_bill(order_id: int, request: Request, db: Session = Depends(get_ses
     return StreamingResponse(
         pdf_buffer,
         media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 
 
 # Generate bill PDF for multiple orders
 @router.post("/orders/multi-bill")
-def generate_multi_bill(order_ids: List[int], request: Request, db: Session = Depends(get_session_database)):
+def generate_multi_bill(
+    order_ids: List[int], request: Request, db: Session = Depends(get_session_database)
+):
     if not order_ids:
         raise HTTPException(status_code=400, detail="No order IDs provided")
 
@@ -585,35 +639,52 @@ def generate_multi_bill(order_ids: List[int], request: Request, db: Session = De
 
     # Create a filename with all order IDs
     order_ids_str = "-".join([str(order_id) for order_id in order_ids])
-    filename = f"bill_orders_{order_ids_str}_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
+    filename = (
+        f"bill_orders_{order_ids_str}_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
+    )
 
     return StreamingResponse(
         pdf_buffer,
         media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 
 
 # Merge two orders
 @router.post("/orders/merge")
-def merge_orders(source_order_id: int, target_order_id: int, request: Request, db: Session = Depends(get_session_database)):
+def merge_orders(
+    source_order_id: int,
+    target_order_id: int,
+    request: Request,
+    db: Session = Depends(get_session_database),
+):
     # Get both orders
     source_order = db.query(Order).filter(Order.id == source_order_id).first()
     target_order = db.query(Order).filter(Order.id == target_order_id).first()
 
     if not source_order:
-        raise HTTPException(status_code=404, detail=f"Source order {source_order_id} not found")
+        raise HTTPException(
+            status_code=404, detail=f"Source order {source_order_id} not found"
+        )
 
     if not target_order:
-        raise HTTPException(status_code=404, detail=f"Target order {target_order_id} not found")
+        raise HTTPException(
+            status_code=404, detail=f"Target order {target_order_id} not found"
+        )
 
     # Check if both orders are completed or paid
     valid_statuses = ["completed", "paid"]
     if source_order.status not in valid_statuses:
-        raise HTTPException(status_code=400, detail=f"Source order must be completed or paid, current status: {source_order.status}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Source order must be completed or paid, current status: {source_order.status}",
+        )
 
     if target_order.status not in valid_statuses:
-        raise HTTPException(status_code=400, detail=f"Target order must be completed or paid, current status: {target_order.status}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Target order must be completed or paid, current status: {target_order.status}",
+        )
 
     # Move all items from source order to target order
     for item in source_order.items:
@@ -632,14 +703,23 @@ def merge_orders(source_order_id: int, target_order_id: int, request: Request, d
     # Refresh the target order to include the new items
     db.refresh(target_order)
 
-    return {"message": f"Orders merged successfully. Items from order #{source_order_id} have been moved to order #{target_order_id}"}
+    return {
+        "message": f"Orders merged successfully. Items from order #{source_order_id} have been moved to order #{target_order_id}"
+    }
 
 
 # Get completed orders for billing (paid orders)
 @router.get("/orders/completed-for-billing", response_model=List[OrderModel])
-def get_completed_orders_for_billing(request: Request, db: Session = Depends(get_session_database)):
+def get_completed_orders_for_billing(
+    request: Request, db: Session = Depends(get_session_database)
+):
     # Get paid orders ordered by most recent first
-    orders = db.query(Order).filter(Order.status == "paid").order_by(Order.created_at.desc()).all()
+    orders = (
+        db.query(Order)
+        .filter(Order.status == "paid")
+        .order_by(Order.created_at.desc())
+        .all()
+    )
 
     # Load person information for each order
     for order in orders:
