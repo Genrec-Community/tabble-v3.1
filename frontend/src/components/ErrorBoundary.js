@@ -27,8 +27,20 @@ class ErrorBoundary extends React.Component {
 
   componentDidCatch(error, errorInfo) {
     // Log error details
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
-    
+    console.error('🚨 ERROR BOUNDARY TRIGGERED:', {
+      error: error.toString(),
+      stack: error.stack,
+      errorInfo: errorInfo,
+      timestamp: new Date().toISOString(),
+      userAgent: navigator.userAgent,
+      url: window.location.href,
+      localStorage: {
+        selectedHotel: localStorage.getItem('selectedHotel'),
+        hotelPassword: localStorage.getItem('hotelPassword') ? '[SET]' : '[NOT SET]',
+        sessionId: localStorage.getItem('tabbleSessionId'),
+      }
+    });
+
     this.setState({
       error: error,
       errorInfo: errorInfo,
@@ -62,7 +74,7 @@ class ErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       const { fallback: Fallback } = this.props;
-      
+
       // If a custom fallback component is provided, use it
       if (Fallback) {
         return (
@@ -112,7 +124,8 @@ class ErrorBoundary extends React.Component {
               </Typography>
             </Box>
 
-            {process.env.NODE_ENV === 'development' && this.state.error && (
+            {/* Show error details for debugging Vercel deployment issues */}
+            {this.state.error && (
               <Box
                 sx={{
                   mb: 3,
@@ -127,7 +140,7 @@ class ErrorBoundary extends React.Component {
                   variant="subtitle2"
                   sx={{ color: '#FF385C', fontWeight: 'bold', mb: 1 }}
                 >
-                  Error Details (Development Mode):
+                  Error Details (Debug Mode):
                 </Typography>
                 <Typography
                   variant="body2"
@@ -137,6 +150,8 @@ class ErrorBoundary extends React.Component {
                     fontSize: '0.8rem',
                     whiteSpace: 'pre-wrap',
                     wordBreak: 'break-word',
+                    maxHeight: '300px',
+                    overflow: 'auto',
                   }}
                 >
                   {this.state.error.toString()}

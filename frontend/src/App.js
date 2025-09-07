@@ -385,6 +385,12 @@ const theme = createTheme({
 });
 
 function App() {
+  console.log('🚀 DEBUG: App component mounting', {
+    timestamp: new Date().toISOString(),
+    env: process.env.NODE_ENV,
+    baseUrl: process.env.REACT_APP_API_BASE_URL
+  });
+
   return (
     <Provider store={store}>
       <QueryClientProvider client={queryClient}>
@@ -395,209 +401,209 @@ function App() {
               <Router>
                 <Suspense fallback={<PageLoadingSpinner message="Loading application..." />}>
                   <Routes>
-                  {/* Main Layout Routes */}
-                  <Route element={<Layout />}>
-                    <Route
-                      path="/"
-                      element={
-                        <ErrorBoundary>
-                          <Home />
-                        </ErrorBoundary>
-                      }
-                    />
-                  </Route>
+                    {/* Main Layout Routes */}
+                    <Route element={<Layout />}>
+                      <Route
+                        path="/"
+                        element={
+                          <ErrorBoundary>
+                            <Home />
+                          </ErrorBoundary>
+                        }
+                      />
+                    </Route>
 
-                  {/* Chef Layout Routes */}
-                  <Route element={<ChefLayout />}>
-                    <Route
-                      path="/chef"
-                      element={
-                        <ErrorBoundary>
-                          <ChefDashboard />
-                        </ErrorBoundary>
-                      }
-                    />
-                    <Route
-                      path="/chef/orders"
-                      element={
-                        <ErrorBoundary>
-                          <ChefOrders />
-                        </ErrorBoundary>
-                      }
-                    />
-                  </Route>
+                    {/* Chef Layout Routes */}
+                    <Route element={<ChefLayout />}>
+                      <Route
+                        path="/chef"
+                        element={
+                          <ErrorBoundary>
+                            <ChefDashboard />
+                          </ErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="/chef/orders"
+                        element={
+                          <ErrorBoundary>
+                            <ChefOrders />
+                          </ErrorBoundary>
+                        }
+                      />
+                    </Route>
 
-                  {/* Main Layout Routes (continued) */}
-                  <Route element={<Layout />}>
-                    {/* Customer Routes */}
-                    <Route
-                      path="/customer"
-                      element={
-                        <ErrorBoundary>
-                          <CustomerLogin />
-                        </ErrorBoundary>
-                      }
-                    />
-                    <Route
-                      path="/customer/menu"
-                      element={
-                        <ErrorBoundary>
-                          <CustomerMenu />
-                        </ErrorBoundary>
-                      }
-                    />
-                  </Route>
+                    {/* Main Layout Routes (continued) */}
+                    <Route element={<Layout />}>
+                      {/* Customer Routes */}
+                      <Route
+                        path="/customer"
+                        element={
+                          <ErrorBoundary>
+                            <CustomerLogin />
+                          </ErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="/customer/menu"
+                        element={
+                          <ErrorBoundary>
+                            <CustomerMenu />
+                          </ErrorBoundary>
+                        }
+                      />
+                    </Route>
 
-                  {/* Admin Layout Routes */}
-                  <Route element={<AdminLayout />}>
-                    <Route
-                      path="/admin"
-                      element={
-                        <ErrorBoundary>
-                          <AdminDashboard />
-                        </ErrorBoundary>
-                      }
-                    />
-                    <Route
-                      path="/admin/demo"
-                      element={
-                        <ErrorBoundary>
-                          <DashboardDemo />
-                        </ErrorBoundary>
-                      }
-                    />
-                    <Route
-                      path="/admin/dishes"
-                      element={
-                        <ErrorBoundary>
-                          <AdminDishes />
-                        </ErrorBoundary>
-                      }
-                    />
-                    <Route
-                      path="/admin/offers"
-                      element={
-                        <ErrorBoundary>
-                          <AdminOffers />
-                        </ErrorBoundary>
-                      }
-                    />
-                    <Route
-                      path="/admin/specials"
-                      element={
-                        <ErrorBoundary>
-                          <AdminSpecials />
-                        </ErrorBoundary>
-                      }
-                    />
-                    <Route
-                      path="/admin/completed-orders"
-                      element={
-                        <ErrorBoundary>
-                          <CompletedOrders />
-                        </ErrorBoundary>
-                      }
-                    />
-                    <Route
-                      path="/admin/loyalty"
-                      element={
-                        <ErrorBoundary>
-                          <LoyaltyProgram />
-                        </ErrorBoundary>
-                      }
-                    />
-                    <Route
-                      path="/admin/selection-offers"
-                      element={
-                        <ErrorBoundary>
-                          <SelectionOffers />
-                        </ErrorBoundary>
-                      }
-                    />
-                    <Route
-                      path="/admin/tables"
-                      element={
-                        <ErrorBoundary>
-                          <TableManagement />
-                        </ErrorBoundary>
-                      }
-                    />
-                    <Route
-                      path="/admin/settings"
-                      element={
-                        <ErrorBoundary>
-                          <AdminSettings />
-                        </ErrorBoundary>
-                      }
-                    />
+                    {/* Admin Layout Routes */}
+                    <Route element={<AdminLayout />}>
+                      <Route
+                        path="/admin"
+                        element={
+                          <ErrorBoundary>
+                            <AdminDashboard />
+                          </ErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="/admin/demo"
+                        element={
+                          <ErrorBoundary>
+                            <DashboardDemo />
+                          </ErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="/admin/dishes"
+                        element={
+                          <ErrorBoundary>
+                            <AdminDishes />
+                          </ErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="/admin/offers"
+                        element={
+                          <ErrorBoundary>
+                            <AdminOffers />
+                          </ErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="/admin/specials"
+                        element={
+                          <ErrorBoundary>
+                            <AdminSpecials />
+                          </ErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="/admin/completed-orders"
+                        element={
+                          <ErrorBoundary>
+                            <CompletedOrders />
+                          </ErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="/admin/loyalty"
+                        element={
+                          <ErrorBoundary>
+                            <LoyaltyProgram />
+                          </ErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="/admin/selection-offers"
+                        element={
+                          <ErrorBoundary>
+                            <SelectionOffers />
+                          </ErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="/admin/tables"
+                        element={
+                          <ErrorBoundary>
+                            <TableManagement />
+                          </ErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="/admin/settings"
+                        element={
+                          <ErrorBoundary>
+                            <AdminSettings />
+                          </ErrorBoundary>
+                        }
+                      />
 
-                    {/* Analysis Routes */}
+                      {/* Analysis Routes */}
+                      <Route
+                        path="/analysis"
+                        element={
+                          <ErrorBoundary>
+                            <AnalysisDashboard />
+                          </ErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="/analysis/customer"
+                        element={
+                          <ErrorBoundary>
+                            <CustomerAnalysis />
+                          </ErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="/analysis/dish"
+                        element={
+                          <ErrorBoundary>
+                            <DishAnalysis />
+                          </ErrorBoundary>
+                        }
+                      />
+                      <Route
+                        path="/analysis/chef"
+                        element={
+                          <ErrorBoundary>
+                            <ChefAnalysis />
+                          </ErrorBoundary>
+                        }
+                      />
+                    </Route>
+
+                    {/* Independent system monitoring route - no auth required */}
+                    <Route element={<Layout />}>
+                      <Route
+                        path="/backitup"
+                        element={
+                          <ErrorBoundary>
+                            <PerformanceMonitor />
+                          </ErrorBoundary>
+                        }
+                      />
+                    </Route>
+
+                    {/* Emergency independent route - completely bypass all wrappers */}
                     <Route
-                      path="/analysis"
-                      element={
-                        <ErrorBoundary>
-                          <AnalysisDashboard />
-                        </ErrorBoundary>
-                      }
-                    />
-                    <Route
-                      path="/analysis/customer"
-                      element={
-                        <ErrorBoundary>
-                          <CustomerAnalysis />
-                        </ErrorBoundary>
-                      }
-                    />
-                    <Route
-                      path="/analysis/dish"
-                      element={
-                        <ErrorBoundary>
-                          <DishAnalysis />
-                        </ErrorBoundary>
-                      }
-                    />
-                    <Route
-                      path="/analysis/chef"
-                      element={
-                        <ErrorBoundary>
-                          <ChefAnalysis />
-                        </ErrorBoundary>
-                      }
-                    />
-                  </Route>
-                  
-                  {/* Independent system monitoring route - no auth required */}
-                  <Route element={<Layout />}>
-                    <Route
-                      path="/backitup"
+                      path="/sysdiag"
                       element={
                         <ErrorBoundary>
                           <PerformanceMonitor />
                         </ErrorBoundary>
                       }
                     />
-                  </Route>
-                  
-                  {/* Emergency independent route - completely bypass all wrappers */}
-                  <Route
-                    path="/sysdiag"
-                    element={
-                      <ErrorBoundary>
-                        <PerformanceMonitor />
-                      </ErrorBoundary>
-                    }
-                  />
-                  
-                  {/* Ultra emergency route - bypasses even AuthWrapper */}
-                </Routes>
-              </Suspense>
-            </Router>
+
+                    {/* Ultra emergency route - bypasses even AuthWrapper */}
+                  </Routes>
+                </Suspense>
+              </Router>
             </AuthWrapper>
           </ErrorBoundary>
-          
+
           {/* Emergency system route outside all wrappers */}
           <Router>
-            <Suspense fallback={<div style={{color:'white'}}>Loading...</div>}>
+            <Suspense fallback={<div style={{ color: 'white' }}>Loading...</div>}>
               <Routes>
                 <Route
                   path="/emergency-sys"
@@ -610,6 +616,7 @@ function App() {
               </Routes>
             </Suspense>
           </Router>
+          {console.log('⚠️ DEBUG: Multiple Router components detected - this may cause routing conflicts in production')}
         </ThemeProvider>
         {/* React Query Devtools - only in development */}
         {process.env.NODE_ENV === 'development' && (

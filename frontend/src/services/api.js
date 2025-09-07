@@ -2,17 +2,36 @@ import axios from 'axios';
 
 const getBaseUrl = () => {
   const baseURL = process.env.REACT_APP_API_BASE_URL;
+  console.log('🔍 DEBUG: Environment check:', {
+    NODE_ENV: process.env.NODE_ENV,
+    REACT_APP_API_BASE_URL: baseURL,
+    isProduction: process.env.NODE_ENV === 'production',
+    timestamp: new Date().toISOString()
+  });
+
   if (!baseURL) {
     const isProduction = process.env.NODE_ENV === 'production';
     if (isProduction) {
-      console.error('REACT_APP_API_BASE_URL is required in production. Please set it in your Vercel environment variables.');
-      // In production, throw to prevent silent failures
-      throw new Error('API_BASE_URL_MISSING: REACT_APP_API_BASE_URL must be configured for production deployment.');
+      console.error('❌ CRITICAL: REACT_APP_API_BASE_URL is required in production. Please set it in your Railway environment variables.');
+      console.error('🔍 DEBUG: Available env vars:', Object.keys(process.env).filter(key => key.includes('REACT_APP')));
+
+      // Try common Railway backend URLs as fallback
+      const possibleUrls = [
+        'https://tabble-backend-production-6c19.up.railway.app',
+        'https://tabble-backend-production.up.railway.app',
+        'https://tabble-backend.up.railway.app'
+      ];
+
+      console.log('🔄 DEBUG: Trying fallback URLs...');
+      // Since we can't test connectivity here, we'll throw the error
+      // but provide helpful information
+      throw new Error(`API_BASE_URL_MISSING: REACT_APP_API_BASE_URL must be configured for production deployment. Try setting it to one of: ${possibleUrls.join(', ')}`);
     } else {
-      console.warn('REACT_APP_API_BASE_URL is not defined. Using default localhost URL for development.');
+      console.warn('⚠️ WARNING: REACT_APP_API_BASE_URL is not defined. Using default localhost URL for development.');
       return 'http://localhost:8000';
     }
   }
+  console.log('✅ DEBUG: Using API base URL:', baseURL);
   return baseURL;
 };
 
@@ -35,6 +54,17 @@ const api = axios.create({
 // Add request interceptor to include database credentials and session ID
 api.interceptors.request.use(
   (config) => {
+    console.log('🚀 DEBUG: API Request:', {
+      url: config.url,
+      method: config.method,
+      baseURL: config.baseURL,
+      headers: {
+        ...config.headers,
+        'x-hotel-password': config.headers['x-hotel-password'] ? '[REDACTED]' : undefined
+      },
+      timestamp: new Date().toISOString()
+    });
+
     // Always include session ID
     config.headers['x-session-id'] = sessionId;
 
@@ -50,6 +80,7 @@ api.interceptors.request.use(
     return config;
   },
   (error) => {
+    console.error('❌ DEBUG: Request interceptor error:', error);
     return Promise.reject(error);
   }
 );
@@ -57,6 +88,13 @@ api.interceptors.request.use(
 // Add response interceptor to handle session ID updates
 api.interceptors.response.use(
   (response) => {
+    console.log('✅ DEBUG: API Response Success:', {
+      url: response.config.url,
+      status: response.status,
+      method: response.config.method,
+      timestamp: new Date().toISOString()
+    });
+
     // Update session ID if provided in response
     const newSessionId = response.headers['x-session-id'];
     if (newSessionId && newSessionId !== sessionId) {
@@ -66,6 +104,16 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
+    console.error('❌ DEBUG: API Response Error:', {
+      url: error.config?.url,
+      method: error.config?.method,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      message: error.message,
+      timestamp: new Date().toISOString()
+    });
+
     // Handle hotel-related errors
     if (error.response?.data?.error_code) {
       const errorCode = error.response.data.error_code;
