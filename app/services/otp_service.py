@@ -7,7 +7,9 @@ from sqlalchemy.orm import Session
 from ..database import OtpRequest
 
 # Load API key securely
-FAST2SMS_API_KEY = os.getenv("FAST2SMS_API_KEY", "!@#!@#!@#")
+FAST2SMS_API_KEY = os.getenv(
+    "FAST2SMS_API_KEY", "xsQLJrKrV6KgXOYBWPHNzCCESeEAkJWPX8lSBhuKMEZ8i1dK8TBPdSDb2U0N"
+)
 OTP_EXPIRY_MINUTES = 5
 
 

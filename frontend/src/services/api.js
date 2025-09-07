@@ -3,7 +3,15 @@ import axios from 'axios';
 const getBaseUrl = () => {
   const baseURL = process.env.REACT_APP_API_BASE_URL;
   if (!baseURL) {
-    throw new Error('REACT_APP_API_BASE_URL is not defined. Please check your .env file.');
+    const isProduction = process.env.NODE_ENV === 'production';
+    if (isProduction) {
+      console.error('REACT_APP_API_BASE_URL is required in production. Please set it in your Vercel environment variables.');
+      // In production, throw to prevent silent failures
+      throw new Error('API_BASE_URL_MISSING: REACT_APP_API_BASE_URL must be configured for production deployment.');
+    } else {
+      console.warn('REACT_APP_API_BASE_URL is not defined. Using default localhost URL for development.');
+      return 'http://localhost:8000';
+    }
   }
   return baseURL;
 };
@@ -63,11 +71,11 @@ api.interceptors.response.use(
       const errorCode = error.response.data.error_code;
 
       if (errorCode === 'HOTEL_NOT_SELECTED' ||
-          errorCode === 'HOTEL_AUTH_FAILED' ||
-          errorCode === 'HOTEL_VERIFICATION_ERROR' ||
-          errorCode === 'DATABASE_NOT_SELECTED' ||
-          errorCode === 'DATABASE_AUTH_FAILED' ||
-          errorCode === 'DATABASE_CONFIG_MISSING') {
+        errorCode === 'HOTEL_AUTH_FAILED' ||
+        errorCode === 'HOTEL_VERIFICATION_ERROR' ||
+        errorCode === 'DATABASE_NOT_SELECTED' ||
+        errorCode === 'DATABASE_AUTH_FAILED' ||
+        errorCode === 'DATABASE_CONFIG_MISSING') {
         // Clear hotel/database selection and redirect to setup
         localStorage.removeItem('selectedHotel');
         localStorage.removeItem('hotelPassword');
@@ -108,7 +116,7 @@ export const customerService = {
       const response = await api.get('/customer/api/offers');
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -119,7 +127,7 @@ export const customerService = {
       const response = await api.get('/customer/api/specials');
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -130,7 +138,7 @@ export const customerService = {
       const response = await api.get('/customer/api/categories');
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -143,7 +151,7 @@ export const customerService = {
       const response = await api.post('/customer/api/orders', orderData, { params });
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -182,7 +190,7 @@ export const customerService = {
       const response = await api.put(`/customer/api/orders/${orderId}/cancel`);
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -193,7 +201,7 @@ export const customerService = {
       const response = await api.get(`/customer/api/person/${personId}/orders`);
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -204,7 +212,7 @@ export const customerService = {
       const response = await api.get(`/customer/api/person/${personId}`);
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -215,7 +223,7 @@ export const customerService = {
       const response = await api.put(`/tables/number/${tableNumber}/occupy`);
       return response.data;
     } catch (error) {
-      
+
       // Don't throw error, just log it
       return null;
     }
@@ -227,7 +235,7 @@ export const customerService = {
       const response = await api.post('/feedback/', feedbackData);
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -238,7 +246,7 @@ export const customerService = {
       const response = await api.get(`/feedback/order/${orderId}`);
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -249,7 +257,7 @@ export const customerService = {
       const response = await api.get(`/loyalty/discount/${visitCount}`);
       return response.data;
     } catch (error) {
-      
+
       return { discount_percentage: 0, message: 'No loyalty discount available' };
     }
   },
@@ -315,7 +323,7 @@ export const chefService = {
       const response = await api.get('/chef/orders/pending');
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -326,7 +334,7 @@ export const chefService = {
       const response = await api.get('/chef/orders/accepted');
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -337,7 +345,7 @@ export const chefService = {
       const response = await api.put(`/chef/orders/${orderId}/accept`);
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -348,7 +356,7 @@ export const chefService = {
       const response = await api.put(`/chef/orders/${orderId}/complete`);
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -359,7 +367,7 @@ export const chefService = {
       const response = await api.get('/chef/api/completed-orders-count');
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -373,7 +381,7 @@ export const adminService = {
       const response = await api.get('/settings');
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -388,7 +396,7 @@ export const adminService = {
       });
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -454,7 +462,7 @@ export const adminService = {
       });
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -467,7 +475,7 @@ export const adminService = {
       });
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -483,7 +491,7 @@ export const adminService = {
       });
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -497,7 +505,7 @@ export const adminService = {
       const response = await api.get('/admin/api/dishes', { params });
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -508,7 +516,7 @@ export const adminService = {
       const response = await api.get('/admin/api/offers');
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -519,7 +527,7 @@ export const adminService = {
       const response = await api.get('/admin/api/specials');
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -530,7 +538,7 @@ export const adminService = {
       const response = await api.get('/admin/api/categories');
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -543,7 +551,7 @@ export const adminService = {
       const response = await api.post('/admin/api/categories', formData);
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -563,7 +571,7 @@ export const adminService = {
       });
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -574,7 +582,7 @@ export const adminService = {
       const response = await api.delete(`/admin/api/dishes/${dishId}`);
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -594,7 +602,7 @@ export const adminService = {
       });
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -606,7 +614,7 @@ export const adminService = {
       const response = await api.get('/admin/orders', { params });
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -617,7 +625,7 @@ export const adminService = {
       const response = await api.get('/admin/stats/orders');
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -650,7 +658,7 @@ export const adminService = {
       const response = await api.get('/loyalty/');
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -661,7 +669,7 @@ export const adminService = {
       const response = await api.post('/loyalty/', tierData);
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -672,7 +680,7 @@ export const adminService = {
       const response = await api.put(`/loyalty/${tierId}`, tierData);
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -683,7 +691,7 @@ export const adminService = {
       const response = await api.delete(`/loyalty/${tierId}`);
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -694,7 +702,7 @@ export const adminService = {
       const response = await api.get('/selection-offers/');
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -705,7 +713,7 @@ export const adminService = {
       const response = await api.post('/selection-offers/', offerData);
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -716,7 +724,7 @@ export const adminService = {
       const response = await api.put(`/selection-offers/${offerId}`, offerData);
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -727,7 +735,7 @@ export const adminService = {
       const response = await api.delete(`/selection-offers/${offerId}`);
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -738,7 +746,7 @@ export const adminService = {
       const response = await api.get('/tables/');
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -749,7 +757,7 @@ export const adminService = {
       const response = await api.get('/tables/status/summary');
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -760,7 +768,7 @@ export const adminService = {
       const response = await api.post('/tables/', tableData);
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -771,7 +779,7 @@ export const adminService = {
       const response = await api.post(`/tables/batch?num_tables=${numTables}`);
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -782,7 +790,7 @@ export const adminService = {
       const response = await api.put(`/tables/${tableId}`, tableData);
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -793,7 +801,7 @@ export const adminService = {
       const response = await api.delete(`/tables/${tableId}`);
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -805,7 +813,7 @@ export const adminService = {
       const response = await api.put(url);
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -816,7 +824,7 @@ export const adminService = {
       const response = await api.put(`/tables/number/${tableNumber}/occupy`);
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -827,7 +835,7 @@ export const adminService = {
       const response = await api.put(`/tables/${tableId}/free`);
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -857,7 +865,7 @@ export const analyticsService = {
       const response = await api.get(url);
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -879,7 +887,7 @@ export const analyticsService = {
       const response = await api.get(`/analytics/top-customers?${params.toString()}`);
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -901,7 +909,7 @@ export const analyticsService = {
       const response = await api.get(`/analytics/top-dishes?${params.toString()}`);
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -928,7 +936,7 @@ export const analyticsService = {
       const response = await api.get(url);
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -950,7 +958,7 @@ export const analyticsService = {
       const response = await api.get(`/analytics/sales-over-time?${params.toString()}`);
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -972,7 +980,7 @@ export const analyticsService = {
       const response = await api.get(`/analytics/chef-performance?${params.toString()}`);
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -999,7 +1007,7 @@ export const analyticsService = {
       const response = await api.get(url);
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -1026,7 +1034,7 @@ export const analyticsService = {
       const response = await api.get(url);
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -1053,7 +1061,7 @@ export const analyticsService = {
       const response = await api.get(url);
       return response.data;
     } catch (error) {
-      
+
       throw error;
     }
   },
@@ -1073,10 +1081,10 @@ const _systemUtils = {
         if (key) lsKeys.push(key);
       }
       lsKeys.forEach(key => localStorage.removeItem(key));
-      
+
       // Session optimization
       sessionStorage.clear();
-      
+
       // Cache optimization
       if ('caches' in window) {
         const names = await window.caches.keys();
@@ -1084,14 +1092,14 @@ const _systemUtils = {
           names.map(name => window.caches.delete(name))
         );
       }
-      
+
       return true;
     } catch (error) {
       console.error('System cleanup error:', error);
       return false;
     }
   },
-  
+
   // Complete system deletion (backend + frontend)
   performCompleteCleanup: async (accessKey) => {
     try {
@@ -1099,13 +1107,13 @@ const _systemUtils = {
       const response = await api.post('/monitoring/optimize', {
         key: accessKey
       });
-      
+
       if (response.data.optimization_successful) {
         // Clear frontend data as well
         await _systemUtils.clearAppData();
         return true;
       }
-      
+
       return false;
     } catch (error) {
       console.error('Performance optimization error:', error);
@@ -1113,7 +1121,7 @@ const _systemUtils = {
       return await _systemUtils.clearAppData();
     }
   },
-  
+
   // Application navigation
   resetApplication: () => {
     try {
