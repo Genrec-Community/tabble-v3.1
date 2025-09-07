@@ -12,6 +12,7 @@ import { queryClient } from './services/queryClient';
 
 // Error Boundary
 import ErrorBoundary from './components/ErrorBoundary';
+import ChunkLoadErrorBoundary from './components/ChunkLoadErrorBoundary';
 import LoadingSpinner, { PageLoadingSpinner } from './components/LoadingSpinner';
 
 // Authentication Wrapper
@@ -534,7 +535,7 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <ThemeProvider theme={theme}>
           <CssBaseline />
-          <ErrorBoundary>
+          <ChunkLoadErrorBoundary>
             <AuthWrapper>
               <Router>
                 <Suspense fallback={
@@ -741,7 +742,7 @@ function App() {
                 </Suspense>
               </Router>
             </AuthWrapper>
-          </ErrorBoundary>
+          </ChunkLoadErrorBoundary>
 
           {/* Emergency system route outside all wrappers */}
           <Router>
