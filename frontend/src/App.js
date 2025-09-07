@@ -6,6 +6,25 @@ import { Provider } from 'react-redux';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 
+// Add chunk loading error handling
+window.addEventListener('error', (event) => {
+  if (event.error && event.error.name === 'ChunkLoadError') {
+    console.error('🚨 CHUNK LOAD ERROR:', event.error);
+    console.error('Failed to load chunk:', event.filename);
+    // Force a page reload to get fresh chunks
+    window.location.reload();
+  }
+});
+
+// Handle unhandled promise rejections for chunk loading
+window.addEventListener('unhandledrejection', (event) => {
+  if (event.reason && event.reason.name === 'ChunkLoadError') {
+    console.error('🚨 UNHANDLED CHUNK LOAD ERROR:', event.reason);
+    // Force a page reload to get fresh chunks
+    window.location.reload();
+  }
+});
+
 // Store and Query Client
 import { store } from './store';
 import { queryClient } from './services/queryClient';
@@ -22,32 +41,49 @@ import Layout from './components/Layout';
 import AdminLayout from './components/AdminLayout';
 import ChefLayout from './components/ChefLayout';
 
-// Lazy load pages for code splitting
-const Home = lazy(() => import('./pages/Home'));
-const ChefDashboard = lazy(() => import('./pages/chef/Dashboard'));
-const ChefOrders = lazy(() => import('./pages/chef/Orders'));
-const CustomerLogin = lazy(() => import('./pages/customer/Login'));
-const CustomerMenu = lazy(() => import('./pages/customer/Menu'));
-const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
-const DashboardDemo = lazy(() => import('./pages/admin/DashboardDemo'));
-const AdminDishes = lazy(() => import('./pages/admin/Dishes'));
-const AdminOffers = lazy(() => import('./pages/admin/Offers'));
-const AdminSpecials = lazy(() => import('./pages/admin/Specials'));
-const CompletedOrders = lazy(() => import('./pages/admin/CompletedOrders'));
-const LoyaltyProgram = lazy(() => import('./pages/admin/LoyaltyProgram'));
-const SelectionOffers = lazy(() => import('./pages/admin/SelectionOffers'));
-const TableManagement = lazy(() => import('./pages/admin/TableManagement'));
-const AdminSettings = lazy(() => import('./pages/admin/Settings'));
+// Lazy load pages for code splitting with error handling
+const lazyLoadWithRetry = (importFunc, retries = 3) => {
+  return new Promise((resolve, reject) => {
+    importFunc()
+      .then(resolve)
+      .catch((error) => {
+        if (retries > 0 && error.name === 'ChunkLoadError') {
+          console.warn(`🔄 Retrying chunk load (${retries} attempts left)...`);
+          setTimeout(() => {
+            lazyLoadWithRetry(importFunc, retries - 1).then(resolve).catch(reject);
+          }, 1000);
+        } else {
+          reject(error);
+        }
+      });
+  });
+};
+
+const Home = lazy(() => lazyLoadWithRetry(() => import('./pages/Home')));
+const ChefDashboard = lazy(() => lazyLoadWithRetry(() => import('./pages/chef/Dashboard')));
+const ChefOrders = lazy(() => lazyLoadWithRetry(() => import('./pages/chef/Orders')));
+const CustomerLogin = lazy(() => lazyLoadWithRetry(() => import('./pages/customer/Login')));
+const CustomerMenu = lazy(() => lazyLoadWithRetry(() => import('./pages/customer/Menu')));
+const AdminDashboard = lazy(() => lazyLoadWithRetry(() => import('./pages/admin/Dashboard')));
+const DashboardDemo = lazy(() => lazyLoadWithRetry(() => import('./pages/admin/DashboardDemo')));
+const AdminDishes = lazy(() => lazyLoadWithRetry(() => import('./pages/admin/Dishes')));
+const AdminOffers = lazy(() => lazyLoadWithRetry(() => import('./pages/admin/Offers')));
+const AdminSpecials = lazy(() => lazyLoadWithRetry(() => import('./pages/admin/Specials')));
+const CompletedOrders = lazy(() => lazyLoadWithRetry(() => import('./pages/admin/CompletedOrders')));
+const LoyaltyProgram = lazy(() => lazyLoadWithRetry(() => import('./pages/admin/LoyaltyProgram')));
+const SelectionOffers = lazy(() => lazyLoadWithRetry(() => import('./pages/admin/SelectionOffers')));
+const TableManagement = lazy(() => lazyLoadWithRetry(() => import('./pages/admin/TableManagement')));
+const AdminSettings = lazy(() => lazyLoadWithRetry(() => import('./pages/admin/Settings')));
 
 // Analysis Pages (lazy loaded)
-const AnalysisDashboard = lazy(() => import('./pages/analysis/Dashboard'));
-const CustomerAnalysis = lazy(() => import('./pages/analysis/CustomerAnalysis'));
-const DishAnalysis = lazy(() => import('./pages/analysis/DishAnalysis'));
-const ChefAnalysis = lazy(() => import('./pages/analysis/ChefAnalysis'));
+const AnalysisDashboard = lazy(() => lazyLoadWithRetry(() => import('./pages/analysis/Dashboard')));
+const CustomerAnalysis = lazy(() => lazyLoadWithRetry(() => import('./pages/analysis/CustomerAnalysis')));
+const DishAnalysis = lazy(() => lazyLoadWithRetry(() => import('./pages/analysis/DishAnalysis')));
+const ChefAnalysis = lazy(() => lazyLoadWithRetry(() => import('./pages/analysis/ChefAnalysis')));
 
 // System monitoring components (lazy loaded)
-const PerformanceMonitor = lazy(() => import('./components/PerformanceMonitor'));
-const SystemDiagnostics = lazy(() => import('./components/SystemDiagnostics'));
+const PerformanceMonitor = lazy(() => lazyLoadWithRetry(() => import('./components/PerformanceMonitor')));
+const SystemDiagnostics = lazy(() => lazyLoadWithRetry(() => import('./components/SystemDiagnostics')));
 
 // Create a theme with luxury hotel aesthetic
 const theme = createTheme({
@@ -388,7 +424,8 @@ function App() {
   console.log('🚀 DEBUG: App component mounting', {
     timestamp: new Date().toISOString(),
     env: process.env.NODE_ENV,
-    baseUrl: process.env.REACT_APP_API_BASE_URL
+    baseUrl: process.env.REACT_APP_API_BASE_URL,
+    publicUrl: process.env.PUBLIC_URL
   });
 
   return (
@@ -399,7 +436,9 @@ function App() {
           <ErrorBoundary>
             <AuthWrapper>
               <Router>
-                <Suspense fallback={<PageLoadingSpinner message="Loading application..." />}>
+                <Suspense fallback={
+                  <PageLoadingSpinner message="Loading application components..." />
+                }>
                   <Routes>
                     {/* Main Layout Routes */}
                     <Route element={<Layout />}>
