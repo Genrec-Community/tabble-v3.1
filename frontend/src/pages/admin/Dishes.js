@@ -48,7 +48,6 @@ const AdminDishes = () => {
     new_category: '',
     selectedCategories: [],  // For multiple categories
     price: '',
-    quantity: '',
     is_vegetarian: 1,  // Default to vegetarian
     image: null,
     imagePreview: null
@@ -78,7 +77,6 @@ const AdminDishes = () => {
     new_category: '',
     selectedCategories: [],  // For multiple categories
     price: '',
-    quantity: '',
     is_vegetarian: 1,  // Default to vegetarian
     image: null,
     imagePreview: null
@@ -190,12 +188,6 @@ const AdminDishes = () => {
       errors.price = 'Price must be a positive number';
     }
 
-    if (!formValues.quantity) {
-      errors.quantity = 'Quantity is required';
-    } else if (isNaN(formValues.quantity) || parseInt(formValues.quantity) < 0) {
-      errors.quantity = 'Quantity must be a non-negative number';
-    }
-
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -217,7 +209,6 @@ const AdminDishes = () => {
         categories: JSON.stringify(formValues.selectedCategories.length > 0 ? formValues.selectedCategories :
                    [isNewCategory ? formValues.new_category : formValues.category]),
         price: parseFloat(formValues.price),
-        quantity: formValues.quantity ? parseInt(formValues.quantity) : 0,
         is_vegetarian: formValues.is_vegetarian
       };
 
@@ -235,7 +226,6 @@ const AdminDishes = () => {
         new_category: '',
         selectedCategories: [],
         price: '',
-        quantity: '',
         is_vegetarian: 1,
         image: null,
         imagePreview: null
@@ -336,7 +326,6 @@ const AdminDishes = () => {
       new_category: '',
       selectedCategories: dishCategories,
       price: dish.price.toString(),
-      quantity: dish.quantity.toString(),
       is_vegetarian: dish.is_vegetarian !== undefined ? dish.is_vegetarian : 1,
       image: null,
       imagePreview: dish.image_path ? `${process.env.REACT_APP_API_BASE_URL}${dish.image_path}` : null
@@ -424,12 +413,6 @@ const AdminDishes = () => {
       errors.price = 'Price must be a positive number';
     }
 
-    if (!editFormValues.quantity) {
-      errors.quantity = 'Quantity is required';
-    } else if (isNaN(editFormValues.quantity) || parseInt(editFormValues.quantity) < 0) {
-      errors.quantity = 'Quantity must be a non-negative number';
-    }
-
     setEditFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -451,7 +434,6 @@ const AdminDishes = () => {
         categories: JSON.stringify(editFormValues.selectedCategories.length > 0 ? editFormValues.selectedCategories :
                    [isEditNewCategory ? editFormValues.new_category : editFormValues.category]),
         price: parseFloat(editFormValues.price),
-        quantity: editFormValues.quantity ? parseInt(editFormValues.quantity) : 0,
         is_vegetarian: editFormValues.is_vegetarian
       };
 
@@ -624,21 +606,6 @@ const AdminDishes = () => {
                 </Grid>
 
                 <Grid item xs={12} md={6}>
-                  <TextField
-                    name="quantity"
-                    label="Quantity Available (Optional)"
-                    variant="outlined"
-                    fullWidth
-                    type="number"
-                    inputProps={{ min: 0, step: 1 }}
-                    value={formValues.quantity}
-                    onChange={handleFormChange}
-                    error={!!formErrors.quantity}
-                    helperText={formErrors.quantity || "Leave empty if not tracking quantity"}
-                  />
-                </Grid>
-
-                <Grid item xs={12} md={6}>
                   <FormControl fullWidth required>
                     <InputLabel>Dish Type</InputLabel>
                     <Select
@@ -693,7 +660,6 @@ const AdminDishes = () => {
                       borderRadius: 1,
                       p: 2,
                       textAlign: 'center',
-                      cursor: 'pointer',
                       backgroundColor: formErrors.image ? 'error.lighter' : 'background.paper',
                       height: formValues.imagePreview ? 'auto' : '120px',
                       display: 'flex',
@@ -701,13 +667,13 @@ const AdminDishes = () => {
                       alignItems: 'center',
                       justifyContent: 'center'
                     }}
-                    component="label"
                   >
                     <input
                       type="file"
                       accept="image/*"
                       style={{ display: 'none' }}
                       onChange={handleImageChange}
+                      id="dish-image-upload"
                     />
 
                     {formValues.imagePreview ? (
@@ -722,6 +688,7 @@ const AdminDishes = () => {
                           size="small"
                           sx={{ mt: 1 }}
                           startIcon={<PhotoCameraIcon />}
+                          onClick={() => document.getElementById('dish-image-upload').click()}
                         >
                           Change Image
                         </Button>
@@ -729,9 +696,16 @@ const AdminDishes = () => {
                     ) : (
                       <>
                         <PhotoCameraIcon color="primary" sx={{ fontSize: 40, mb: 1 }} />
-                        <Typography variant="body2" color="text.secondary">
-                          Click to upload an image
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                          No image selected
                         </Typography>
+                        <Button
+                          variant="contained"
+                          startIcon={<PhotoCameraIcon />}
+                          onClick={() => document.getElementById('dish-image-upload').click()}
+                        >
+                          Choose Image
+                        </Button>
                       </>
                     )}
                   </Box>
@@ -848,15 +822,6 @@ const AdminDishes = () => {
                         </Typography>
                         <Typography variant="subtitle1" fontWeight="medium">
                           ₹{dish.price}
-                        </Typography>
-                      </Box>
-
-                      <Box display="flex" justifyContent="space-between" mt={1}>
-                        <Typography variant="subtitle2" color="text.secondary">
-                          Available:
-                        </Typography>
-                        <Typography variant="subtitle1" fontWeight="medium">
-                          {dish.quantity}
                         </Typography>
                       </Box>
                     </CardContent>
@@ -989,39 +954,20 @@ const AdminDishes = () => {
                 </FormControl>
               )}
 
-              <Grid container spacing={2}>
-                <Grid item xs={6}>
-                  <TextField
-                    name="price"
-                    label="Price"
-                    variant="outlined"
-                    fullWidth
-                    margin="normal"
-                    type="number"
-                    inputProps={{ min: 0, step: 0.01 }}
-                    value={editFormValues.price}
-                    onChange={handleEditFormChange}
-                    error={!!editFormErrors.price}
-                    helperText={editFormErrors.price}
-                    required
-                  />
-                </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    name="quantity"
-                    label="Quantity Available (Optional)"
-                    variant="outlined"
-                    fullWidth
-                    margin="normal"
-                    type="number"
-                    inputProps={{ min: 0, step: 1 }}
-                    value={editFormValues.quantity}
-                    onChange={handleEditFormChange}
-                    error={!!editFormErrors.quantity}
-                    helperText={editFormErrors.quantity || "Leave empty if not tracking quantity"}
-                  />
-                </Grid>
-              </Grid>
+              <TextField
+                name="price"
+                label="Price"
+                variant="outlined"
+                fullWidth
+                margin="normal"
+                type="number"
+                inputProps={{ min: 0, step: 0.01 }}
+                value={editFormValues.price}
+                onChange={handleEditFormChange}
+                error={!!editFormErrors.price}
+                helperText={editFormErrors.price}
+                required
+              />
 
               {/* Vegetarian/Non-Vegetarian Selection */}
               <FormControl fullWidth margin="normal" required>
@@ -1076,7 +1022,6 @@ const AdminDishes = () => {
                     borderRadius: 1,
                     p: 2,
                     textAlign: 'center',
-                    cursor: 'pointer',
                     backgroundColor: editFormErrors.image ? 'error.lighter' : 'background.paper',
                     height: editFormValues.imagePreview ? 'auto' : '120px',
                     display: 'flex',
@@ -1084,13 +1029,13 @@ const AdminDishes = () => {
                     alignItems: 'center',
                     justifyContent: 'center'
                   }}
-                  component="label"
                 >
                   <input
                     type="file"
                     accept="image/*"
                     style={{ display: 'none' }}
                     onChange={handleEditImageChange}
+                    id="edit-dish-image-upload"
                   />
 
                   {editFormValues.imagePreview ? (
@@ -1105,6 +1050,7 @@ const AdminDishes = () => {
                         size="small"
                         sx={{ mt: 1 }}
                         startIcon={<PhotoCameraIcon />}
+                        onClick={() => document.getElementById('edit-dish-image-upload').click()}
                       >
                         Change Image
                       </Button>
@@ -1112,9 +1058,16 @@ const AdminDishes = () => {
                   ) : (
                     <>
                       <PhotoCameraIcon color="primary" sx={{ fontSize: 40, mb: 1 }} />
-                      <Typography variant="body2" color="text.secondary">
-                        Click to upload an image
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        No image selected
                       </Typography>
+                      <Button
+                        variant="contained"
+                        startIcon={<PhotoCameraIcon />}
+                        onClick={() => document.getElementById('edit-dish-image-upload').click()}
+                      >
+                        Choose Image
+                      </Button>
                     </>
                   )}
                 </Box>

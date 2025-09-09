@@ -28,21 +28,21 @@ def get_session_database(request: Request):
     return next(get_session_db(session_id))
 
 
-# Get available hotels from hotels.csv
+# Get available hotels from database
 @router.get("/hotels", response_model=DatabaseList)
-def get_hotels():
+def get_hotels(db: Session = Depends(get_db)):
     try:
-        hotels = []
-        with open("hotels.csv", "r") as file:
-            reader = csv.DictReader(file)
-            for row in reader:
-                hotels.append(DatabaseEntry(
-                    database_name=row["hotel_name"],  # Using hotel_name instead of hotel_database
-                    password=row["password"]
-                ))
+        # Get all hotels from database
+        hotels = db.query(Hotel).all()
 
-        # Return only hotel names, not passwords
-        return {"databases": [{"database_name": hotel.database_name, "password": "********"} for hotel in hotels]}
+        hotel_list = []
+        for hotel in hotels:
+            hotel_list.append(DatabaseEntry(
+                database_name=hotel.hotel_name,
+                password="********"  # Don't expose actual passwords
+            ))
+
+        return {"databases": [{"database_name": hotel.database_name, "password": hotel.password} for hotel in hotel_list]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error reading hotel configuration: {str(e)}")
 

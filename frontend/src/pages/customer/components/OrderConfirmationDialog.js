@@ -58,15 +58,7 @@ const OrderConfirmationDialog = ({ open, onClose, orderId }) => {
             backgroundColor: 'background.paper',
           }}
         >
-          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-            Estimated Preparation Time
-          </Typography>
-          <Box display="flex" alignItems="center" justifyContent="center">
-            <TimerIcon color="primary" sx={{ mr: 1 }} />
-            <Typography variant="h6" color="primary.main" fontWeight="bold">
-              20-35 minutes
-            </Typography>
-          </Box>
+         
         </Box>
         <Typography variant="body2" color="text.secondary" paragraph>
           Please wait while our chef prepares your delicious meal.

@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime, timezone
 
-from ..database import get_db, Table as TableModel, Order, get_session_db
+from ..database import get_db, Table as TableModel, Order, get_session_db, get_hotel_id_from_request
 from ..models.table import Table, TableCreate, TableUpdate, TableStatus
 from ..middleware import get_session_id
 
@@ -23,13 +23,23 @@ def get_session_database(request: Request):
 # Get all tables
 @router.get("/", response_model=List[Table])
 def get_all_tables(request: Request, db: Session = Depends(get_session_database)):
-    return db.query(TableModel).order_by(TableModel.table_number).all()
+    hotel_id = get_hotel_id_from_request(request)
+    if not hotel_id:
+        raise HTTPException(status_code=400, detail="No hotel context set")
+
+    return db.query(TableModel).filter(TableModel.hotel_id == hotel_id).order_by(TableModel.table_number).all()
 
 
 # Get table by ID
 @router.get("/{table_id}", response_model=Table)
 def get_table(table_id: int, request: Request, db: Session = Depends(get_session_database)):
-    db_table = db.query(TableModel).filter(TableModel.id == table_id).first()
+    hotel_id = get_hotel_id_from_request(request)
+    if not hotel_id:
+        raise HTTPException(status_code=400, detail="No hotel context set")
+
+    db_table = db.query(TableModel).filter(
+        TableModel.id == table_id, TableModel.hotel_id == hotel_id
+    ).first()
     if not db_table:
         raise HTTPException(status_code=404, detail="Table not found")
     return db_table
@@ -38,8 +48,14 @@ def get_table(table_id: int, request: Request, db: Session = Depends(get_session
 # Get table by table number
 @router.get("/number/{table_number}", response_model=Table)
 def get_table_by_number(table_number: int, request: Request, db: Session = Depends(get_session_database)):
+    hotel_id = get_hotel_id_from_request(request)
+    if not hotel_id:
+        raise HTTPException(status_code=400, detail="No hotel context set")
+
     db_table = (
-        db.query(TableModel).filter(TableModel.table_number == table_number).first()
+        db.query(TableModel).filter(
+            TableModel.table_number == table_number, TableModel.hotel_id == hotel_id
+        ).first()
     )
     if not db_table:
         raise HTTPException(status_code=404, detail="Table not found")
@@ -49,24 +65,28 @@ def get_table_by_number(table_number: int, request: Request, db: Session = Depen
 # Create new table
 @router.post("/", response_model=Table)
 def create_table(table: TableCreate, request: Request, db: Session = Depends(get_session_database)):
-    # Check if a table with this number already exists
+    hotel_id = get_hotel_id_from_request(request)
+    if not hotel_id:
+        raise HTTPException(status_code=400, detail="No hotel context set")
+
+    # Check if a table with this number already exists for this hotel
     existing_table = (
         db.query(TableModel)
-        .filter(TableModel.table_number == table.table_number)
+        .filter(TableModel.hotel_id == hotel_id, TableModel.table_number == table.table_number)
         .first()
     )
     if existing_table:
         raise HTTPException(
             status_code=400,
-            detail=f"Table with number {table.table_number} already exists",
+            detail=f"Table with number {table.table_number} already exists for this hotel",
         )
 
     # Create new table
     db_table = TableModel(
+        hotel_id=hotel_id,
         table_number=table.table_number,
         is_occupied=table.is_occupied,
         current_order_id=table.current_order_id,
-        last_occupied_at=table.last_occupied_at,
         created_at=datetime.now(timezone.utc),
         updated_at=datetime.now(timezone.utc),
     )
@@ -81,7 +101,13 @@ def create_table(table: TableCreate, request: Request, db: Session = Depends(get
 def update_table(
     table_id: int, table_update: TableUpdate, request: Request, db: Session = Depends(get_session_database)
 ):
-    db_table = db.query(TableModel).filter(TableModel.id == table_id).first()
+    hotel_id = get_hotel_id_from_request(request)
+    if not hotel_id:
+        raise HTTPException(status_code=400, detail="No hotel context set")
+
+    db_table = db.query(TableModel).filter(
+        TableModel.id == table_id, TableModel.hotel_id == hotel_id
+    ).first()
     if not db_table:
         raise HTTPException(status_code=404, detail="Table not found")
 
@@ -100,7 +126,13 @@ def update_table(
 # Delete table
 @router.delete("/{table_id}")
 def delete_table(table_id: int, request: Request, db: Session = Depends(get_session_database)):
-    db_table = db.query(TableModel).filter(TableModel.id == table_id).first()
+    hotel_id = get_hotel_id_from_request(request)
+    if not hotel_id:
+        raise HTTPException(status_code=400, detail="No hotel context set")
+
+    db_table = db.query(TableModel).filter(
+        TableModel.id == table_id, TableModel.hotel_id == hotel_id
+    ).first()
     if not db_table:
         raise HTTPException(status_code=404, detail="Table not found")
 
@@ -118,9 +150,15 @@ def delete_table(table_id: int, request: Request, db: Session = Depends(get_sess
 # Get table status (total, occupied, free)
 @router.get("/status/summary", response_model=TableStatus)
 def get_table_status(request: Request, db: Session = Depends(get_session_database)):
-    total_tables = db.query(TableModel).count()
+    hotel_id = get_hotel_id_from_request(request)
+    if not hotel_id:
+        raise HTTPException(status_code=400, detail="No hotel context set")
+
+    total_tables = db.query(TableModel).filter(TableModel.hotel_id == hotel_id).count()
     occupied_tables = (
-        db.query(TableModel).filter(TableModel.is_occupied == True).count()
+        db.query(TableModel).filter(
+            TableModel.hotel_id == hotel_id, TableModel.is_occupied == True
+        ).count()
     )
     free_tables = total_tables - occupied_tables
 
@@ -136,7 +174,13 @@ def get_table_status(request: Request, db: Session = Depends(get_session_databas
 def set_table_occupied(
     table_id: int, order_id: int = None, request: Request = None, db: Session = Depends(get_session_database)
 ):
-    db_table = db.query(TableModel).filter(TableModel.id == table_id).first()
+    hotel_id = get_hotel_id_from_request(request)
+    if not hotel_id:
+        raise HTTPException(status_code=400, detail="No hotel context set")
+
+    db_table = db.query(TableModel).filter(
+        TableModel.id == table_id, TableModel.hotel_id == hotel_id
+    ).first()
     if not db_table:
         raise HTTPException(status_code=404, detail="Table not found")
 
@@ -149,8 +193,10 @@ def set_table_occupied(
 
     # Link to order if provided
     if order_id:
-        # Verify order exists
-        order = db.query(Order).filter(Order.id == order_id).first()
+        # Verify order exists for this hotel
+        order = db.query(Order).filter(
+            Order.id == order_id, Order.hotel_id == hotel_id
+        ).first()
         if not order:
             raise HTTPException(status_code=404, detail="Order not found")
         db_table.current_order_id = order_id
@@ -164,7 +210,13 @@ def set_table_occupied(
 # Set table as free
 @router.put("/{table_id}/free", response_model=Table)
 def set_table_free(table_id: int, request: Request, db: Session = Depends(get_session_database)):
-    db_table = db.query(TableModel).filter(TableModel.id == table_id).first()
+    hotel_id = get_hotel_id_from_request(request)
+    if not hotel_id:
+        raise HTTPException(status_code=400, detail="No hotel context set")
+
+    db_table = db.query(TableModel).filter(
+        TableModel.id == table_id, TableModel.hotel_id == hotel_id
+    ).first()
     if not db_table:
         raise HTTPException(status_code=404, detail="Table not found")
 
@@ -184,15 +236,20 @@ def set_table_free(table_id: int, request: Request, db: Session = Depends(get_se
 # Set table as occupied by table number
 @router.put("/number/{table_number}/occupy", response_model=Table)
 def set_table_occupied_by_number(table_number: int, request: Request, db: Session = Depends(get_session_database)):
+    hotel_id = get_hotel_id_from_request(request)
+    if not hotel_id:
+        raise HTTPException(status_code=400, detail="No hotel context set")
+
     db_table = (
-        db.query(TableModel).filter(TableModel.table_number == table_number).first()
+        db.query(TableModel).filter(
+            TableModel.table_number == table_number, TableModel.hotel_id == hotel_id
+        ).first()
     )
     if not db_table:
         raise HTTPException(status_code=404, detail="Table not found")
 
     # Update table status (even if already occupied, just update the timestamp)
     db_table.is_occupied = True
-    db_table.last_occupied_at = datetime.now(timezone.utc)
     db_table.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(db_table)
@@ -202,8 +259,14 @@ def set_table_occupied_by_number(table_number: int, request: Request, db: Sessio
 # Set table as free by table number
 @router.put("/number/{table_number}/free", response_model=Table)
 def set_table_free_by_number(table_number: int, request: Request, db: Session = Depends(get_session_database)):
+    hotel_id = get_hotel_id_from_request(request)
+    if not hotel_id:
+        raise HTTPException(status_code=400, detail="No hotel context set")
+
     db_table = (
-        db.query(TableModel).filter(TableModel.table_number == table_number).first()
+        db.query(TableModel).filter(
+            TableModel.table_number == table_number, TableModel.hotel_id == hotel_id
+        ).first()
     )
     if not db_table:
         raise HTTPException(status_code=404, detail="Table not found")
@@ -220,14 +283,21 @@ def set_table_free_by_number(table_number: int, request: Request, db: Session = 
 # Create multiple tables at once
 @router.post("/batch", response_model=List[Table])
 def create_tables_batch(num_tables: int, request: Request, db: Session = Depends(get_session_database)):
+    hotel_id = get_hotel_id_from_request(request)
+    if not hotel_id:
+        raise HTTPException(status_code=400, detail="No hotel context set")
+
     if num_tables <= 0:
         raise HTTPException(
             status_code=400, detail="Number of tables must be greater than 0"
         )
 
-    # Get the highest existing table number
+    # Get the highest existing table number for this hotel
     highest_table = (
-        db.query(TableModel).order_by(TableModel.table_number.desc()).first()
+        db.query(TableModel)
+        .filter(TableModel.hotel_id == hotel_id)
+        .order_by(TableModel.table_number.desc())
+        .first()
     )
     start_number = 1
     if highest_table:
@@ -237,6 +307,7 @@ def create_tables_batch(num_tables: int, request: Request, db: Session = Depends
     new_tables = []
     for i in range(start_number, start_number + num_tables):
         db_table = TableModel(
+            hotel_id=hotel_id,
             table_number=i,
             is_occupied=False,
             created_at=datetime.now(timezone.utc),

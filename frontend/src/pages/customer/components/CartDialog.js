@@ -451,10 +451,8 @@ const CartDialog = ({
               borderRadius: '4px',
               mx: 3
             }}>
-              <DeliveryDiningIcon sx={{ mr: 1.5, fontSize: '1.5rem', color: '#FFA500' }} />
-              <Typography variant="body1" color="#FFFFFF">
-                Estimated delivery: {Math.floor(Math.random() * 15) + 15}-{Math.floor(Math.random() * 15) + 30} mins
-              </Typography>
+      
+            
             </Box>
           )}
 

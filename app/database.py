@@ -26,14 +26,31 @@ Base = declarative_base()
 # Import hotels from hotels.csv to database
 def import_hotels_from_csv(db_session):
     """Import hotels from hotels.csv to database if not already present"""
+    import random
     try:
         print("Attempting to import hotels from CSV...")
         # Check if hotels table already has data
         existing_hotels = db_session.query(Hotel).count()
         print(f"Found {existing_hotels} existing hotels in database")
 
+        # Always update phone numbers if missing, even if hotels exist
+        hotels_without_phone = db_session.query(Hotel).filter(
+            Hotel.phone_number.is_(None)
+        ).all()
+
+        if hotels_without_phone:
+            print(f"Found {len(hotels_without_phone)} hotels without phone numbers, updating...")
+            for hotel in hotels_without_phone:
+                if hotel.hotel_name == "anifa":
+                    hotel.phone_number = "9361899061"
+                else:
+                    # Generate random 10-digit phone number starting with 9
+                    hotel.phone_number = "9" + "".join([str(random.randint(0, 9)) for _ in range(9)])
+                print(f"Updated phone number for {hotel.hotel_name}: {hotel.phone_number}")
+            db_session.commit()
+
         if existing_hotels > 0:
-            print(f"Hotels already exist in database ({existing_hotels} hotels), skipping import")
+            print(f"Hotels already exist in database ({existing_hotels} hotels), phone numbers updated if needed")
             return
 
         # Read from hotels.csv
@@ -50,13 +67,21 @@ def import_hotels_from_csv(db_session):
                 ).first()
 
                 if not existing:
+                    # Assign phone number based on hotel name
+                    if row["hotel_name"] == "anifa":
+                        phone_number = "9361899061"
+                    else:
+                        # Generate random 10-digit phone number starting with 9
+                        phone_number = "9" + "".join([str(random.randint(0, 9)) for _ in range(9)])
+
                     hotel = Hotel(
                         hotel_name=row["hotel_name"],
-                        password=row["password"]
+                        password=row["password"],
+                        phone_number=phone_number
                     )
                     db_session.add(hotel)
                     hotels_imported += 1
-                    print(f"Added hotel: {row['hotel_name']}")
+                    print(f"Added hotel: {row['hotel_name']} with phone: {phone_number}")
 
         if hotels_imported > 0:
             db_session.commit()
@@ -200,6 +225,7 @@ class Hotel(Base):
     id = Column(Integer, primary_key=True, index=True)
     hotel_name = Column(String, unique=True, index=True, nullable=False)
     password = Column(String, nullable=False)
+    phone_number = Column(String, nullable=True, index=True)  # Added phone number field
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(
         DateTime,
