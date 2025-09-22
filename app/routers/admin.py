@@ -6,6 +6,8 @@ import os
 import shutil
 from datetime import datetime, timezone
 from ..utils.pdf_generator import generate_bill_pdf, generate_multi_order_bill_pdf
+from ..storage_adapter import get_storage_adapter
+from ..database_adapter import get_database_adapter
 
 from ..database import (
     get_db,
@@ -286,21 +288,18 @@ async def create_dish(
         hotel = db.query(Hotel).filter(Hotel.id == hotel_id).first()
         hotel_name_for_path = hotel.hotel_name if hotel else f"hotel_{hotel_id}"
 
-        # Create directory structure: app/static/images/dishes/{hotel_name}
-        hotel_images_dir = f"app/static/images/dishes/{hotel_name_for_path}"
-        os.makedirs(hotel_images_dir, exist_ok=True)
+        # Use storage adapter to upload image
+        storage_adapter = get_storage_adapter()
+        try:
+            image_url = storage_adapter.upload_image(image, hotel_name_for_path, "dishes", db_dish.id)
 
-        # Save image with hotel-specific path
-        image_path = f"{hotel_images_dir}/{db_dish.id}_{image.filename}"
-        with open(image_path, "wb") as buffer:
-            shutil.copyfileobj(image.file, buffer)
-
-        # Update dish with image path (URL path for serving)
-        db_dish.image_path = (
-            f"/static/images/dishes/{hotel_name_for_path}/{db_dish.id}_{image.filename}"
-        )
-        db.commit()
-        db.refresh(db_dish)
+            # Update dish with image path
+            db_dish.image_path = image_url
+            db.commit()
+            db.refresh(db_dish)
+        except Exception as e:
+            print(f"Error uploading image: {e}")
+            # Continue without image if upload fails
 
     return db_dish
 
@@ -369,23 +368,24 @@ async def update_dish(
 
     # Handle image upload if provided
     if image:
-        # Get current database name for organizing images
-        session_id = get_session_id(request)
-        current_db = get_session_current_database(session_id)
+        # Get hotel info for organizing images
+        from ..database import Hotel
+        hotel = db.query(Hotel).filter(Hotel.id == hotel_id).first()
+        hotel_name_for_path = hotel.hotel_name if hotel else f"hotel_{hotel_id}"
 
-        # Create directory structure: app/static/images/dishes/{db_name}
-        db_images_dir = f"app/static/images/dishes/{current_db}"
-        os.makedirs(db_images_dir, exist_ok=True)
+        # Use storage adapter to upload image
+        storage_adapter = get_storage_adapter()
+        try:
+            # Delete old image if it exists
+            if db_dish.image_path:
+                storage_adapter.delete_image(db_dish.image_path)
 
-        # Save image with database-specific path
-        image_path = f"{db_images_dir}/{db_dish.id}_{image.filename}"
-        with open(image_path, "wb") as buffer:
-            shutil.copyfileobj(image.file, buffer)
-
-        # Update dish with image path (URL path for serving)
-        db_dish.image_path = (
-            f"/static/images/dishes/{current_db}/{db_dish.id}_{image.filename}"
-        )
+            # Upload new image
+            image_url = storage_adapter.upload_image(image, hotel_name_for_path, "dishes", db_dish.id)
+            db_dish.image_path = image_url
+        except Exception as e:
+            print(f"Error uploading image: {e}")
+            # Continue without updating image if upload fails
 
     # Update timestamp
     db_dish.updated_at = datetime.now(timezone.utc)

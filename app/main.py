@@ -68,6 +68,12 @@ if has_react_build:
     # Mount the React build folder
     app.mount("/", StaticFiles(directory=react_build_dir, html=True), name="react")
 
+# Root endpoint
+@app.get("/")
+async def root():
+    """Root endpoint"""
+    return {"message": "Tabble - Hotel Management App API is running"}
+
 # Healthz Page
 @app.get("/health")
 async def health_check(request: Request):

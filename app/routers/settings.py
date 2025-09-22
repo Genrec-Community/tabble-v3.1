@@ -5,6 +5,7 @@ import os
 import shutil
 import csv
 from datetime import datetime, timezone
+from ..storage_adapter import get_storage_adapter
 
 from ..database import (
     get_db, Settings, Hotel, switch_database, get_current_database,
@@ -186,17 +187,19 @@ async def update_settings(
         hotel = db.query(Hotel).filter(Hotel.id == hotel_id).first()
         hotel_name_for_path = hotel.hotel_name if hotel else f"hotel_{hotel_id}"
 
-        # Create directory structure: app/static/images/logo/{hotel_name}
-        hotel_logo_dir = f"app/static/images/logo/{hotel_name_for_path}"
-        os.makedirs(hotel_logo_dir, exist_ok=True)
+        # Use storage adapter to upload logo
+        storage_adapter = get_storage_adapter()
+        try:
+            # Delete old logo if it exists
+            if settings.logo_path:
+                storage_adapter.delete_image(settings.logo_path)
 
-        # Save logo with hotel-specific path
-        logo_path = f"{hotel_logo_dir}/hotel_logo_{logo.filename}"
-        with open(logo_path, "wb") as buffer:
-            shutil.copyfileobj(logo.file, buffer)
-
-        # Update settings with logo path (URL path for serving)
-        settings.logo_path = f"/static/images/logo/{hotel_name_for_path}/hotel_logo_{logo.filename}"
+            # Upload new logo
+            logo_url = storage_adapter.upload_image(logo, hotel_name_for_path, "logo")
+            settings.logo_path = logo_url
+        except Exception as e:
+            print(f"Error uploading logo: {e}")
+            # Continue without updating logo if upload fails
 
     # Update timestamp
     settings.updated_at = datetime.now(timezone.utc)
