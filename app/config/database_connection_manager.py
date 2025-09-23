@@ -59,9 +59,10 @@ class DatabaseConnectionManager:
     def _create_engine(self):
         """Create SQLAlchemy engine with production-grade configuration"""
         if self.db_config.database_type == "supabase":
-            # For Supabase, create a minimal dummy engine for legacy compatibility
+            # For Supabase, create an in-memory SQLite engine for legacy compatibility
+            # This avoids creating any database files on disk
             self._engine = create_engine(
-                "sqlite:///./dummy.db",
+                "sqlite:///:memory:",
                 connect_args={"check_same_thread": False},
                 poolclass=StaticPool
             )

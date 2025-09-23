@@ -70,14 +70,22 @@ class DatabaseConfig:
     
     def get_sqlalchemy_engine_params(self) -> Dict[str, Any]:
         """Get SQLAlchemy engine parameters for connection pooling"""
-        return {
-            "pool_size": int(os.getenv("DB_POOL_SIZE", "10")),
-            "max_overflow": int(os.getenv("DB_MAX_OVERFLOW", "20")),
-            "pool_timeout": int(os.getenv("DB_POOL_TIMEOUT", "30")),
-            "pool_recycle": int(os.getenv("DB_POOL_RECYCLE", "3600")),
-            "pool_pre_ping": os.getenv("DB_POOL_PRE_PING", "true").lower() == "true",
-            "echo": self._get_db_echo_setting()
-        }
+        if self.database_type == "supabase":
+            # For Supabase (using in-memory SQLite for legacy compatibility),
+            # only return SQLite-compatible parameters
+            return {
+                "echo": self._get_db_echo_setting()
+            }
+        else:
+            # For SQLite, return full connection pooling parameters
+            return {
+                "pool_size": int(os.getenv("DB_POOL_SIZE", "10")),
+                "max_overflow": int(os.getenv("DB_MAX_OVERFLOW", "20")),
+                "pool_timeout": int(os.getenv("DB_POOL_TIMEOUT", "30")),
+                "pool_recycle": int(os.getenv("DB_POOL_RECYCLE", "3600")),
+                "pool_pre_ping": os.getenv("DB_POOL_PRE_PING", "true").lower() == "true",
+                "echo": self._get_db_echo_setting()
+            }
     
     def get_database_timeout_settings(self) -> Dict[str, int]:
         """Get database timeout and retry settings"""
@@ -116,8 +124,8 @@ class DatabaseConfig:
             Tuple of (database_name, database_url, connection_params)
         """
         if self.database_type == "supabase":
-            # For Supabase, return dummy SQLite config for legacy compatibility
-            return "Supabase", "sqlite:///./dummy.db", {"check_same_thread": False}
+            # For Supabase, return in-memory SQLite config for legacy compatibility
+            return "Supabase", "sqlite:///:memory:", {"check_same_thread": False}
         else:
             db_path = self.get_sqlite_database_path()
             db_url = self.get_sqlite_database_url()

@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 try:
     from .supabase_config import get_supabase_service_client
 except ImportError:
-    from supabase_config import get_supabase_service_client
+    from app.supabase_config import get_supabase_service_client
 
 # Load environment variables
 load_dotenv()

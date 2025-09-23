@@ -47,7 +47,6 @@ frontend/build/
 .idea
 *.swp
 *.swo
-.env/
 # OS
 .DS_Store
 Thumbs.db
