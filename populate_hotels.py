@@ -19,10 +19,20 @@ from app.database import (
     engine
 )
 
+# Import centralized database configuration
+from app.config.database_config import validate_database_config
+
 
 def populate_hotels():
     """Populate hotels from CSV"""
     print("Populating hotels from hotels.csv...")
+
+    # Validate database configuration
+    if not validate_database_config():
+        print("❌ Database configuration validation failed!")
+        sys.exit(1)
+
+    print("✅ Database configuration validated")
 
     # Create tables if they don't exist
     create_tables()

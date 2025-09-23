@@ -1,0 +1,102 @@
+{
+  "total_tests": 10,
+  "passed_tests": 2,
+  "failed_tests": 8,
+  "test_details": [
+    {
+      "test": "Health Check",
+      "success": true,
+      "details": "Status: 200",
+      "response_data": {
+        "status": "healthy"
+      },
+      "timestamp": "2025-09-23T11:58:09.114727"
+    },
+    {
+      "test": "Hotel Retrieval",
+      "success": true,
+      "details": "Status: 200",
+      "response_data": {
+        "databases": [
+          {
+            "database_name": "tabble_new",
+            "password": "********"
+          },
+          {
+            "database_name": "anifa",
+            "password": "********"
+          },
+          {
+            "database_name": "hotelgood",
+            "password": "********"
+          },
+          {
+            "database_name": "hotelmoon",
+            "password": "********"
+          },
+          {
+            "database_name": "shine",
+            "password": "********"
+          }
+        ]
+      },
+      "timestamp": "2025-09-23T11:58:12.094350"
+    },
+    {
+      "test": "Hotel Context Switch",
+      "success": false,
+      "details": "Status: 422",
+      "response_data": null,
+      "timestamp": "2025-09-23T11:58:14.123005"
+    },
+    {
+      "test": "Dish Retrieval",
+      "success": false,
+      "details": "Status: 400",
+      "response_data": null,
+      "timestamp": "2025-09-23T11:58:16.146771"
+    },
+    {
+      "test": "Single Dish Retrieval",
+      "success": false,
+      "details": "cannot access local variable 'test_dish_id' where it is not associated with a value",
+      "response_data": null,
+      "timestamp": "2025-09-23T11:58:16.146771"
+    },
+    {
+      "test": "Offer Dishes Retrieval",
+      "success": false,
+      "details": "Status: 400",
+      "response_data": null,
+      "timestamp": "2025-09-23T11:58:18.177233"
+    },
+    {
+      "test": "Special Dishes Retrieval",
+      "success": false,
+      "details": "Status: 400",
+      "response_data": null,
+      "timestamp": "2025-09-23T11:58:20.205488"
+    },
+    {
+      "test": "Dish Deletion",
+      "success": false,
+      "details": "cannot access local variable 'test_dish_id' where it is not associated with a value",
+      "response_data": null,
+      "timestamp": "2025-09-23T11:58:20.205488"
+    },
+    {
+      "test": "Dish Hidden After Delete",
+      "success": false,
+      "details": "Status: 400",
+      "response_data": null,
+      "timestamp": "2025-09-23T11:58:22.235811"
+    },
+    {
+      "test": "Categories Retrieval",
+      "success": false,
+      "details": "Status: 400",
+      "response_data": null,
+      "timestamp": "2025-09-23T11:58:24.305279"
+    }
+  ]
+}

@@ -4,9 +4,21 @@ Script to inspect the current SQLite database structure and data
 """
 import sqlite3
 import os
+import sys
+
+# Add the app directory to the Python path to import our configuration
+sys.path.append(os.path.join(os.path.dirname(__file__), 'app'))
 
 def inspect_database():
-    db_path = "Tabble.db"
+    # Use centralized database configuration
+    try:
+        from config.database_config import get_sqlite_database_path
+        db_path = get_sqlite_database_path()
+    except ImportError:
+        # Fallback to environment variable or default
+        from dotenv import load_dotenv
+        load_dotenv()
+        db_path = os.getenv("SQLITE_DATABASE_PATH", "Tabble.db")
     
     if not os.path.exists(db_path):
         print(f"Database {db_path} not found!")

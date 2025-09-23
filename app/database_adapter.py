@@ -1,35 +1,84 @@
 """
-Database adapter that supports both SQLite and Supabase
+Database adapter that supports both SQLite and Supabase with production-grade features
 """
 import os
+import logging
 from typing import Dict, List, Optional, Any, Union
 from dotenv import load_dotenv
 from sqlalchemy.orm import Session
-from .database import SessionLocal, Hotel, Dish, Person, Order, OrderItem, Table, Feedback, LoyaltyProgram, SelectionOffer, Settings, OtpRequest
-from .supabase_config import get_supabase_client, get_supabase_service_client
+try:
+    # Try relative imports first (when used as a module)
+    from .database import SessionLocal, Hotel, Dish, Person, Order, OrderItem, Table, Feedback, LoyaltyProgram, SelectionOffer, Settings, OtpRequest
+    from .supabase_config import get_supabase_client, get_supabase_service_client
+    from .config.database_config import get_database_config
+    from .config.database_connection_manager import get_connection_manager
+except (ImportError, ValueError):
+    # Fall back to absolute imports (when used as a script)
+    try:
+        from database import SessionLocal, Hotel, Dish, Person, Order, OrderItem, Table, Feedback, LoyaltyProgram, SelectionOffer, Settings, OtpRequest
+        from supabase_config import get_supabase_client, get_supabase_service_client
+        from config.database_config import get_database_config
+        from config.database_connection_manager import get_connection_manager
+    except ImportError:
+        # If still failing, try with sys.path manipulation
+        import sys
+        import os
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        sys.path.insert(0, current_dir)
+
+        from database import SessionLocal, Hotel, Dish, Person, Order, OrderItem, Table, Feedback, LoyaltyProgram, SelectionOffer, Settings, OtpRequest
+        from supabase_config import get_supabase_client, get_supabase_service_client
+        from config.database_config import get_database_config
+        from config.database_connection_manager import get_connection_manager
 
 # Load environment variables
 load_dotenv()
 
+logger = logging.getLogger(__name__)
+
 class DatabaseAdapter:
-    """Adapter that provides a unified interface for both SQLite and Supabase"""
-    
+    """Adapter that provides a unified interface for both SQLite and Supabase with production-grade features"""
+
     def __init__(self):
-        self.database_type = os.getenv("DATABASE_TYPE", "sqlite").lower()
+        self.db_config = get_database_config()
+        self.database_type = self.db_config.get_database_type()
         self.use_supabase = self.database_type == "supabase"
+        self.connection_manager = get_connection_manager()
+
+        logger.info(f"Database adapter initialized with type: {self.database_type}")
     
     def get_session(self):
         """Get database session - returns SQLAlchemy session for SQLite, None for Supabase"""
         if self.use_supabase:
             return None
         else:
-            return SessionLocal()
+            # Use connection manager for production-grade session handling
+            return self.connection_manager.get_scoped_session()()
     
     def get_supabase_client(self):
         """Get Supabase client if using Supabase"""
         if self.use_supabase:
             return get_supabase_client()
         return None
+
+    def execute_with_retry(self, operation, *args, **kwargs):
+        """Execute database operation with retry logic"""
+        return self.connection_manager.execute_with_retry(operation, *args, **kwargs)
+
+    def health_check(self) -> bool:
+        """Perform database health check"""
+        try:
+            if self.use_supabase:
+                # Test Supabase connection
+                supabase = get_supabase_client()
+                result = supabase.table("hotels").select("id").limit(1).execute()
+                return True
+            else:
+                # Use connection manager health check
+                return self.connection_manager.health_check()
+        except Exception as e:
+            logger.error(f"Database health check failed: {e}")
+            return False
     
     # Hotel operations
     def get_hotels(self) -> List[Dict]:

@@ -24,11 +24,21 @@ def get_supabase_client() -> Client:
     return create_client(url, key)
 
 def get_sqlite_connection():
-    """Create and return SQLite connection"""
-    if not os.path.exists("Tabble.db"):
-        raise FileNotFoundError("Tabble.db not found!")
-    
-    return sqlite3.connect("Tabble.db")
+    """Create and return SQLite connection using centralized configuration"""
+    # Add the app directory to the Python path
+    sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'app'))
+
+    try:
+        from config.database_config import get_sqlite_database_path
+        db_path = get_sqlite_database_path()
+    except ImportError:
+        # Fallback to environment variable or default
+        db_path = os.getenv("SQLITE_DATABASE_PATH", "Tabble.db")
+
+    if not os.path.exists(db_path):
+        raise FileNotFoundError(f"{db_path} not found!")
+
+    return sqlite3.connect(db_path)
 
 def migrate_hotels(sqlite_conn, supabase: Client):
     """Migrate hotels data"""

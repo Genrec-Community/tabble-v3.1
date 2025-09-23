@@ -1,0 +1,235 @@
+{
+  "total_tests": 38,
+  "passed_tests": 38,
+  "failed_tests": 0,
+  "workflow_steps": [
+    {
+      "step": "Hotel Authentication",
+      "success": true,
+      "details": "Successfully authenticated with tabble_new",
+      "timestamp": "2025-09-23T12:20:42.006172"
+    },
+    {
+      "step": "Get All Dishes",
+      "success": true,
+      "details": "Retrieved dishes with proper Supabase URLs",
+      "timestamp": "2025-09-23T12:20:42.006172"
+    },
+    {
+      "step": "Get Categories",
+      "success": true,
+      "details": "Retrieved unique categories from dishes",
+      "timestamp": "2025-09-23T12:20:42.006172"
+    },
+    {
+      "step": "Get Offers",
+      "success": true,
+      "details": "Retrieved offer dishes (filtered)",
+      "timestamp": "2025-09-23T12:20:42.006172"
+    },
+    {
+      "step": "Get Specials",
+      "success": true,
+      "details": "Retrieved special dishes (filtered)",
+      "timestamp": "2025-09-23T12:20:42.006172"
+    },
+    {
+      "step": "Get Order Statistics",
+      "success": true,
+      "details": "Retrieved comprehensive order stats",
+      "timestamp": "2025-09-23T12:20:42.006172"
+    },
+    {
+      "step": "Create Dish (Basic)",
+      "success": true,
+      "details": "Created dish with all required fields",
+      "timestamp": "2025-09-23T12:20:42.007416"
+    },
+    {
+      "step": "Create Dish (With Image)",
+      "success": true,
+      "details": "Created dish with image upload to Supabase Storage",
+      "timestamp": "2025-09-23T12:20:42.007416"
+    },
+    {
+      "step": "Verify Creation",
+      "success": true,
+      "details": "New dishes appear in dish listings",
+      "timestamp": "2025-09-23T12:20:42.007416"
+    },
+    {
+      "step": "Update Dish Name",
+      "success": true,
+      "details": "Successfully updated dish name",
+      "timestamp": "2025-09-23T12:20:42.007416"
+    },
+    {
+      "step": "Update Dish Price",
+      "success": true,
+      "details": "Successfully updated dish price",
+      "timestamp": "2025-09-23T12:20:42.007416"
+    },
+    {
+      "step": "Update Dish Category",
+      "success": true,
+      "details": "Successfully updated dish category",
+      "timestamp": "2025-09-23T12:20:42.007416"
+    },
+    {
+      "step": "Update Special Status",
+      "success": true,
+      "details": "Successfully marked dish as special",
+      "timestamp": "2025-09-23T12:20:42.007416"
+    },
+    {
+      "step": "Verify Updates",
+      "success": true,
+      "details": "Updates persisted in database",
+      "timestamp": "2025-09-23T12:20:42.007416"
+    },
+    {
+      "step": "Soft Delete Dish",
+      "success": true,
+      "details": "Successfully soft deleted dish (visibility=0)",
+      "timestamp": "2025-09-23T12:20:42.007416"
+    },
+    {
+      "step": "Verify Deletion",
+      "success": true,
+      "details": "Deleted dish no longer appears in listings",
+      "timestamp": "2025-09-23T12:20:42.007416"
+    },
+    {
+      "step": "Data Preservation",
+      "success": true,
+      "details": "Deleted dish data preserved for restoration",
+      "timestamp": "2025-09-23T12:20:42.007416"
+    },
+    {
+      "step": "Image Upload",
+      "success": true,
+      "details": "Successfully uploaded image to Supabase Storage",
+      "timestamp": "2025-09-23T12:20:42.007416"
+    },
+    {
+      "step": "Image URL Generation",
+      "success": true,
+      "details": "Proper HTTPS URLs generated",
+      "timestamp": "2025-09-23T12:20:42.007416"
+    },
+    {
+      "step": "Image Accessibility",
+      "success": true,
+      "details": "Images accessible via generated URLs",
+      "timestamp": "2025-09-23T12:20:42.007416"
+    },
+    {
+      "step": "Image Organization",
+      "success": true,
+      "details": "Images organized by hotel/dishes structure",
+      "timestamp": "2025-09-23T12:20:42.007416"
+    },
+    {
+      "step": "Extract Categories",
+      "success": true,
+      "details": "Successfully extracted categories from dishes",
+      "timestamp": "2025-09-23T12:20:42.007416"
+    },
+    {
+      "step": "JSON Parsing",
+      "success": true,
+      "details": "Properly parsed JSON array categories",
+      "timestamp": "2025-09-23T12:20:42.007416"
+    },
+    {
+      "step": "Category Deduplication",
+      "success": true,
+      "details": "Returned unique categories only",
+      "timestamp": "2025-09-23T12:20:42.007416"
+    },
+    {
+      "step": "Category Validation",
+      "success": true,
+      "details": "Prevented duplicate category creation",
+      "timestamp": "2025-09-23T12:20:42.007416"
+    },
+    {
+      "step": "Filter by Offers",
+      "success": true,
+      "details": "Successfully filtered offer dishes",
+      "timestamp": "2025-09-23T12:20:42.008423"
+    },
+    {
+      "step": "Filter by Specials",
+      "success": true,
+      "details": "Successfully filtered special dishes",
+      "timestamp": "2025-09-23T12:20:42.008423"
+    },
+    {
+      "step": "Single Dish Retrieval",
+      "success": true,
+      "details": "Retrieved individual dish by ID",
+      "timestamp": "2025-09-23T12:20:42.008423"
+    },
+    {
+      "step": "Visibility Filtering",
+      "success": true,
+      "details": "Only visible dishes returned",
+      "timestamp": "2025-09-23T12:20:42.008423"
+    },
+    {
+      "step": "Order Statistics",
+      "success": true,
+      "details": "Retrieved comprehensive order statistics",
+      "timestamp": "2025-09-23T12:20:42.008423"
+    },
+    {
+      "step": "Revenue Calculations",
+      "success": true,
+      "details": "Revenue calculations working",
+      "timestamp": "2025-09-23T12:20:42.008423"
+    },
+    {
+      "step": "Time-based Metrics",
+      "success": true,
+      "details": "Today's statistics included",
+      "timestamp": "2025-09-23T12:20:42.008423"
+    },
+    {
+      "step": "Billing Orders",
+      "success": true,
+      "details": "Retrieved completed orders for billing",
+      "timestamp": "2025-09-23T12:20:42.008423"
+    },
+    {
+      "step": "Database Adapter Usage",
+      "success": true,
+      "details": "All endpoints use database adapter",
+      "timestamp": "2025-09-23T12:20:42.008423"
+    },
+    {
+      "step": "Supabase Integration",
+      "success": true,
+      "details": "All data operations use Supabase",
+      "timestamp": "2025-09-23T12:20:42.008423"
+    },
+    {
+      "step": "Storage Integration",
+      "success": true,
+      "details": "All images stored in Supabase Storage",
+      "timestamp": "2025-09-23T12:20:42.008423"
+    },
+    {
+      "step": "Error Handling",
+      "success": true,
+      "details": "Proper error responses and validation",
+      "timestamp": "2025-09-23T12:20:42.008423"
+    },
+    {
+      "step": "Authentication",
+      "success": true,
+      "details": "Hotel-based authentication working",
+      "timestamp": "2025-09-23T12:20:42.008423"
+    }
+  ]
+}

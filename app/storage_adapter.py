@@ -6,7 +6,10 @@ import shutil
 from typing import Optional, BinaryIO
 from fastapi import UploadFile
 from dotenv import load_dotenv
-from .supabase_config import get_supabase_service_client
+try:
+    from .supabase_config import get_supabase_service_client
+except ImportError:
+    from supabase_config import get_supabase_service_client
 
 # Load environment variables
 load_dotenv()

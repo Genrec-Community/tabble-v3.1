@@ -97,7 +97,15 @@ class DatabaseManager:
     def __init__(self):
         self.sessions: Dict[str, dict] = {}
         self.lock = threading.Lock()
-        self.unified_database = "Tabble.db"
+        # Use centralized database configuration
+        try:
+            from .config.database_config import get_database_config
+        except ImportError:
+            from config.database_config import get_database_config
+        self.db_config = get_database_config()
+        self.database_type = self.db_config.get_database_type()
+        self.use_supabase = self.database_type == "supabase"
+        self.unified_database = "Supabase" if self.use_supabase else self.db_config.get_sqlite_database_path()
 
     def get_session_id(self, request_headers: dict) -> str:
         """Generate or retrieve session ID from request headers"""
@@ -122,8 +130,19 @@ class DatabaseManager:
 
     def _create_connection(self, hotel_id: Optional[int] = None) -> dict:
         """Create a new database connection to unified database"""
-        database_url = f"sqlite:///./Tabble.db"
-        engine = create_engine(database_url, connect_args={"check_same_thread": False})
+        database_url = self.db_config.get_sqlite_database_url()
+        engine_params = self.db_config.get_sqlalchemy_engine_params()
+        connect_args = self.db_config.get_sqlite_connection_params()
+
+        # Remove echo from connect_args as it's an engine parameter
+        echo = engine_params.pop("echo", False)
+
+        engine = create_engine(
+            database_url,
+            connect_args={"check_same_thread": connect_args["check_same_thread"]},
+            echo=echo,
+            **{k: v for k, v in engine_params.items() if k != "echo"}
+        )
         session_factory = sessionmaker(autocommit=False, autoflush=False, bind=engine)
         session_local = scoped_session(session_factory)
 
@@ -173,25 +192,21 @@ class DatabaseManager:
         return self.unified_database
 
     def authenticate_hotel(self, hotel_name: str, password: str) -> Optional[int]:
-        """Authenticate hotel and return hotel_id"""
+        """Authenticate hotel and return hotel_id using database adapter"""
         try:
-            # Use global engine to query hotels table
-            from sqlalchemy.orm import sessionmaker
+            # Avoid circular import by importing here
+            from .database_adapter import get_database_adapter
 
-            Session = sessionmaker(bind=engine)
-            db = Session()
-            print(f"{hotel_name=}|{password=}")
-            hotel = (
-                db.query(Hotel)
-                .filter(Hotel.hotel_name == hotel_name, Hotel.password == password)
-                .first()
-            )
+            print(f"Authenticating hotel: {hotel_name=}|{password=}")
+            db_adapter = get_database_adapter()
+            hotel_id = db_adapter.authenticate_hotel(hotel_name, password)
 
-            db.close()
-
-            if hotel:
-                return hotel.id
-            return None
+            if hotel_id:
+                print(f"Authentication successful for hotel {hotel_name}, hotel_id: {hotel_id}")
+                return hotel_id
+            else:
+                print(f"Authentication failed for hotel {hotel_name}")
+                return None
         except Exception as e:
             print(f"Error authenticating hotel {hotel_name}: {e}")
             return None
@@ -207,10 +222,28 @@ class DatabaseManager:
 # Global database manager instance
 db_manager = DatabaseManager()
 
-# Global variables for database connection (unified database)
-CURRENT_DATABASE = "Tabble.db"
-DATABASE_URL = f"sqlite:///./Tabble.db"  # Using the unified database
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+# Global variables for database connection - use centralized configuration
+try:
+    from .config.database_config import get_database_config
+except ImportError:
+    from config.database_config import get_database_config
+
+def _get_database_config():
+    """Get database configuration using centralized configuration"""
+    db_config = get_database_config()
+    return db_config.get_database_connection_config()
+
+CURRENT_DATABASE, DATABASE_URL, connect_args = _get_database_config()
+db_config = get_database_config()
+engine_params = db_config.get_sqlalchemy_engine_params()
+echo = engine_params.pop("echo", False)
+
+engine = create_engine(
+    DATABASE_URL,
+    connect_args=connect_args,
+    echo=echo,
+    **{k: v for k, v in engine_params.items() if k != "echo"}
+)
 session_factory = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 SessionLocal = scoped_session(session_factory)
 
@@ -494,9 +527,19 @@ def switch_database(database_name):
             else f"sqlite:///./{database_name}"
         )
 
-        # Dispose of the old engine and create a new one
+        # Dispose of the old engine and create a new one with centralized configuration
         engine.dispose()
-        engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+        db_config = get_database_config()
+        engine_params = db_config.get_sqlalchemy_engine_params()
+        connect_args = db_config.get_sqlite_connection_params()
+        echo = engine_params.pop("echo", False)
+
+        engine = create_engine(
+            DATABASE_URL,
+            connect_args={"check_same_thread": connect_args["check_same_thread"]},
+            echo=echo,
+            **{k: v for k, v in engine_params.items() if k != "echo"}
+        )
 
         # Create a new session factory and scoped session
         session_factory = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -523,6 +566,7 @@ def create_tables():
 
 # Get database session (legacy)
 def get_db():
+    _warn_legacy_usage("get_db()")
     db = SessionLocal()
     try:
         yield db
@@ -533,6 +577,7 @@ def get_db():
 # Session-aware database functions with hotel context
 def get_session_db(session_id: str, hotel_id: Optional[int] = None):
     """Get database session for a specific session ID with hotel context"""
+    _warn_legacy_usage("get_session_db()")
     connection = db_manager.get_database_connection(session_id, hotel_id)
     db = connection["session_local"]()
     try:
@@ -579,3 +624,17 @@ def get_hotel_id_from_request(request) -> int:
         raise HTTPException(status_code=400, detail="No hotel context set")
 
     return hotel_id
+
+# New database adapter dependency for routers
+def get_database_adapter_dependency():
+    """Dependency function that returns the database adapter for use in routers"""
+    from .database_adapter import get_database_adapter
+    return get_database_adapter()
+
+# Legacy compatibility warning function
+def _warn_legacy_usage(function_name: str):
+    """Warn about legacy database function usage"""
+    import os
+    database_type = os.getenv("DATABASE_TYPE", "sqlite").lower()
+    if database_type == "supabase":
+        print(f"⚠️ WARNING: Using legacy function {function_name} with Supabase. Consider using database adapter instead.")

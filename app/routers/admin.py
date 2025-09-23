@@ -85,79 +85,125 @@ def get_all_dishes(
     request: Request,
     is_offer: Optional[int] = None,
     is_special: Optional[int] = None,
-    db: Session = Depends(get_session_database),
 ):
     hotel_id = get_hotel_id_from_request(request)
 
-    query = db.query(Dish).filter(
-        Dish.hotel_id == hotel_id, Dish.visibility == 1
-    )  # Only visible dishes for this hotel
+    # Use database adapter instead of direct SQLAlchemy
+    db_adapter = get_database_adapter()
+    dishes = db_adapter.get_dishes_by_hotel(hotel_id)
 
-    if is_offer is not None:
-        query = query.filter(Dish.is_offer == is_offer)
+    # Get storage adapter to handle image URLs
+    storage_adapter = get_storage_adapter()
 
-    if is_special is not None:
-        query = query.filter(Dish.is_special == is_special)
+    # Filter dishes based on parameters
+    filtered_dishes = []
+    for dish in dishes:
+        # Only include visible dishes
+        if dish.get('visibility', 1) != 1:
+            continue
 
-    dishes = query.all()
-    return dishes
+        # Apply filters
+        if is_offer is not None and dish.get('is_offer', 0) != is_offer:
+            continue
+
+        if is_special is not None and dish.get('is_special', 0) != is_special:
+            continue
+
+        # Ensure image URL is properly formatted for Supabase Storage
+        if dish.get('image_path'):
+            dish['image_path'] = storage_adapter.get_image_url(dish['image_path'])
+
+        filtered_dishes.append(dish)
+
+    return filtered_dishes
 
 
 # Get offer dishes (only visible ones)
 @router.get("/api/offers", response_model=List[DishModel])
-def get_offer_dishes(request: Request, db: Session = Depends(get_session_database)):
+def get_offer_dishes(request: Request):
     hotel_id = get_hotel_id_from_request(request)
-    dishes = (
-        db.query(Dish)
-        .filter(Dish.hotel_id == hotel_id, Dish.is_offer == 1, Dish.visibility == 1)
-        .all()
-    )
-    return dishes
+
+    # Use database adapter instead of direct SQLAlchemy
+    db_adapter = get_database_adapter()
+    dishes = db_adapter.get_dishes_by_hotel(hotel_id)
+
+    # Get storage adapter to handle image URLs
+    storage_adapter = get_storage_adapter()
+
+    # Filter for offer dishes that are visible
+    offer_dishes = []
+    for dish in dishes:
+        if dish.get('visibility', 1) == 1 and dish.get('is_offer', 0) == 1:
+            # Ensure image URL is properly formatted for Supabase Storage
+            if dish.get('image_path'):
+                dish['image_path'] = storage_adapter.get_image_url(dish['image_path'])
+            offer_dishes.append(dish)
+
+    return offer_dishes
 
 
 # Get special dishes (only visible ones)
 @router.get("/api/specials", response_model=List[DishModel])
-def get_special_dishes(request: Request, db: Session = Depends(get_session_database)):
+def get_special_dishes(request: Request):
     hotel_id = get_hotel_id_from_request(request)
-    dishes = (
-        db.query(Dish)
-        .filter(Dish.hotel_id == hotel_id, Dish.is_special == 1, Dish.visibility == 1)
-        .all()
-    )
-    return dishes
+
+    # Use database adapter instead of direct SQLAlchemy
+    db_adapter = get_database_adapter()
+    dishes = db_adapter.get_dishes_by_hotel(hotel_id)
+
+    # Get storage adapter to handle image URLs
+    storage_adapter = get_storage_adapter()
+
+    # Filter for special dishes that are visible
+    special_dishes = []
+    for dish in dishes:
+        if dish.get('visibility', 1) == 1 and dish.get('is_special', 0) == 1:
+            # Ensure image URL is properly formatted for Supabase Storage
+            if dish.get('image_path'):
+                dish['image_path'] = storage_adapter.get_image_url(dish['image_path'])
+            special_dishes.append(dish)
+
+    return special_dishes
 
 
 # Get dish by ID (only if visible)
 @router.get("/api/dishes/{dish_id}", response_model=DishModel)
-def get_dish(
-    dish_id: int, request: Request, db: Session = Depends(get_session_database)
-):
+def get_dish(dish_id: int, request: Request):
     hotel_id = get_hotel_id_from_request(request)
-    dish = (
-        db.query(Dish)
-        .filter(Dish.hotel_id == hotel_id, Dish.id == dish_id, Dish.visibility == 1)
-        .first()
-    )
-    if dish is None:
-        raise HTTPException(status_code=404, detail="Dish not found")
-    return dish
+
+    # Use database adapter instead of direct SQLAlchemy
+    db_adapter = get_database_adapter()
+    dishes = db_adapter.get_dishes_by_hotel(hotel_id)
+
+    # Get storage adapter to handle image URLs
+    storage_adapter = get_storage_adapter()
+
+    # Find the specific dish
+    for dish in dishes:
+        if dish.get('id') == dish_id and dish.get('visibility', 1) == 1:
+            # Ensure image URL is properly formatted for Supabase Storage
+            if dish.get('image_path'):
+                dish['image_path'] = storage_adapter.get_image_url(dish['image_path'])
+            return dish
+
+    raise HTTPException(status_code=404, detail="Dish not found")
 
 
 # Get all categories
 @router.get("/api/categories")
-def get_all_categories(request: Request, db: Session = Depends(get_session_database)):
+def get_all_categories(request: Request):
     hotel_id = get_hotel_id_from_request(request)
-    categories = (
-        db.query(Dish.category).filter(Dish.hotel_id == hotel_id).distinct().all()
-    )
+
+    # Use database adapter instead of direct SQLAlchemy
+    db_adapter = get_database_adapter()
+    dishes = db_adapter.get_dishes_by_hotel(hotel_id)
 
     # Parse JSON categories and flatten them
     import json
-
     unique_categories = set()
 
-    for category_tuple in categories:
-        category_str = category_tuple[0]
+    for dish in dishes:
+        category_str = dish.get('category')
         if category_str:
             try:
                 # Try to parse as JSON array
@@ -172,44 +218,35 @@ def get_all_categories(request: Request, db: Session = Depends(get_session_datab
 
     return sorted(list(unique_categories))
 
-    # Parse categories from JSON format and flatten into unique list
-    import json
-
-    unique_categories = set()
-
-    for category_data in categories:
-        category_str = category_data[0]
-        if category_str:
-            try:
-                # Try to parse as JSON array
-                category_list = json.loads(category_str)
-                if isinstance(category_list, list):
-                    unique_categories.update(category_list)
-                else:
-                    unique_categories.add(category_str)
-            except (json.JSONDecodeError, TypeError):
-                # If not JSON, treat as single category (backward compatibility)
-                unique_categories.add(category_str)
-
-    return sorted(list(unique_categories))
-
 
 # Create new category
 @router.post("/api/categories")
 def create_category(
     request: Request,
     category_name: str = Form(...),
-    db: Session = Depends(get_session_database),
 ):
     hotel_id = get_hotel_id_from_request(request)
 
-    # Check if category already exists for this hotel
-    existing_category = (
-        db.query(Dish.category)
-        .filter(Dish.hotel_id == hotel_id, Dish.category == category_name)
-        .first()
-    )
-    if existing_category:
+    # Use database adapter to check if category already exists
+    db_adapter = get_database_adapter()
+    dishes = db_adapter.get_dishes_by_hotel(hotel_id)
+
+    # Check if category already exists
+    import json
+    existing_categories = set()
+    for dish in dishes:
+        category_str = dish.get('category')
+        if category_str:
+            try:
+                category_list = json.loads(category_str)
+                if isinstance(category_list, list):
+                    existing_categories.update(category_list)
+                else:
+                    existing_categories.add(category_str)
+            except (json.JSONDecodeError, TypeError):
+                existing_categories.add(category_str)
+
+    if category_name in existing_categories:
         raise HTTPException(status_code=400, detail="Category already exists")
 
     return {"message": "Category created successfully", "category": category_name}
@@ -235,7 +272,6 @@ async def create_dish(
         1
     ),  # Optional with default: 1 = vegetarian, 0 = non-vegetarian
     image: Optional[UploadFile] = File(None),
-    db: Session = Depends(get_session_database),
 ):
     hotel_id = get_hotel_id_from_request(request)
 
@@ -261,47 +297,57 @@ async def create_dish(
         # Default category if nothing provided
         final_category = json.dumps(["General"])
 
-    # Create dish object
-    db_dish = Dish(
-        hotel_id=hotel_id,
-        name=name,
-        description=description,
-        category=final_category,
-        price=price,
-        quantity=quantity,
-        discount=discount,
-        is_offer=is_offer,
-        is_special=is_special,
-        is_vegetarian=is_vegetarian,
-    )
+    # Use database adapter instead of direct SQLAlchemy
+    db_adapter = get_database_adapter()
 
-    # Save dish to database
-    db.add(db_dish)
-    db.commit()
-    db.refresh(db_dish)
+    # Prepare dish data for database adapter
+    dish_data = {
+        "hotel_id": hotel_id,
+        "name": name,
+        "description": description,
+        "category": final_category,
+        "price": price,
+        "quantity": quantity,
+        "discount": discount,
+        "is_offer": is_offer,
+        "is_special": is_special,
+        "is_vegetarian": is_vegetarian,
+        "visibility": 1,  # New dishes are visible by default
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+
+    # Create dish using database adapter
+    created_dish = db_adapter.create_dish(dish_data)
+    if not created_dish:
+        raise HTTPException(status_code=500, detail="Failed to create dish")
 
     # Handle image upload if provided
     if image:
         # Get hotel info for organizing images
-        from ..database import Hotel
-
-        hotel = db.query(Hotel).filter(Hotel.id == hotel_id).first()
-        hotel_name_for_path = hotel.hotel_name if hotel else f"hotel_{hotel_id}"
+        hotels = db_adapter.get_hotels()
+        hotel = next((h for h in hotels if h.get("id") == hotel_id), None)
+        hotel_name_for_path = hotel.get("hotel_name") if hotel else f"hotel_{hotel_id}"
 
         # Use storage adapter to upload image
         storage_adapter = get_storage_adapter()
         try:
-            image_url = storage_adapter.upload_image(image, hotel_name_for_path, "dishes", db_dish.id)
+            image_url = storage_adapter.upload_image(image, hotel_name_for_path, "dishes", created_dish.get("id"))
+            print(f"Image uploaded successfully: {image_url}")
 
-            # Update dish with image path
-            db_dish.image_path = image_url
-            db.commit()
-            db.refresh(db_dish)
+            # Update dish with image path using database adapter
+            updated_dish = db_adapter.update_dish(created_dish.get("id"), hotel_id, {
+                "image_path": image_url,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            })
+
+            if updated_dish:
+                created_dish = updated_dish
         except Exception as e:
             print(f"Error uploading image: {e}")
             # Continue without image if upload fails
 
-    return db_dish
+    return created_dish
 
 
 # Update dish
@@ -321,22 +367,30 @@ async def update_dish(
     is_special: Optional[int] = Form(None),  # Whether this dish is today's special
     is_vegetarian: Optional[int] = Form(None),  # 1 = vegetarian, 0 = non-vegetarian
     image: Optional[UploadFile] = File(None),
-    db: Session = Depends(get_session_database),
 ):
     hotel_id = get_hotel_id_from_request(request)
 
-    # Get existing dish for this hotel
-    db_dish = (
-        db.query(Dish).filter(Dish.hotel_id == hotel_id, Dish.id == dish_id).first()
-    )
-    if db_dish is None:
+    # Use database adapter instead of direct SQLAlchemy
+    db_adapter = get_database_adapter()
+
+    # Get existing dish to verify it exists
+    dishes = db_adapter.get_dishes_by_hotel(hotel_id)
+    existing_dish = None
+    for dish in dishes:
+        if dish.get('id') == dish_id:
+            existing_dish = dish
+            break
+
+    if not existing_dish:
         raise HTTPException(status_code=404, detail="Dish not found")
 
-    # Update fields if provided
+    # Prepare update data
+    update_data = {}
+
     if name:
-        db_dish.name = name
+        update_data["name"] = name
     if description:
-        db_dish.description = description
+        update_data["description"] = description
 
     # Handle categories - support both single and multiple categories
     import json
@@ -345,77 +399,87 @@ async def update_dish(
         # Multiple categories provided as JSON array
         try:
             category_list = json.loads(categories)
-            db_dish.category = json.dumps(category_list)
+            update_data["category"] = json.dumps(category_list)
         except json.JSONDecodeError:
-            db_dish.category = json.dumps([categories])
+            update_data["category"] = json.dumps([categories])
     elif new_category:  # Use new category if provided
-        db_dish.category = json.dumps([new_category])
+        update_data["category"] = json.dumps([new_category])
     elif category:
-        db_dish.category = json.dumps([category])
+        update_data["category"] = json.dumps([category])
 
-    if price:
-        db_dish.price = price
+    if price is not None:
+        update_data["price"] = price
     if quantity is not None:  # Allow 0 quantity
-        db_dish.quantity = quantity
+        update_data["quantity"] = quantity
     if discount is not None:
-        db_dish.discount = discount
+        update_data["discount"] = discount
     if is_offer is not None:
-        db_dish.is_offer = is_offer
+        update_data["is_offer"] = is_offer
     if is_special is not None:
-        db_dish.is_special = is_special
+        update_data["is_special"] = is_special
     if is_vegetarian is not None:
-        db_dish.is_vegetarian = is_vegetarian
+        update_data["is_vegetarian"] = is_vegetarian
 
     # Handle image upload if provided
     if image:
         # Get hotel info for organizing images
-        from ..database import Hotel
-        hotel = db.query(Hotel).filter(Hotel.id == hotel_id).first()
-        hotel_name_for_path = hotel.hotel_name if hotel else f"hotel_{hotel_id}"
+        hotels = db_adapter.get_hotels()
+        hotel = next((h for h in hotels if h.get("id") == hotel_id), None)
+        hotel_name_for_path = hotel.get("hotel_name") if hotel else f"hotel_{hotel_id}"
 
         # Use storage adapter to upload image
         storage_adapter = get_storage_adapter()
         try:
             # Delete old image if it exists
-            if db_dish.image_path:
-                storage_adapter.delete_image(db_dish.image_path)
+            if existing_dish.get("image_path"):
+                storage_adapter.delete_image(existing_dish["image_path"])
 
             # Upload new image
-            image_url = storage_adapter.upload_image(image, hotel_name_for_path, "dishes", db_dish.id)
-            db_dish.image_path = image_url
+            image_url = storage_adapter.upload_image(image, hotel_name_for_path, "dishes", dish_id)
+            update_data["image_path"] = image_url
         except Exception as e:
             print(f"Error uploading image: {e}")
             # Continue without updating image if upload fails
 
-    # Update timestamp
-    db_dish.updated_at = datetime.now(timezone.utc)
+    # Add timestamp
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
 
-    # Save changes
-    db.commit()
-    db.refresh(db_dish)
+    # Update dish using database adapter
+    updated_dish = db_adapter.update_dish(dish_id, hotel_id, update_data)
 
-    return db_dish
+    if not updated_dish:
+        raise HTTPException(status_code=500, detail="Failed to update dish")
+
+    return updated_dish
 
 
 # Soft delete dish (set visibility to 0)
 @router.delete("/api/dishes/{dish_id}")
-def delete_dish(
-    dish_id: int, request: Request, db: Session = Depends(get_session_database)
-):
+def delete_dish(dish_id: int, request: Request):
     hotel_id = get_hotel_id_from_request(request)
 
-    db_dish = (
-        db.query(Dish)
-        .filter(Dish.hotel_id == hotel_id, Dish.id == dish_id, Dish.visibility == 1)
-        .first()
-    )
-    if db_dish is None:
+    # Use database adapter instead of direct SQLAlchemy
+    db_adapter = get_database_adapter()
+
+    # Get the dish to verify it exists and is visible
+    dishes = db_adapter.get_dishes_by_hotel(hotel_id)
+    dish_to_delete = None
+    for dish in dishes:
+        if dish.get('id') == dish_id and dish.get('visibility', 1) == 1:
+            dish_to_delete = dish
+            break
+
+    if dish_to_delete is None:
         raise HTTPException(status_code=404, detail="Dish not found")
 
     # Soft delete: set visibility to 0 instead of actually deleting
-    db_dish.visibility = 0
-    db_dish.updated_at = datetime.now(timezone.utc)
-    db.commit()
+    updated_dish = db_adapter.update_dish(dish_id, hotel_id, {
+        'visibility': 0,
+        'updated_at': datetime.now(timezone.utc).isoformat()
+    })
+
+    if not updated_dish:
+        raise HTTPException(status_code=500, detail="Failed to delete dish")
 
     return {"message": "Dish deleted successfully"}
 

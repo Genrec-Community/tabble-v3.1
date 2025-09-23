@@ -6,6 +6,7 @@ import shutil
 import csv
 from datetime import datetime, timezone
 from ..storage_adapter import get_storage_adapter
+from ..database_adapter import get_database_adapter
 
 from ..database import (
     get_db, Settings, Hotel, switch_database, get_current_database,
@@ -31,19 +32,20 @@ def get_session_database(request: Request):
 
 # Get available hotels from database
 @router.get("/hotels", response_model=DatabaseList)
-def get_hotels(db: Session = Depends(get_db)):
+def get_hotels():
     try:
-        # Get all hotels from database
-        hotels = db.query(Hotel).all()
+        # Get all hotels from database using the database adapter
+        db_adapter = get_database_adapter()
+        hotels = db_adapter.get_hotels()
 
         hotel_list = []
         for hotel in hotels:
             hotel_list.append(DatabaseEntry(
-                database_name=hotel.hotel_name,
+                database_name=hotel['hotel_name'],
                 password="********"  # Don't expose actual passwords
             ))
 
-        return {"databases": [{"database_name": hotel.database_name, "password": hotel.password} for hotel in hotel_list]}
+        return {"databases": hotel_list}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error reading hotel configuration: {str(e)}")
 
@@ -60,11 +62,12 @@ def get_current_hotel(request: Request):
     session_id = get_session_id(request)
     hotel_id = get_session_hotel_id(session_id)
     if hotel_id:
-        # Get hotel name from database
-        db = next(get_session_database(request))
-        hotel = db.query(Hotel).filter(Hotel.id == hotel_id).first()
+        # Get hotel name from database using database adapter
+        db_adapter = get_database_adapter()
+        hotels = db_adapter.get_hotels()
+        hotel = next((h for h in hotels if h.get("id") == hotel_id), None)
         if hotel:
-            return {"hotel_name": hotel.hotel_name, "hotel_id": hotel.id}
+            return {"hotel_name": hotel.get("hotel_name"), "hotel_id": hotel.get("id")}
     return {"hotel_name": None, "hotel_id": None}
 
 
@@ -81,8 +84,9 @@ def select_hotel(request_data: DatabaseSelectRequest, request: Request):
     try:
         session_id = get_session_id(request)
 
-        # Authenticate hotel using hotel_name and password
-        hotel_id = authenticate_hotel_session(request_data.database_name, request_data.password)
+        # Authenticate hotel using database adapter
+        db_adapter = get_database_adapter()
+        hotel_id = db_adapter.authenticate_hotel(request_data.database_name, request_data.password)
 
         if hotel_id:
             # Set hotel context for this session
