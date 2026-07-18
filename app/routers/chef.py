@@ -1,18 +1,74 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
+from sqlalchemy.orm import sessionmaker
 from typing import List
 from datetime import datetime, timezone
+from pydantic import BaseModel
 
-from ..database import get_db, Dish, Order, OrderItem, get_session_db, get_hotel_id_from_request
+from ..database import get_db, Dish, Order, OrderItem, get_session_db, get_hotel_id_from_request, engine, Hotel, ChefAccount, db_manager
 from ..models.dish import Dish as DishModel
 from ..models.order import Order as OrderModel
 from ..middleware import get_session_id
+from ..firebase_config import verify_firebase_token
+
+
+class ChefGoogleAuthRequest(BaseModel):
+    id_token: str
 
 router = APIRouter(
     prefix="/chef",
     tags=["chef"],
     responses={404: {"description": "Not found"}},
 )
+
+
+# Chef Google Sign-In — no hotel headers required, Gmail identifies the hotel
+@router.post("/auth/google")
+def chef_google_auth(payload: ChefGoogleAuthRequest, request: Request):
+    try:
+        claims = verify_firebase_token(payload.id_token)
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+
+    gmail = claims.get("email", "").lower()
+    display_name = claims.get("name", "") or gmail
+
+    # Look up chef account by Gmail (across all hotels)
+    Session = sessionmaker(bind=engine)
+    db = Session()
+    try:
+        chef = db.query(ChefAccount).filter(
+            ChefAccount.gmail == gmail,
+            ChefAccount.is_active == True,
+        ).first()
+
+        if not chef:
+            raise HTTPException(
+                status_code=401,
+                detail="Your Google account is not registered as a chef for any hotel. Ask your hotel admin to add your Gmail."
+            )
+
+        hotel = db.query(Hotel).filter(Hotel.id == chef.hotel_id).first()
+        if not hotel:
+            raise HTTPException(status_code=404, detail="Hotel not found")
+
+        # Update display name if changed
+        if chef.display_name != display_name:
+            chef.display_name = display_name
+            db.commit()
+
+        # Set hotel context for this session
+        session_id = get_session_id(request)
+        db_manager.set_hotel_context(session_id, chef.hotel_id)
+
+        return {
+            "hotel_id": chef.hotel_id,
+            "hotel_name": hotel.hotel_name,
+            "display_name": display_name,
+            "gmail": gmail,
+        }
+    finally:
+        db.close()
 
 
 # Dependency to get session-aware database

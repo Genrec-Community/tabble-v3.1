@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, R
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
+from pydantic import BaseModel
 import os
 import shutil
 from datetime import datetime, timezone
@@ -16,6 +17,7 @@ from ..database import (
     OrderItem,
     Person,
     Settings,
+    ChefAccount,
     get_session_db,
     get_session_current_database,
     get_hotel_id_from_request,
@@ -62,7 +64,7 @@ def get_all_orders(
             )
             if person:
                 # Add person information to the order
-                order.person_name = person.username
+                order.person_name = person.display_name or person.username or person.email or 'Guest'
                 order.visit_count = person.visit_count
 
         # Load dish information for each order item
@@ -545,7 +547,7 @@ def generate_bill(
     if db_order.person_id:
         person = db.query(Person).filter(Person.id == db_order.person_id).first()
         if person:
-            db_order.person_name = person.username
+            db_order.person_name = person.display_name or person.username or person.email or 'Guest'
 
     # Load dish information for each order item
     for item in db_order.items:
@@ -605,7 +607,7 @@ def generate_multi_bill(
         if db_order.person_id:
             person = db.query(Person).filter(Person.id == db_order.person_id).first()
             if person:
-                db_order.person_name = person.username
+                db_order.person_name = person.display_name or person.username or person.email or 'Guest'
 
         # Load dish information for each order item
         for item in db_order.items:
@@ -727,7 +729,7 @@ def get_completed_orders_for_billing(
             person = db.query(Person).filter(Person.id == order.person_id).first()
             if person:
                 # Add person information to the order
-                order.person_name = person.username
+                order.person_name = person.display_name or person.username or person.email or 'Guest'
                 order.visit_count = person.visit_count
 
         # Load dish information for each order item
@@ -738,3 +740,77 @@ def get_completed_orders_for_billing(
                     item.dish = dish
 
     return orders
+
+
+# ── Chef Account Management ──────────────────────────────────────────────────
+
+class ChefCreateRequest(BaseModel):
+    gmail: str
+    display_name: Optional[str] = None
+
+
+@router.get("/chefs")
+def list_chefs(request: Request, db: Session = Depends(get_session_database)):
+    hotel_id = get_hotel_id_from_request(request)
+    chefs = db.query(ChefAccount).filter(ChefAccount.hotel_id == hotel_id).all()
+    return [
+        {
+            "id": c.id,
+            "gmail": c.gmail,
+            "display_name": c.display_name,
+            "is_active": c.is_active,
+            "created_at": c.created_at,
+        }
+        for c in chefs
+    ]
+
+
+@router.post("/chefs")
+def add_chef(payload: ChefCreateRequest, request: Request, db: Session = Depends(get_session_database)):
+    hotel_id = get_hotel_id_from_request(request)
+    gmail = payload.gmail.lower().strip()
+
+    existing = db.query(ChefAccount).filter(
+        ChefAccount.hotel_id == hotel_id,
+        ChefAccount.gmail == gmail,
+    ).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="This Gmail is already registered as a chef for this hotel")
+
+    chef = ChefAccount(
+        hotel_id=hotel_id,
+        gmail=gmail,
+        display_name=payload.display_name or gmail.split("@")[0],
+        is_active=True,
+        created_at=datetime.now(timezone.utc),
+    )
+    db.add(chef)
+    db.commit()
+    db.refresh(chef)
+    return {"id": chef.id, "gmail": chef.gmail, "display_name": chef.display_name, "is_active": chef.is_active}
+
+
+@router.put("/chefs/{chef_id}/toggle")
+def toggle_chef(chef_id: int, request: Request, db: Session = Depends(get_session_database)):
+    hotel_id = get_hotel_id_from_request(request)
+    chef = db.query(ChefAccount).filter(
+        ChefAccount.id == chef_id, ChefAccount.hotel_id == hotel_id
+    ).first()
+    if not chef:
+        raise HTTPException(status_code=404, detail="Chef not found")
+    chef.is_active = not chef.is_active
+    db.commit()
+    return {"id": chef.id, "gmail": chef.gmail, "is_active": chef.is_active}
+
+
+@router.delete("/chefs/{chef_id}")
+def remove_chef(chef_id: int, request: Request, db: Session = Depends(get_session_database)):
+    hotel_id = get_hotel_id_from_request(request)
+    chef = db.query(ChefAccount).filter(
+        ChefAccount.id == chef_id, ChefAccount.hotel_id == hotel_id
+    ).first()
+    if not chef:
+        raise HTTPException(status_code=404, detail="Chef not found")
+    db.delete(chef)
+    db.commit()
+    return {"message": f"Chef {chef.gmail} removed"}

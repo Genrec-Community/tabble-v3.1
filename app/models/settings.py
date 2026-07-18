@@ -10,6 +10,7 @@ class SettingsBase(BaseModel):
     email: Optional[str] = None
     tax_id: Optional[str] = None
     logo_path: Optional[str] = None
+    show_prices: bool = True
 
 
 class SettingsCreate(SettingsBase):
@@ -23,6 +24,7 @@ class SettingsUpdate(BaseModel):
     email: Optional[str] = None
     tax_id: Optional[str] = None
     logo_path: Optional[str] = None
+    show_prices: Optional[bool] = None
 
 
 class Settings(SettingsBase):
@@ -31,4 +33,4 @@ class Settings(SettingsBase):
     updated_at: datetime
 
     class Config:
-        from_attributes = True  # Updated from orm_mode for Pydantic V2
+        from_attributes = True

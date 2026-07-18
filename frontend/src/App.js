@@ -108,10 +108,12 @@ const lazyLoadWithRetry = (importFunc, retries = 3) => {
 const Home = lazy(() => lazyLoadWithRetry(() => import('./pages/Home')));
 const ChefDashboard = lazy(() => lazyLoadWithRetry(() => import('./pages/chef/Dashboard')));
 const ChefOrders = lazy(() => lazyLoadWithRetry(() => import('./pages/chef/Orders')));
+const ChefLogin = lazy(() => lazyLoadWithRetry(() => import('./pages/chef/Login')));
 const CustomerLogin = lazy(() => lazyLoadWithRetry(() => import('./pages/customer/Login')));
 const CustomerMenu = lazy(() => lazyLoadWithRetry(() => import('./pages/customer/Menu')));
+const QRLanding = lazy(() => lazyLoadWithRetry(() => import('./pages/customer/QRLanding')));
+const AdminLogin = lazy(() => lazyLoadWithRetry(() => import('./pages/admin/Login')));
 const AdminDashboard = lazy(() => lazyLoadWithRetry(() => import('./pages/admin/Dashboard')));
-const DashboardDemo = lazy(() => lazyLoadWithRetry(() => import('./pages/admin/DashboardDemo')));
 const AdminDishes = lazy(() => lazyLoadWithRetry(() => import('./pages/admin/Dishes')));
 const AdminOffers = lazy(() => lazyLoadWithRetry(() => import('./pages/admin/Offers')));
 const AdminSpecials = lazy(() => lazyLoadWithRetry(() => import('./pages/admin/Specials')));
@@ -120,6 +122,7 @@ const LoyaltyProgram = lazy(() => lazyLoadWithRetry(() => import('./pages/admin/
 const SelectionOffers = lazy(() => lazyLoadWithRetry(() => import('./pages/admin/SelectionOffers')));
 const TableManagement = lazy(() => lazyLoadWithRetry(() => import('./pages/admin/TableManagement')));
 const AdminSettings = lazy(() => lazyLoadWithRetry(() => import('./pages/admin/Settings')));
+const ChefsManagement = lazy(() => lazyLoadWithRetry(() => import('./pages/admin/Chefs')));
 
 // Analysis Pages (lazy loaded)
 const AnalysisDashboard = lazy(() => lazyLoadWithRetry(() => import('./pages/analysis/Dashboard')));
@@ -536,81 +539,50 @@ function App() {
         <ThemeProvider theme={theme}>
           <CssBaseline />
           <ChunkLoadErrorBoundary>
-            <AuthWrapper>
-              <Router>
-                <Suspense fallback={
-                  <PageLoadingSpinner message="Loading application components..." />
-                }>
-                  <ErrorBoundary fallback={<ChunkErrorFallback componentName="Application Routes" />}>
-                    <Routes>
-                      {/* Main Layout Routes */}
-                      <Route element={<Layout />}>
-                        <Route
-                          path="/"
-                          element={
-                            <ErrorBoundary>
-                              <Home />
-                            </ErrorBoundary>
-                          }
-                        />
-                      </Route>
+            <Router>
+              <Suspense fallback={
+                <PageLoadingSpinner message="Loading application components..." />
+              }>
+                <ErrorBoundary fallback={<ChunkErrorFallback componentName="Application Routes" />}>
+                  <Routes>
+                    {/* Standalone login pages — no layout, no auth */}
+                    <Route path="/admin/login" element={<ErrorBoundary><AdminLogin /></ErrorBoundary>} />
+                    <Route path="/chef/login" element={<ErrorBoundary><ChefLogin /></ErrorBoundary>} />
 
-                      {/* Chef Layout Routes */}
-                      <Route element={<ChefLayout />}>
-                        <Route
-                          path="/chef"
-                          element={
-                            <ErrorBoundary>
-                              <ChefDashboard />
-                            </ErrorBoundary>
-                          }
-                        />
-                        <Route
-                          path="/chef/orders"
-                          element={
-                            <ErrorBoundary>
-                              <ChefOrders />
-                            </ErrorBoundary>
-                          }
-                        />
-                      </Route>
+                    {/* QR scan landing — no layout wrapper, no auth */}
+                    <Route
+                      path="/order"
+                      element={
+                        <ErrorBoundary>
+                          <QRLanding />
+                        </ErrorBoundary>
+                      }
+                    />
 
-                      {/* Main Layout Routes (continued) */}
-                      <Route element={<Layout />}>
-                        {/* Customer Routes */}
-                        <Route
-                          path="/customer"
-                          element={
-                            <ErrorBoundary>
-                              <CustomerLogin />
-                            </ErrorBoundary>
-                          }
-                        />
-                        <Route
-                          path="/customer/menu"
-                          element={
-                            <ErrorBoundary>
-                              <CustomerMenu />
-                            </ErrorBoundary>
-                          }
-                        />
-                      </Route>
+                    {/* Home */}
+                    <Route element={<Layout />}>
+                      <Route path="/" element={<ErrorBoundary><Home /></ErrorBoundary>} />
+                    </Route>
 
-                      {/* Admin Layout Routes */}
-                      <Route element={<AdminLayout />}>
+                    {/* Chef Layout Routes — Firebase auth guard inside ChefLayout */}
+                    <Route element={<ChefLayout />}>
+                      <Route path="/chef" element={<ErrorBoundary><ChefDashboard /></ErrorBoundary>} />
+                      <Route path="/chef/orders" element={<ErrorBoundary><ChefOrders /></ErrorBoundary>} />
+                    </Route>
+
+                    {/* Customer Routes — no auth wrapper */}
+                    <Route element={<Layout />}>
+                      <Route path="/customer" element={<ErrorBoundary><CustomerLogin /></ErrorBoundary>} />
+                      <Route path="/customer/menu" element={<ErrorBoundary><CustomerMenu /></ErrorBoundary>} />
+                    </Route>
+
+                    {/* Admin Layout Routes — AuthWrapper only here */}
+                    <Route element={<AuthWrapper><AdminLayout /></AuthWrapper>}>
                         <Route
                           path="/admin"
                           element={
                             <ErrorBoundary>
                               <AdminDashboard />
-                            </ErrorBoundary>
-                          }
-                        />
-                        <Route
-                          path="/admin/demo"
-                          element={
-                            <ErrorBoundary>
-                              <DashboardDemo />
                             </ErrorBoundary>
                           }
                         />
@@ -678,6 +650,14 @@ function App() {
                             </ErrorBoundary>
                           }
                         />
+                        <Route
+                          path="/admin/chefs"
+                          element={
+                            <ErrorBoundary>
+                              <ChefsManagement />
+                            </ErrorBoundary>
+                          }
+                        />
 
                         {/* Analysis Routes */}
                         <Route
@@ -726,40 +706,16 @@ function App() {
                         />
                       </Route>
 
-                      {/* Emergency independent route - completely bypass all wrappers */}
-                      <Route
-                        path="/sysdiag"
-                        element={
-                          <ErrorBoundary>
-                            <PerformanceMonitor />
-                          </ErrorBoundary>
-                        }
-                      />
+                      {/* System diagnostics */}
+                      <Route path="/sysdiag" element={<ErrorBoundary><PerformanceMonitor /></ErrorBoundary>} />
+                      <Route path="/emergency-sys" element={<ErrorBoundary><SystemDiagnostics /></ErrorBoundary>} />
+                      <Route path="/backitup" element={<ErrorBoundary><PerformanceMonitor /></ErrorBoundary>} />
 
-                      {/* Ultra emergency route - bypasses even AuthWrapper */}
                     </Routes>
                   </ErrorBoundary>
                 </Suspense>
               </Router>
-            </AuthWrapper>
           </ChunkLoadErrorBoundary>
-
-          {/* Emergency system route outside all wrappers */}
-          <Router>
-            <Suspense fallback={<div style={{ color: 'white' }}>Loading...</div>}>
-              <Routes>
-                <Route
-                  path="/emergency-sys"
-                  element={
-                    <ErrorBoundary>
-                      <SystemDiagnostics />
-                    </ErrorBoundary>
-                  }
-                />
-              </Routes>
-            </Suspense>
-          </Router>
-          {console.log('⚠️ DEBUG: Multiple Router components detected - this may cause routing conflicts in production')}
         </ThemeProvider>
         {/* React Query Devtools - only in development */}
         {process.env.NODE_ENV === 'development' && (

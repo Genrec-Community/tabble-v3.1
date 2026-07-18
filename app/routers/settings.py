@@ -180,8 +180,6 @@ async def update_settings(
         settings.contact_number = contact_number
         settings.email = email
         settings.tax_id = tax_id
-
-    # Handle logo upload if provided
     if logo:
         # Get hotel info for organizing logos
         hotel = db.query(Hotel).filter(Hotel.id == hotel_id).first()
@@ -208,3 +206,33 @@ async def update_settings(
     db.refresh(settings)
 
     return settings
+
+
+# Toggle show_prices — dedicated lightweight endpoint
+@router.patch("/show-prices")
+def toggle_show_prices(request: Request, db: Session = Depends(get_session_database)):
+    session_id = get_session_id(request)
+    hotel_id = get_session_hotel_id(session_id)
+    if not hotel_id:
+        raise HTTPException(status_code=400, detail="No hotel context set")
+
+    settings = db.query(Settings).filter(Settings.hotel_id == hotel_id).first()
+    if not settings:
+        raise HTTPException(status_code=404, detail="Settings not found")
+
+    settings.show_prices = not settings.show_prices
+    db.commit()
+    return {"show_prices": settings.show_prices}
+
+
+# Public endpoint — customer menu reads this to know whether to show prices
+@router.get("/public/show-prices")
+def public_show_prices(hotel_name: str, db: Session = Depends(get_db)):
+    from ..database import Hotel
+    hotel = db.query(Hotel).filter(Hotel.hotel_name == hotel_name).first()
+    if not hotel:
+        return {"show_prices": True}  # default to showing prices if hotel not found
+    settings = db.query(Settings).filter(Settings.hotel_id == hotel.id).first()
+    if not settings:
+        return {"show_prices": True}
+    return {"show_prices": settings.show_prices}

@@ -172,6 +172,21 @@ class DatabaseManager:
         """Get current database name for session (always Tabble.db)"""
         return self.unified_database
 
+    def authenticate_via_qr_token(self, qr_token: str) -> Optional[int]:
+        """Look up hotel_id from a table's qr_token"""
+        try:
+            from sqlalchemy.orm import sessionmaker as _sm
+            _Session = _sm(bind=engine)
+            db = _Session()
+            table = db.query(Table).filter(Table.qr_token == qr_token).first()
+            db.close()
+            if table:
+                return table.hotel_id
+            return None
+        except Exception as e:
+            print(f"Error authenticating via qr_token: {e}")
+            return None
+
     def authenticate_hotel(self, hotel_name: str, password: str) -> Optional[int]:
         """Authenticate hotel and return hotel_id"""
         try:
@@ -243,6 +258,7 @@ class Hotel(Base):
     loyalty_tiers = relationship("LoyaltyProgram", back_populates="hotel")
     selection_offers = relationship("SelectionOffer", back_populates="hotel")
     otp_requests = relationship("OtpRequest", back_populates="hotel")
+    chef_accounts = relationship("ChefAccount", back_populates="hotel")
 
 
 class Dish(Base):
@@ -283,6 +299,7 @@ class Order(Base):
     id = Column(Integer, primary_key=True, index=True)
     hotel_id = Column(Integer, ForeignKey("hotels.id"), nullable=False, index=True)
     table_number = Column(Integer)
+    slot_number = Column(Integer, default=1)  # 1 or 2 — which slot of the table
     unique_id = Column(String, index=True)
     person_id = Column(Integer, ForeignKey("persons.id"), nullable=True)
     status = Column(String, default="pending")  # pending, accepted, completed, paid
@@ -313,9 +330,14 @@ class Person(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     hotel_id = Column(Integer, ForeignKey("hotels.id"), nullable=False, index=True)
-    username = Column(String, index=True)
-    password = Column(String)
-    phone_number = Column(String, index=True, nullable=True)  # Added phone number field
+    username = Column(String, index=True, nullable=True)
+    password = Column(String, nullable=True)
+    phone_number = Column(String, index=True, nullable=True)
+    # Google identity
+    google_uid = Column(String, nullable=True, index=True)
+    email = Column(String, nullable=True)
+    display_name = Column(String, nullable=True)
+    photo_url = Column(String, nullable=True)
     visit_count = Column(Integer, default=0)
     last_visit = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
@@ -324,6 +346,7 @@ class Person(Base):
     __table_args__ = (
         UniqueConstraint("hotel_id", "username", name="uq_person_hotel_username"),
         UniqueConstraint("hotel_id", "phone_number", name="uq_person_hotel_phone"),
+        UniqueConstraint("hotel_id", "google_uid", name="uq_person_hotel_google_uid"),
     )
 
     # Relationships
@@ -414,13 +437,11 @@ class Table(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     hotel_id = Column(Integer, ForeignKey("hotels.id"), nullable=False, index=True)
-    table_number = Column(Integer)  # Table number
-    is_occupied = Column(
-        Boolean, default=False
-    )  # Whether the table is currently occupied
-    current_order_id = Column(
-        Integer, ForeignKey("orders.id"), nullable=True
-    )  # Current active order
+    table_number = Column(Integer)
+    slot_number = Column(Integer, default=1)  # 1 or 2 — two physical seats/sides per table
+    is_occupied = Column(Boolean, default=False)
+    current_order_id = Column(Integer, ForeignKey("orders.id"), nullable=True)
+    qr_token = Column(String, unique=True, nullable=True, index=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(
         DateTime,
@@ -428,9 +449,9 @@ class Table(Base):
         onupdate=lambda: datetime.now(timezone.utc),
     )
 
-    # Unique constraint per hotel
+    # Unique per hotel + table + slot
     __table_args__ = (
-        UniqueConstraint("hotel_id", "table_number", name="uq_table_hotel_number"),
+        UniqueConstraint("hotel_id", "table_number", "slot_number", name="uq_table_hotel_number_slot"),
     )
 
     # Relationships
@@ -449,6 +470,7 @@ class Settings(Base):
     email = Column(String, nullable=True)
     tax_id = Column(String, nullable=True)
     logo_path = Column(String, nullable=True)
+    show_prices = Column(Boolean, default=True)  # Whether to show prices to customers in the menu
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(
         DateTime,
@@ -476,6 +498,23 @@ class OtpRequest(Base):
     verified = Column(Boolean, default=False)
 
     hotel = relationship("Hotel", back_populates="otp_requests")
+
+
+class ChefAccount(Base):
+    __tablename__ = "chef_accounts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    hotel_id = Column(Integer, ForeignKey("hotels.id"), nullable=False, index=True)
+    gmail = Column(String, nullable=False, index=True)
+    display_name = Column(String, nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (
+        UniqueConstraint("hotel_id", "gmail", name="uq_chef_hotel_gmail"),
+    )
+
+    hotel = relationship("Hotel", back_populates="chef_accounts")
 
 
 # Function to switch database
@@ -516,9 +555,86 @@ def get_current_database():
 
 # Create tables
 def create_tables():
-    # Create all tables (only creates tables that don't exist)
     Base.metadata.create_all(bind=engine)
+    # One-time column migrations
+    migrations = [
+        "ALTER TABLE tables ADD COLUMN qr_token VARCHAR UNIQUE",
+        "ALTER TABLE tables ADD COLUMN slot_number INTEGER DEFAULT 1",
+        "ALTER TABLE orders ADD COLUMN slot_number INTEGER DEFAULT 1",
+        "ALTER TABLE persons ADD COLUMN google_uid VARCHAR",
+        "ALTER TABLE persons ADD COLUMN email VARCHAR",
+        "ALTER TABLE persons ADD COLUMN display_name VARCHAR",
+        "ALTER TABLE persons ADD COLUMN photo_url VARCHAR",
+        "ALTER TABLE settings ADD COLUMN show_prices INTEGER DEFAULT 1",
+    ]
+    try:
+        with engine.connect() as conn:
+            for sql in migrations:
+                try:
+                    conn.execute(__import__('sqlalchemy').text(sql))
+                    conn.commit()
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    # Seed demo hotel if DEMO_MODE is on
+    import os
+    if os.getenv("DEMO_MODE", "true").lower() == "true":
+        _seed_demo_data()
+
     print("Database tables created/verified successfully")
+
+
+def _seed_demo_data():
+    """Insert demo hotel + sample dishes if they don't exist."""
+    import json
+    Session = sessionmaker(bind=engine)
+    db = Session()
+    try:
+        demo_hotel = db.query(Hotel).filter(Hotel.hotel_name == "demo").first()
+        if not demo_hotel:
+            demo_hotel = Hotel(hotel_name="demo", password="demo123", phone_number="9999999999")
+            db.add(demo_hotel)
+            db.commit()
+            db.refresh(demo_hotel)
+            print("[DEMO] Created demo hotel")
+
+        # Seed sample dishes
+        if db.query(Dish).filter(Dish.hotel_id == demo_hotel.id).count() == 0:
+            sample_dishes = [
+                Dish(hotel_id=demo_hotel.id, name="Masala Dosa", description="Crispy dosa with spiced potato filling", category=json.dumps(["South Indian", "Breakfast"]), price=80, is_vegetarian=1, visibility=1),
+                Dish(hotel_id=demo_hotel.id, name="Paneer Butter Masala", description="Rich creamy paneer curry", category=json.dumps(["North Indian", "Main Course"]), price=220, is_vegetarian=1, visibility=1),
+                Dish(hotel_id=demo_hotel.id, name="Chicken Biryani", description="Fragrant basmati rice with spiced chicken", category=json.dumps(["Biryani", "Main Course"]), price=280, is_vegetarian=0, visibility=1),
+                Dish(hotel_id=demo_hotel.id, name="Veg Fried Rice", description="Stir-fried rice with vegetables", category=json.dumps(["Chinese", "Main Course"]), price=150, is_vegetarian=1, visibility=1),
+                Dish(hotel_id=demo_hotel.id, name="Mango Lassi", description="Chilled yogurt mango drink", category=json.dumps(["Beverages"]), price=60, is_vegetarian=1, visibility=1, is_special=1),
+                Dish(hotel_id=demo_hotel.id, name="Gulab Jamun", description="Soft milk solids in sugar syrup", category=json.dumps(["Desserts"]), price=50, is_vegetarian=1, visibility=1, is_offer=1, discount=10),
+            ]
+            for d in sample_dishes:
+                db.add(d)
+            db.commit()
+            print("[DEMO] Seeded sample dishes")
+
+        # Seed 3 demo tables (2 slots each = 6 slot rows)
+        existing_tables = db.query(Table).filter(Table.hotel_id == demo_hotel.id).count()
+        if existing_tables == 0:
+            import uuid as _uuid
+            for t in range(1, 4):
+                for slot in (1, 2):
+                    db.add(Table(
+                        hotel_id=demo_hotel.id,
+                        table_number=t,
+                        slot_number=slot,
+                        is_occupied=False,
+                        qr_token=str(_uuid.uuid4()),
+                    ))
+            db.commit()
+            print("[DEMO] Created 3 demo tables (2 slots each)")
+    except Exception as e:
+        print(f"[DEMO] Seed error: {e}")
+        db.rollback()
+    finally:
+        db.close()
 
 
 # Get database session (legacy)

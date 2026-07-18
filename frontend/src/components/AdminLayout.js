@@ -31,6 +31,7 @@ import ReceiptIcon from '@mui/icons-material/Receipt';
 import TableRestaurantIcon from '@mui/icons-material/TableRestaurant';
 import AnalyticsIcon from '@mui/icons-material/Analytics';
 import SettingsIcon from '@mui/icons-material/Settings';
+import GroupIcon from '@mui/icons-material/Group';
 import MenuIcon from '@mui/icons-material/Menu';
 
 import ExpandLess from '@mui/icons-material/ExpandLess';
@@ -190,6 +191,11 @@ const AdminLayout = () => {
       text: 'Table Management',
       icon: <TableRestaurantIcon />,
       path: '/admin/tables'
+    },
+    {
+      text: 'Chef Accounts',
+      icon: <GroupIcon />,
+      path: '/admin/chefs'
     },
     {
       text: 'Analytics',

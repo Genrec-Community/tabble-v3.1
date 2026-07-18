@@ -33,6 +33,7 @@ class OrderItem(OrderItemBase):
 
 class OrderBase(BaseModel):
     table_number: int
+    slot_number: int = 1
     unique_id: str
 
 

@@ -24,7 +24,8 @@ const MenuItemsGrid = ({
   loading,
   handleOpenDialog,
   categoryColors,
-  theme
+  theme,
+  showPrices = true,
 }) => {
   // Show all dishes without filtering out featured dishes
   const displayDishes = filteredDishes;
@@ -195,9 +196,13 @@ const MenuItemsGrid = ({
                         <Divider sx={{ my: 1, backgroundColor: 'rgba(255, 165, 0, 0.2)' }} />
 
                         <Box display="flex" justifyContent="space-between" alignItems="center" mt={2}>
-                          <Typography variant="h6" fontWeight="bold" color="#FFA500">
-                            ₹{dish.price.toFixed(2)}
-                          </Typography>
+                          {showPrices ? (
+                            <Typography variant="h6" fontWeight="bold" color="#FFA500">
+                              ₹{dish.price.toFixed(2)}
+                            </Typography>
+                          ) : (
+                            <Box />
+                          )}
                           <AddButton
                             variant="contained"
                             startIcon={<AddIcon />}

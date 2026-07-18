@@ -8,6 +8,8 @@ reportlab #==4.0.7
 pillow #==10.1.0
 httpx #==0.25.2
 psutil #==5.9.8
+qrcode[pil]==7.4.2
+firebase-admin==6.5.0
 # Supabase and PostgreSQL dependencies
 supabase==2.8.1
 psycopg2-binary==2.9.9

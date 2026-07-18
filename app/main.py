@@ -20,6 +20,7 @@ from .routers import (
     settings,
     system,
     hotel_auth,
+    public,
 )
 from .middleware import SessionMiddleware
 
@@ -56,6 +57,7 @@ app.include_router(analytics.router)
 app.include_router(settings.router)
 app.include_router(system.router)
 app.include_router(hotel_auth.router)
+app.include_router(public.router)
 
 # Create database tables
 create_tables()

@@ -53,28 +53,33 @@ const api = axios.create({
 
 // Add request interceptor to include database credentials and session ID
 api.interceptors.request.use(
-  (config) => {
-    console.log('🚀 DEBUG: API Request:', {
-      url: config.url,
-      method: config.method,
-      baseURL: config.baseURL,
-      headers: {
-        ...config.headers,
-        'x-hotel-password': config.headers['x-hotel-password'] ? '[REDACTED]' : undefined
-      },
-      timestamp: new Date().toISOString()
-    });
-
+  async (config) => {
     // Always include session ID
     config.headers['x-session-id'] = sessionId;
 
     // Include hotel credentials if available
     const selectedHotel = localStorage.getItem('selectedHotel') || localStorage.getItem('selectedDatabase');
     const hotelPassword = localStorage.getItem('hotelPassword') || localStorage.getItem('databasePassword');
+    const qrToken = localStorage.getItem('customerQrToken');
 
-    if (selectedHotel && hotelPassword) {
+    if (qrToken) {
+      config.headers['x-qr-token'] = qrToken;
+      if (selectedHotel) config.headers['x-hotel-name'] = selectedHotel;
+    } else if (selectedHotel && hotelPassword) {
       config.headers['x-hotel-name'] = selectedHotel;
       config.headers['x-hotel-password'] = hotelPassword;
+    }
+
+    // Attach Firebase ID token if a user is signed in (customer + chef flows)
+    try {
+      const { auth } = await import('../firebase');
+      const user = auth.currentUser;
+      if (user) {
+        const idToken = await user.getIdToken();
+        config.headers['x-firebase-token'] = idToken;
+      }
+    } catch {
+      // Firebase not available or not signed in — skip
     }
 
     return config;
@@ -843,13 +848,22 @@ export const adminService = {
     }
   },
 
-  // Delete a table
+  // Delete a table (by ID)
   deleteTable: async (tableId) => {
     try {
       const response = await api.delete(`/tables/${tableId}`);
       return response.data;
     } catch (error) {
+      throw error;
+    }
+  },
 
+  // Delete all slots of a physical table by table number
+  deleteTableByNumber: async (tableNumber) => {
+    try {
+      const response = await api.delete(`/tables/number/${tableNumber}`);
+      return response.data;
+    } catch (error) {
       throw error;
     }
   },
@@ -867,23 +881,21 @@ export const adminService = {
   },
 
   // Set a table as occupied by table number
-  setTableOccupiedByNumber: async (tableNumber) => {
+  setTableOccupiedByNumber: async (tableNumber, slotNumber = 1) => {
     try {
-      const response = await api.put(`/tables/number/${tableNumber}/occupy`);
+      const response = await api.put(`/tables/number/${tableNumber}/occupy?slot_number=${slotNumber}`);
       return response.data;
     } catch (error) {
-
       throw error;
     }
   },
 
-  // Set a table as free
-  setTableFree: async (tableId) => {
+  // Set a table slot as free by table number + slot
+  setTableFreeByNumber: async (tableNumber, slotNumber = 1) => {
     try {
-      const response = await api.put(`/tables/${tableId}/free`);
+      const response = await api.put(`/tables/number/${tableNumber}/free?slot_number=${slotNumber}`);
       return response.data;
     } catch (error) {
-
       throw error;
     }
   },

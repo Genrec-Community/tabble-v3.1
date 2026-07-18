@@ -51,10 +51,12 @@ class SessionMiddleware(BaseHTTPMiddleware):
             '/settings/current-hotel'
         ]
 
-        # Skip validation for admin and chef routes - they handle their own database selection
+        # Skip validation for admin, chef auth, and public routes
         skip_validation_paths = [
             '/admin/',
-            '/chef/'
+            '/chef/auth/',
+            '/public/',
+            '/settings/public/',
         ]
 
         # Check if path should skip validation
@@ -71,45 +73,54 @@ class SessionMiddleware(BaseHTTPMiddleware):
             # Check if session has a valid hotel context
             current_hotel_id = db_manager.get_current_hotel_id(session_id)
             if not current_hotel_id:
-                # Check if there's stored hotel credentials in headers
-                stored_hotel_name = request.headers.get('x-hotel-name')
-                stored_password = request.headers.get('x-hotel-password')
-
-                if stored_hotel_name and stored_password:
-                    # Try to verify and set hotel context
-                    try:
-                        # Authenticate hotel using the database manager
-                        hotel_id = db_manager.authenticate_hotel(stored_hotel_name, stored_password)
-
-                        if hotel_id:
-                            # Valid credentials, set hotel context
-                            db_manager.set_hotel_context(session_id, hotel_id)
-                        else:
-                            # Invalid credentials
-                            return JSONResponse(
-                                status_code=401,
-                                content={
-                                    "detail": "Invalid hotel credentials",
-                                    "error_code": "HOTEL_AUTH_FAILED"
-                                }
-                            )
-                    except Exception as e:
+                # Try QR token auth first
+                qr_token = request.headers.get('x-qr-token')
+                if qr_token:
+                    hotel_id = db_manager.authenticate_via_qr_token(qr_token)
+                    if hotel_id:
+                        db_manager.set_hotel_context(session_id, hotel_id)
+                    else:
                         return JSONResponse(
-                            status_code=500,
+                            status_code=401,
                             content={
-                                "detail": f"Hotel authentication failed: {str(e)}",
-                                "error_code": "HOTEL_VERIFICATION_ERROR"
+                                "detail": "Invalid QR token",
+                                "error_code": "QR_AUTH_FAILED"
                             }
                         )
                 else:
-                    # No hotel selected
-                    return JSONResponse(
-                        status_code=400,
-                        content={
-                            "detail": "No hotel selected. Please select a hotel first.",
-                            "error_code": "HOTEL_NOT_SELECTED"
-                        }
-                    )
+                    # Fall back to hotel name/password headers
+                    stored_hotel_name = request.headers.get('x-hotel-name')
+                    stored_password = request.headers.get('x-hotel-password')
+
+                    if stored_hotel_name and stored_password:
+                        try:
+                            hotel_id = db_manager.authenticate_hotel(stored_hotel_name, stored_password)
+                            if hotel_id:
+                                db_manager.set_hotel_context(session_id, hotel_id)
+                            else:
+                                return JSONResponse(
+                                    status_code=401,
+                                    content={
+                                        "detail": "Invalid hotel credentials",
+                                        "error_code": "HOTEL_AUTH_FAILED"
+                                    }
+                                )
+                        except Exception as e:
+                            return JSONResponse(
+                                status_code=500,
+                                content={
+                                    "detail": f"Hotel authentication failed: {str(e)}",
+                                    "error_code": "HOTEL_VERIFICATION_ERROR"
+                                }
+                            )
+                    else:
+                        return JSONResponse(
+                            status_code=400,
+                            content={
+                                "detail": "No hotel selected. Please select a hotel first.",
+                                "error_code": "HOTEL_NOT_SELECTED"
+                            }
+                        )
         
         # Process the request
         response = await call_next(request)

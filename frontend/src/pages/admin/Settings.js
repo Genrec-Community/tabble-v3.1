@@ -22,7 +22,9 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  FormHelperText
+  FormHelperText,
+  Switch,
+  FormControlLabel,
 } from '@mui/material';
 import SettingsIcon from '@mui/icons-material/Settings';
 import SaveIcon from '@mui/icons-material/Save';
@@ -33,7 +35,9 @@ import EmailIcon from '@mui/icons-material/Email';
 import ReceiptIcon from '@mui/icons-material/Receipt';
 import DatabaseIcon from '@mui/icons-material/Storage';
 import LockIcon from '@mui/icons-material/Lock';
+import VisibilityIcon from '@mui/icons-material/Visibility';
 import { adminService } from '../../services/api';
+import api from '../../services/api';
 
 const AdminSettings = () => {
   // State
@@ -43,10 +47,12 @@ const AdminSettings = () => {
     contact_number: '',
     email: '',
     tax_id: '',
-    logo_path: null
+    logo_path: null,
+    show_prices: true,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [togglingPrices, setTogglingPrices] = useState(false);
   const [logoFile, setLogoFile] = useState(null);
   const [logoPreview, setLogoPreview] = useState(null);
   const [snackbar, setSnackbar] = useState({
@@ -86,21 +92,32 @@ const AdminSettings = () => {
     try {
       setLoading(true);
       const data = await adminService.getSettings();
-      setSettings(data);
-
-      // Set logo preview if available
-      if (data.logo_path) {
-        setLogoPreview(data.logo_path);
-      }
+      setSettings(prev => ({ ...prev, ...data }));
+      if (data.logo_path) setLogoPreview(data.logo_path);
     } catch (error) {
-      console.error('Error fetching settings:', error);
-      setSnackbar({
-        open: true,
-        message: 'Error loading settings',
-        severity: 'error'
-      });
+      setSnackbar({ open: true, message: 'Error loading settings', severity: 'error' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Toggle show_prices instantly without full save
+  const handleToggleShowPrices = async () => {
+    setTogglingPrices(true);
+    try {
+      const res = await api.patch('/settings/show-prices');
+      setSettings(prev => ({ ...prev, show_prices: res.data.show_prices }));
+      setSnackbar({
+        open: true,
+        message: res.data.show_prices
+          ? 'Prices are now visible on the customer menu'
+          : 'Prices are now hidden from the customer menu',
+        severity: 'success',
+      });
+    } catch {
+      setSnackbar({ open: true, message: 'Failed to update price visibility', severity: 'error' });
+    } finally {
+      setTogglingPrices(false);
     }
   };
 
@@ -450,6 +467,42 @@ const AdminSettings = () => {
                 >
                   {saving ? 'Saving...' : 'Save Settings'}
                 </Button>
+              </Box>
+            </Paper>
+
+            {/* Price Visibility Toggle — standalone card */}
+            <Paper sx={{ p: 3, borderRadius: '16px', mt: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
+              <Box display="flex" alignItems="center" mb={1} gap={1}>
+                <VisibilityIcon fontSize="small" sx={{ color: 'primary.main' }} />
+                <Typography variant="h6" fontWeight="bold">Customer Menu Pricing</Typography>
+              </Box>
+              <Divider sx={{ mb: 2 }} />
+              <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={2}>
+                <Box>
+                  <Typography variant="body1" fontWeight={500}>
+                    Show prices on the menu
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, maxWidth: 420 }}>
+                    {settings.show_prices
+                      ? 'Prices are currently visible to customers while browsing. Turn off to hide prices — customers will only see the total on their bill.'
+                      : 'Prices are currently hidden from the menu. Customers will only see the amount when the bill is generated.'}
+                  </Typography>
+                </Box>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={!!settings.show_prices}
+                      onChange={handleToggleShowPrices}
+                      disabled={togglingPrices}
+                      color="primary"
+                    />
+                  }
+                  label={
+                    togglingPrices
+                      ? 'Updating...'
+                      : settings.show_prices ? 'Prices visible' : 'Prices hidden'
+                  }
+                />
               </Box>
             </Paper>
           </Grid>

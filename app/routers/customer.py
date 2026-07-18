@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Dict, Any
 import uuid
 from datetime import datetime, timezone, timedelta
+from pydantic import BaseModel
 
 from ..database import get_db, Dish, Order, OrderItem, Person, get_session_db, get_hotel_id_from_request
 from ..models.dish import Dish as DishModel
@@ -17,6 +18,13 @@ from ..models.user import (
 )
 from ..services import otp_service
 from ..middleware import get_session_id
+from ..firebase_config import verify_firebase_token
+
+
+class GoogleAuthRequest(BaseModel):
+    id_token: str
+    table_number: int
+    slot_number: int = 1
 
 router = APIRouter(
     prefix="/customer",
@@ -198,25 +206,21 @@ def create_order(
 
     # If person_id is not provided but we have a username/password, try to find or create the user
     if not person_id and hasattr(order, "username") and hasattr(order, "password"):
-        # Check if user exists for this hotel
         db_user = db.query(Person).filter(
             Person.hotel_id == hotel_id,
             Person.username == order.username
         ).first()
-
         if db_user:
-            # Update existing user's visit count
-            db_user.visit_count += 1
+            # Just update last_visit — visit_count increments only on payment
             db_user.last_visit = datetime.now(timezone.utc)
             db.commit()
             person_id = db_user.id
         else:
-            # Create new user (visit count starts at 1 since they're placing their first order)
             db_user = Person(
                 hotel_id=hotel_id,
                 username=order.username,
                 password=order.password,
-                visit_count=1,
+                visit_count=0,
                 last_visit=datetime.now(timezone.utc),
             )
             db.add(db_user)
@@ -224,13 +228,12 @@ def create_order(
             db.refresh(db_user)
             person_id = db_user.id
     elif person_id:
-        # If person_id is provided (normal flow), increment visit count for that user
+        # Just update last_visit — visit_count increments only on payment
         db_user = db.query(Person).filter(
             Person.hotel_id == hotel_id,
             Person.id == person_id
         ).first()
         if db_user:
-            db_user.visit_count += 1
             db_user.last_visit = datetime.now(timezone.utc)
             db.commit()
 
@@ -238,20 +241,22 @@ def create_order(
     db_order = Order(
         hotel_id=hotel_id,
         table_number=order.table_number,
+        slot_number=order.slot_number,
         unique_id=order.unique_id,
-        person_id=person_id,  # Link order to person if provided
+        person_id=person_id,
         status="pending",
     )
     db.add(db_order)
     db.commit()
     db.refresh(db_order)
 
-    # Mark the table as occupied
+    # Mark the slot as occupied
     from ..database import Table
 
     db_table = db.query(Table).filter(
         Table.hotel_id == hotel_id,
-        Table.table_number == order.table_number
+        Table.table_number == order.table_number,
+        Table.slot_number == order.slot_number,
     ).first()
     if db_table:
         db_table.is_occupied = True
@@ -428,23 +433,35 @@ def request_payment(order_id: int, request: Request, db: Session = Depends(get_s
         db_order.total_amount = final_total
         db_order.updated_at = datetime.now(timezone.utc)
 
-        # Check if this is the last unpaid order for this table
+        # Increment visit count on payment — anti-fraud: only counts completed payments
+        if db_order.person_id:
+            person = db.query(Person).filter(Person.id == db_order.person_id).first()
+            if person:
+                person.visit_count += 1
+                person.last_visit = datetime.now(timezone.utc)
+
+        # Free the specific slot (table_number + slot_number) when payment is made
         from ..database import Table
 
-        # Get all orders for this table that are not paid
-        table_unpaid_orders = db.query(Order).filter(
+        unpaid_slot_orders = db.query(Order).filter(
+            Order.hotel_id == hotel_id,
             Order.table_number == db_order.table_number,
+            Order.slot_number == db_order.slot_number,
             Order.status != "paid",
-            Order.status != "cancelled"
-        ).all()
+            Order.status != "cancelled",
+            Order.id != order_id,
+        ).count()
 
-        # If this is the only unpaid order, mark table as free
-        if len(table_unpaid_orders) == 1 and table_unpaid_orders[0].id == order_id:
-            db_table = db.query(Table).filter(Table.table_number == db_order.table_number).first()
-            if db_table:
-                db_table.is_occupied = False
-                db_table.current_order_id = None
-                db_table.updated_at = datetime.now(timezone.utc)
+        if unpaid_slot_orders == 0:
+            db_slot = db.query(Table).filter(
+                Table.hotel_id == hotel_id,
+                Table.table_number == db_order.table_number,
+                Table.slot_number == db_order.slot_number,
+            ).first()
+            if db_slot:
+                db_slot.is_occupied = False
+                db_slot.current_order_id = None
+                db_slot.updated_at = datetime.now(timezone.utc)
 
         # Commit the transaction
         db.commit()
@@ -510,6 +527,62 @@ def get_person(person_id: int, request: Request, db: Session = Depends(get_sessi
     person = db.query(Person).filter(Person.id == person_id).first()
     if not person:
         raise HTTPException(status_code=404, detail="Person not found")
+    return person
+
+
+# Google Sign-In for customers
+@router.post("/api/auth/google")
+def google_auth(payload: GoogleAuthRequest, request: Request, db: Session = Depends(get_session_database)):
+    hotel_id = get_hotel_id_from_request(request)
+
+    try:
+        claims = verify_firebase_token(payload.id_token)
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+
+    google_uid = claims["uid"]
+    email = claims.get("email", "")
+    display_name = claims.get("name", "") or email.split("@")[0]
+    photo_url = claims.get("picture", "")
+
+    # Find existing person by google_uid for this hotel
+    person = db.query(Person).filter(
+        Person.hotel_id == hotel_id,
+        Person.google_uid == google_uid
+    ).first()
+
+    is_new_user = False
+    if not person:
+        is_new_user = True
+        person = Person(
+            hotel_id=hotel_id,
+            google_uid=google_uid,
+            email=email,
+            display_name=display_name,
+            username=display_name,
+            photo_url=photo_url,
+            visit_count=0,
+            last_visit=datetime.now(timezone.utc),
+        )
+        db.add(person)
+    else:
+        # Update profile info in case it changed in Google
+        person.display_name = display_name
+        person.email = email
+        person.photo_url = photo_url
+        person.last_visit = datetime.now(timezone.utc)
+
+    db.commit()
+    db.refresh(person)
+
+    return {
+        "user_id": person.id,
+        "display_name": person.display_name,
+        "email": person.email,
+        "photo_url": person.photo_url,
+        "visit_count": person.visit_count,
+        "is_new_user": is_new_user,
+    }
     return person
 
 

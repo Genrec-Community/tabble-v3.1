@@ -103,52 +103,11 @@ const AuthWrapper = ({ children }) => {
   }
 
   if (!isAuthenticated || showSelector) {
-    return (
-      <Box
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-        minHeight="100vh"
-        sx={{
-          background: 'linear-gradient(135deg, #121212 0%, #1e1e1e 100%)',
-          backgroundImage: `
-            radial-gradient(circle at 20% 80%, rgba(255, 165, 0, 0.1) 0%, transparent 50%),
-            radial-gradient(circle at 80% 20%, rgba(255, 165, 0, 0.1) 0%, transparent 50%)
-          `,
-        }}
-      >
-        <Box sx={{ width: '100%', maxWidth: 500, px: 2 }}>
-          <Paper
-            elevation={3}
-            sx={{
-              p: 4,
-              mb: 4,
-              textAlign: 'center',
-              backgroundColor: 'rgba(18, 18, 18, 0.9)',
-              border: '2px solid rgba(255, 165, 0, 0.3)',
-              borderRadius: 2,
-            }}
-          >
-            <Typography variant="h4" color="primary" gutterBottom fontWeight="bold">
-              🏨 Tabble
-            </Typography>
-            <Typography variant="h6" color="text.secondary" gutterBottom>
-              Restaurant Management System
-            </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ mt: 2 }}>
-              Please authenticate with your hotel credentials to access the system
-            </Typography>
-          </Paper>
-          
-          <DatabaseSelector
-            open={true}
-            onSuccess={handleAuthSuccess}
-            title="Hotel Authentication"
-            fullScreen={true}
-          />
-        </Box>
-      </Box>
-    );
+    // Redirect to dedicated admin login page instead of inline popup
+    if (typeof window !== 'undefined') {
+      window.location.href = '/admin/login';
+    }
+    return null;
   }
 
   // User is authenticated, show the main app with logout option

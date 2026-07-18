@@ -30,9 +30,7 @@ if __name__ == "__main__":
     # Display access information
     print("\n" + "=" * 50)
 
-    print(f"Access from other devices at: http://{ip_address}:8000")
+    print(f"Access from other devices at: http://{ip_address}:8001")
     print("=" * 50 + "\n")
 
-    # Run the application on your IP address
-    # Using 0.0.0.0 allows connections from any IP
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8001, reload=True)

@@ -70,6 +70,19 @@ const CustomerMenu = () => {
   const tableNumber = queryParams.get('table_number');
   const uniqueId = queryParams.get('unique_id');
   const userId = queryParams.get('user_id');
+  const slotNumber = queryParams.get('slot_number') || localStorage.getItem('slotNumber') || '1';
+
+  // Whether this hotel shows prices on the menu
+  const [showPrices, setShowPrices] = useState(true);
+
+  useEffect(() => {
+    const hotelName = localStorage.getItem('customerSelectedDatabase') || localStorage.getItem('selectedDatabase');
+    if (!hotelName) return;
+    fetch(`${process.env.REACT_APP_API_BASE_URL || 'http://localhost:8001'}/settings/public/show-prices?hotel_name=${encodeURIComponent(hotelName)}`)
+      .then(r => r.json())
+      .then(data => setShowPrices(data.show_prices !== false))
+      .catch(() => setShowPrices(true)); // default to showing prices on error
+  }, []);
 
   // Redirect if table number, unique ID, or user ID is missing
   useEffect(() => {
@@ -206,21 +219,19 @@ const CustomerMenu = () => {
     fetchDatabaseName();
   }, []);
 
-  // Mark table as occupied when component loads
+  // Mark slot as occupied when component loads
   useEffect(() => {
     const markTableAsOccupied = async () => {
-      if (tableNumber) {
+      if (tableNumber && slotNumber) {
         try {
-          await customerService.setTableOccupiedByNumber(parseInt(tableNumber));
+          await customerService.setTableOccupiedByNumber(parseInt(tableNumber), parseInt(slotNumber));
         } catch (error) {
-          // Silent fail for table occupation
           handleApiError(error, 'marking table as occupied');
         }
       }
     };
-
     markTableAsOccupied();
-  }, [tableNumber]);
+  }, [tableNumber, slotNumber]);
 
   // Optimized category change handler
   const handleCategoryChange = useCallback((_, newValue) => {
@@ -283,6 +294,7 @@ const CustomerMenu = () => {
 
       const orderData = {
         table_number: parseInt(tableNumber),
+        slot_number: parseInt(slotNumber),
         unique_id: uniqueId,
         ...(username && { username }),
         ...(password && { password }),
@@ -407,6 +419,19 @@ const CustomerMenu = () => {
         setTimeout(() => {
           setFeedbackDialogOpen(true);
         }, 1000);
+
+        // Clear customer session — payment is the end of the visit
+        try {
+          const { auth } = await import('../../firebase');
+          await auth.signOut();
+        } catch { /* firebase may not be available */ }
+        localStorage.removeItem('customerQrToken');
+        localStorage.removeItem('customerId');
+        localStorage.removeItem('customerDisplayName');
+        localStorage.removeItem('tableNumber');
+        localStorage.removeItem('slotNumber');
+        localStorage.removeItem('customerSelectedDatabase');
+        localStorage.removeItem('tableIsOccupied');
       }
     } catch (error) {
       setSnackbar(showUserFriendlyError(error, 'processing payment'));
@@ -643,6 +668,7 @@ const CustomerMenu = () => {
               handleOpenDialog={handleOpenDialog}
               categoryColors={categoryColors}
               theme={theme}
+              showPrices={showPrices}
             />
           </Paper>
         </Grid>
@@ -726,17 +752,19 @@ const CustomerMenu = () => {
                     color: 'white'
                   }}
                 >
-                  {selectedDish.is_offer === 1 ? (
-                    <Box>
-                      <Typography variant="body2" color="text.secondary" sx={{ textDecoration: 'line-through' }}>
-                        ₹{selectedDish.price.toFixed(2)}
-                      </Typography>
-                      <Typography variant="h6" fontWeight="bold" color="error.main">
-                        ₹{calculateDiscountedPrice(selectedDish.price, selectedDish.discount)}
-                      </Typography>
-                    </Box>
-                  ) : (
-                    <Typography variant="h6" fontWeight="bold">₹{selectedDish.price.toFixed(2)}</Typography>
+                  {showPrices && (
+                    selectedDish.is_offer === 1 ? (
+                      <Box>
+                        <Typography variant="body2" color="text.secondary" sx={{ textDecoration: 'line-through' }}>
+                          ₹{selectedDish.price.toFixed(2)}
+                        </Typography>
+                        <Typography variant="h6" fontWeight="bold" color="error.main">
+                          ₹{calculateDiscountedPrice(selectedDish.price, selectedDish.discount)}
+                        </Typography>
+                      </Box>
+                    ) : (
+                      <Typography variant="h6" fontWeight="bold">₹{selectedDish.price.toFixed(2)}</Typography>
+                    )
                   )}
                 </Box>
               </Box>
@@ -910,98 +938,67 @@ const CustomerMenu = () => {
         refreshOrders={fetchOrders}
       />
 
-      {/* Bottom App Bar with View Cart Button */}
+      {/* Bottom App Bar — mobile-first layout */}
       <AppBar
         position="fixed"
-        color="default"
         sx={{
-          top: 'auto',
-          bottom: 0,
-          boxShadow: '0 -4px 10px rgba(0, 0, 0, 0.3)',
-          backgroundColor: '#000000',
-          borderTop: '1px solid rgba(255, 165, 0, 0.2)'
+          top: 'auto', bottom: 0,
+          backgroundColor: '#000',
+          borderTop: '1px solid rgba(255,165,0,0.2)',
+          boxShadow: '0 -4px 10px rgba(0,0,0,0.3)',
         }}
       >
-        <Toolbar>
+        <Toolbar
+          sx={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 1,
+            py: 1,
+            px: { xs: 1, sm: 2 },
+            justifyContent: 'space-between',
+            minHeight: { xs: 56, sm: 64 },
+          }}
+        >
+          {/* Orders history button */}
           <Button
             variant="outlined"
-            color="primary"
+            size="small"
             startIcon={<HistoryIcon />}
             onClick={handleOpenOrderHistory}
             sx={{
-              borderRadius: '4px',
-              mr: 2,
-              borderColor: 'rgba(255, 165, 0, 0.5)',
-              borderWidth: '2px',
-              color: '#FFA500',
-              '&:hover': {
-                borderColor: '#FFA500',
-                backgroundColor: 'rgba(255, 165, 0, 0.1)'
-              }
+              borderColor: 'rgba(255,165,0,0.5)', color: '#FFA500',
+              '&:hover': { borderColor: '#FFA500', bgcolor: 'rgba(255,165,0,0.1)' },
+              minWidth: 0, px: { xs: 1.5, sm: 2 },
+              fontSize: { xs: '0.75rem', sm: '0.875rem' },
             }}
           >
-            View Orders
+            Orders
           </Button>
-          {/* Real-time update indicator */}
-          {isPollingActive && (
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                mr: 2,
-                px: 1,
-                py: 0.5,
-                borderRadius: '12px',
-                backgroundColor: 'rgba(76, 175, 80, 0.1)',
-                border: '1px solid rgba(76, 175, 80, 0.3)'
-              }}
-            >
-              <CircularProgress size={12} sx={{ color: '#4CAF50', mr: 0.5 }} />
-              <Typography variant="caption" sx={{ color: '#4CAF50', fontSize: '0.7rem' }}>
-                Updating...
-              </Typography>
-            </Box>
-          )}
-          <Box sx={{ flexGrow: 1 }} />
+
+          <Box sx={{ flex: 1 }} />
+
+          {/* Cart button */}
           <Button
             variant="contained"
-            color="primary"
+            size="small"
             startIcon={
-              <Badge
-                badgeContent={cartCount}
-                color="error"
-                sx={{
-                  '& .MuiBadge-badge': {
-                    fontWeight: 'bold',
-                    fontSize: '0.8rem',
-                    minWidth: '18px',
-                    height: '18px',
-                    backgroundColor: '#000000',
-                    color: '#FFA500',
-                    border: '1px solid #FFA500'
-                  }
-                }}
-              >
+              <Badge badgeContent={cartCount} color="error"
+                sx={{ '& .MuiBadge-badge': { bgcolor: '#000', color: '#FFA500', border: '1px solid #FFA500', fontWeight: 'bold' } }}>
                 <ShoppingCartIcon />
               </Badge>
             }
             onClick={handleOpenCartDialog}
             sx={{
-              py: 1.2,
-              px: 3,
-              borderRadius: '4px',
-              fontWeight: 'bold',
-              backgroundColor: '#FFA500',
-              boxShadow: '0 4px 10px rgba(0, 0, 0, 0.3)',
-              '&:hover': {
-                backgroundColor: '#E69500',
-                boxShadow: '0 6px 15px rgba(0, 0, 0, 0.4)',
-              },
+              bgcolor: '#FFA500', color: '#000', fontWeight: 700,
+              px: { xs: 1.5, sm: 3 },
+              fontSize: { xs: '0.75rem', sm: '0.875rem' },
+              '&:hover': { bgcolor: '#E69500' },
             }}
           >
-            View Cart {cartCount > 0 && `(${cartCount})`}
+            Cart{cartCount > 0 ? ` (${cartCount})` : ''}
           </Button>
-          {/* Show payment button only if there are completed orders */}
+
+          {/* Payment button — only when orders are completed */}
           {userOrders && userOrders.some(order =>
             order.status === 'completed' &&
             order.table_number === parseInt(tableNumber)
@@ -1114,9 +1111,11 @@ const CustomerMenu = () => {
                                   <Typography variant="body2" color="white">
                                     {item.dish?.name || "Unknown Dish"} x{item.quantity}
                                   </Typography>
-                                  <Typography variant="body2" fontWeight="medium" color="#FFA500">
-                                    ₹{((item.dish?.price || 0) * item.quantity).toFixed(2)}
-                                  </Typography>
+                                  {showPrices && (
+                                    <Typography variant="body2" fontWeight="medium" color="#FFA500">
+                                      ₹{((item.dish?.price || 0) * item.quantity).toFixed(2)}
+                                    </Typography>
+                                  )}
                                 </Box>
                               }
                             />
@@ -1129,7 +1128,8 @@ const CustomerMenu = () => {
                       )}
                     </List>
 
-                    {/* Order Subtotal */}
+                    {/* Order Subtotal — hidden when prices are off */}
+                    {showPrices && (
                     <Box display="flex" justifyContent="space-between" alignItems="center" sx={{ mt: 1, mb: 1 }}>
                       <Typography variant="body2" color="rgba(255, 255, 255, 0.7)">
                         Order Subtotal:
@@ -1138,6 +1138,7 @@ const CustomerMenu = () => {
                         ₹{(order.items ? order.items.reduce((sum, item) => sum + (item.dish?.price || 0) * item.quantity, 0) : 0).toFixed(2)}
                       </Typography>
                     </Box>
+                    )}{/* end showPrices subtotal */}
 
                   </Box>
                 ))}

@@ -30,7 +30,9 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import TableRestaurantIcon from '@mui/icons-material/TableRestaurant';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import { adminService } from '../../services/api';
+import QrCode2Icon from '@mui/icons-material/QrCode2';
+import DownloadIcon from '@mui/icons-material/Download';
+import api, { adminService } from '../../services/api';
 import AdminPageHeader from '../../components/AdminPageHeader';
 
 // Styled components
@@ -95,6 +97,12 @@ const TableManagement = () => {
   });
   const [errors, setErrors] = useState({});
   const [refreshing, setRefreshing] = useState(false);
+
+  // QR code state
+  const [qrDialogOpen, setQrDialogOpen] = useState(false);
+  const [qrTable, setQrTable] = useState(null);
+  const [qrImageUrl, setQrImageUrl] = useState('');
+  const [qrLoading, setQrLoading] = useState(false);
 
   // Fetch tables on component mount
   useEffect(() => {
@@ -348,38 +356,17 @@ const TableManagement = () => {
     }
   };
 
-  // Delete table
+  // Delete table (all slots)
   const handleDeleteTable = async () => {
     try {
-      await adminService.deleteTable(tableToDelete.id);
-
-      setSnackbar({
-        open: true,
-        message: 'Table deleted successfully',
-        severity: 'success'
-      });
-
-      // Refresh data and close dialog
+      await adminService.deleteTableByNumber(tableToDelete.table_number);
+      setSnackbar({ open: true, message: `Table ${tableToDelete.table_number} deleted`, severity: 'success' });
       fetchTables();
       fetchTableStatus();
       handleCloseDeleteDialog();
     } catch (error) {
-      console.error('Error deleting table:', error);
-
-      // Check for specific error messages
-      if (error.response && error.response.data && error.response.data.detail) {
-        setSnackbar({
-          open: true,
-          message: error.response.data.detail,
-          severity: 'error'
-        });
-      } else {
-        setSnackbar({
-          open: true,
-          message: 'Error deleting table',
-          severity: 'error'
-        });
-      }
+      const msg = error.response?.data?.detail || 'Error deleting table';
+      setSnackbar({ open: true, message: msg, severity: 'error' });
     }
   };
 
@@ -391,6 +378,69 @@ const TableManagement = () => {
       ...snackbar,
       open: false
     });
+  };
+
+  // Generate or view QR code for a table
+  const handleOpenQrDialog = async (table) => {
+    setQrTable(table);
+    setQrImageUrl('');
+    setQrDialogOpen(true);
+    setQrLoading(true);
+    try {
+      const endpoint = table.qr_token
+        ? `/tables/${table.id}/qr-image`
+        : `/tables/${table.id}/generate-qr`;
+      const method = table.qr_token ? 'get' : 'post';
+      const response = await api[method](endpoint, { responseType: 'blob' });
+      const url = URL.createObjectURL(response.data);
+      setQrImageUrl(url);
+      if (!table.qr_token) {
+        const token = response.headers['x-qr-token'];
+        setTables((prev) =>
+          prev.map((t) => (t.id === table.id ? { ...t, qr_token: token } : t))
+        );
+        setQrTable((prev) => ({ ...prev, qr_token: token }));
+      }
+    } catch (err) {
+      setSnackbar({ open: true, message: 'Failed to generate QR code', severity: 'error' });
+      setQrDialogOpen(false);
+    } finally {
+      setQrLoading(false);
+    }
+  };
+
+  const handleDownloadQr = async (slot) => {
+    try {
+      const endpoint = slot.qr_token
+        ? `/tables/${slot.id}/qr-image`
+        : `/tables/${slot.id}/generate-qr`;
+      const method = slot.qr_token ? 'get' : 'post';
+      const response = await api[method](endpoint, { responseType: 'blob' });
+      const url = URL.createObjectURL(response.data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `table-${slot.table_number}-seat-${slot.slot_number}-qr.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      if (!slot.qr_token) {
+        const token = response.headers['x-qr-token'];
+        setTables(prev =>
+          prev.map(t => t.id === slot.id ? { ...t, qr_token: token } : t)
+        );
+      }
+      setSnackbar({ open: true, message: `QR downloaded for Table ${slot.table_number} Seat ${slot.slot_number}`, severity: 'success' });
+    } catch {
+      setSnackbar({ open: true, message: 'Failed to download QR', severity: 'error' });
+    }
+  };
+
+  const handleCloseQrDialog = () => {
+    setQrDialogOpen(false);
+    if (qrImageUrl) URL.revokeObjectURL(qrImageUrl);
+    setQrImageUrl('');
+    setQrTable(null);
   };
 
   return (
@@ -510,50 +560,114 @@ const TableManagement = () => {
           </Alert>
         ) : (
           <Grid container spacing={3}>
-            {tables.map((table) => (
-              <Grid item xs={12} sm={6} md={4} lg={3} key={table.id}>
-                <TableCard occupied={table.is_occupied}>
-                  <CardContent>
-                    <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                      <Typography variant="h5" component="div" fontWeight="bold">
-                        Table {table.table_number}
-                      </Typography>
-                      <Chip
-                        label={table.is_occupied ? 'Occupied' : 'Free'}
-                        color={table.is_occupied ? 'error' : 'success'}
-                        size="small"
-                      />
-                    </Box>
+            {/* Group slot rows by physical table_number */}
+            {Object.values(
+              tables.reduce((acc, slot) => {
+                if (!acc[slot.table_number]) acc[slot.table_number] = [];
+                acc[slot.table_number].push(slot);
+                return acc;
+              }, {})
+            )
+              .sort((a, b) => a[0].table_number - b[0].table_number)
+              .map((slots) => {
+                const tableNum = slots[0].table_number;
+                const anyOccupied = slots.some(s => s.is_occupied);
+                const slot1 = slots.find(s => s.slot_number === 1);
+                const slot2 = slots.find(s => s.slot_number === 2);
 
+                return (
+                  <Grid item xs={12} sm={6} md={4} lg={3} key={tableNum}>
+                    <TableCard occupied={anyOccupied ? 1 : 0}>
+                      <CardContent>
+                        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                          <Typography variant="h5" fontWeight="bold">
+                            Table {tableNum}
+                          </Typography>
+                          <Box display="flex" gap={0.5}>
+                            {slots.some(s => s.qr_token) && (
+                              <Tooltip title="QR generated">
+                                <QrCode2Icon sx={{ color: '#FFA500', fontSize: 20 }} />
+                              </Tooltip>
+                            )}
+                            <Chip
+                              label={anyOccupied ? 'Occupied' : 'Free'}
+                              color={anyOccupied ? 'error' : 'success'}
+                              size="small"
+                            />
+                          </Box>
+                        </Box>
 
-                  </CardContent>
-                  <CardActions sx={{ mt: 'auto', p: 2, pt: 0 }}>
-                    <Box sx={{ ml: 'auto' }}>
-                      <Tooltip title="Edit">
-                        <IconButton
-                          size="small"
-                          color="primary"
-                          onClick={() => handleOpenEditDialog(table)}
-                          sx={{ mr: 1 }}
-                        >
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Delete">
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => handleOpenDeleteDialog(table)}
-                          disabled={table.is_occupied}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  </CardActions>
-                </TableCard>
-              </Grid>
-            ))}
+                        {/* Slot rows */}
+                        {[slot1, slot2].map((slot, idx) => slot && (
+                          <Box
+                            key={slot.id}
+                            display="flex"
+                            alignItems="center"
+                            justifyContent="space-between"
+                            sx={{
+                              mb: 0.5,
+                              p: 0.75,
+                              borderRadius: 1,
+                              bgcolor: slot.is_occupied
+                                ? 'rgba(244,67,54,0.08)'
+                                : 'rgba(77,170,87,0.08)',
+                              border: '1px solid',
+                              borderColor: slot.is_occupied
+                                ? 'rgba(244,67,54,0.3)'
+                                : 'rgba(77,170,87,0.3)',
+                            }}
+                          >
+                            <Typography variant="body2" sx={{ color: '#ccc' }}>
+                              Seat {slot.slot_number}
+                            </Typography>
+                            <Box display="flex" alignItems="center" gap={0.5}>
+                              <Chip
+                                label={slot.is_occupied ? 'Taken' : 'Free'}
+                                color={slot.is_occupied ? 'error' : 'success'}
+                                size="small"
+                                sx={{ height: 20, fontSize: '0.65rem' }}
+                              />
+                              <Tooltip title={slot.qr_token ? 'View QR' : 'Generate QR'}>
+                                <IconButton
+                                  size="small"
+                                  sx={{ color: '#FFA500', p: 0.5 }}
+                                  onClick={() => handleOpenQrDialog(slot)}
+                                >
+                                  <QrCode2Icon sx={{ fontSize: 16 }} />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title="Download QR PNG">
+                                <IconButton
+                                  size="small"
+                                  sx={{ color: '#aaa', p: 0.5 }}
+                                  onClick={() => handleDownloadQr(slot)}
+                                >
+                                  <DownloadIcon sx={{ fontSize: 16 }} />
+                                </IconButton>
+                              </Tooltip>
+                            </Box>
+                          </Box>
+                        ))}
+                      </CardContent>
+
+                      <CardActions sx={{ mt: 'auto', p: 1.5, pt: 0 }}>
+                        <Box sx={{ ml: 'auto' }}>
+                          <Tooltip title="Delete Table">
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => handleOpenDeleteDialog({ table_number: tableNum, is_occupied: anyOccupied })}
+                              disabled={anyOccupied}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
+                      </CardActions>
+                    </TableCard>
+                  </Grid>
+                );
+              })}
           </Grid>
         )}
       </Paper>
@@ -671,6 +785,52 @@ const TableManagement = () => {
           >
             Create Tables
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* QR Code Dialog */}
+      <Dialog
+        open={qrDialogOpen}
+        onClose={handleCloseQrDialog}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '16px', textAlign: 'center' } }}
+      >
+        <DialogTitle>
+          <Typography variant="h6" fontWeight="bold">
+            Table {qrTable?.table_number} — QR Code
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          {qrLoading ? (
+            <Box display="flex" justifyContent="center" py={4}>
+              <CircularProgress sx={{ color: '#FFA500' }} />
+            </Box>
+          ) : qrImageUrl ? (
+            <>
+              <Box sx={{ border: '2px solid #FFA500', borderRadius: 2, p: 1, display: 'inline-block', mb: 2 }}>
+                <img src={qrImageUrl} alt={`QR Table ${qrTable?.table_number}`} style={{ width: 240, height: 240, display: 'block' }} />
+              </Box>
+              <Typography variant="body2" sx={{ color: '#aaa', mb: 1 }}>
+                Print this QR and place it on the table. Customers scan it to order.
+              </Typography>
+            </>
+          ) : null}
+        </DialogContent>
+        <DialogActions sx={{ justifyContent: 'center', pb: 2, gap: 1 }}>
+          <Button onClick={handleCloseQrDialog} variant="outlined">Close</Button>
+          {qrImageUrl && (
+            <Button
+              variant="contained"
+              startIcon={<DownloadIcon />}
+              component="a"
+              href={qrImageUrl}
+              download={`table-${qrTable?.table_number}-qr.png`}
+              sx={{ bgcolor: '#FFA500', '&:hover': { bgcolor: '#E69500' } }}
+            >
+              Download PNG
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
 
