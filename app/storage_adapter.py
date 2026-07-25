@@ -6,29 +6,28 @@ import shutil
 from typing import Optional, BinaryIO
 from fastapi import UploadFile
 from dotenv import load_dotenv
-from .supabase_config import get_supabase_service_client
 
 # Load environment variables
 load_dotenv()
 
 class StorageAdapter:
     """Adapter that provides a unified interface for both local and Supabase storage"""
-    
+
     def __init__(self):
         self.database_type = os.getenv("DATABASE_TYPE", "sqlite").lower()
         self.use_supabase = self.database_type == "supabase"
         self.bucket_name = "tabble-images"
-    
+
     def upload_image(self, file: UploadFile, hotel_name: str, image_type: str, item_id: Optional[int] = None) -> str:
         """
         Upload image and return the path/URL
-        
+
         Args:
             file: The uploaded file
             hotel_name: Name of the hotel (for organizing images)
             image_type: Type of image ('dishes', 'logo')
             item_id: ID of the item (for dishes)
-        
+
         Returns:
             Path or URL to the uploaded image
         """
@@ -36,10 +35,12 @@ class StorageAdapter:
             return self._upload_to_supabase(file, hotel_name, image_type, item_id)
         else:
             return self._upload_to_local(file, hotel_name, image_type, item_id)
-    
+
     def _upload_to_supabase(self, file: UploadFile, hotel_name: str, image_type: str, item_id: Optional[int] = None) -> str:
         """Upload image to Supabase Storage"""
         try:
+            # Lazy import - only import supabase when actually needed
+            from .supabase_config import get_supabase_service_client
             supabase = get_supabase_service_client()
             
             # Create file path in bucket
@@ -117,6 +118,8 @@ class StorageAdapter:
     def _delete_from_supabase(self, image_url: str) -> bool:
         """Delete image from Supabase Storage"""
         try:
+            # Lazy import - only import supabase when actually needed
+            from .supabase_config import get_supabase_service_client
             supabase = get_supabase_service_client()
             
             # Extract file path from URL
@@ -151,6 +154,9 @@ class StorageAdapter:
     def get_image_url(self, image_path: str) -> str:
         """Get the full URL for an image"""
         if self.use_supabase:
+            # Lazy import - only import supabase when actually needed
+            from .supabase_config import get_supabase_service_client
+
             # If it's already a full URL, return as is
             if image_path.startswith("http"):
                 return image_path

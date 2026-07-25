@@ -6,28 +6,29 @@ from typing import Dict, List, Optional, Any, Union
 from dotenv import load_dotenv
 from sqlalchemy.orm import Session
 from .database import SessionLocal, Hotel, Dish, Person, Order, OrderItem, Table, Feedback, LoyaltyProgram, SelectionOffer, Settings, OtpRequest
-from .supabase_config import get_supabase_client, get_supabase_service_client
 
 # Load environment variables
 load_dotenv()
 
 class DatabaseAdapter:
     """Adapter that provides a unified interface for both SQLite and Supabase"""
-    
+
     def __init__(self):
         self.database_type = os.getenv("DATABASE_TYPE", "sqlite").lower()
         self.use_supabase = self.database_type == "supabase"
-    
+
     def get_session(self):
         """Get database session - returns SQLAlchemy session for SQLite, None for Supabase"""
         if self.use_supabase:
             return None
         else:
             return SessionLocal()
-    
+
     def get_supabase_client(self):
         """Get Supabase client if using Supabase"""
         if self.use_supabase:
+            # Lazy import - only import supabase when actually needed
+            from .supabase_config import get_supabase_client
             return get_supabase_client()
         return None
     
@@ -35,6 +36,10 @@ class DatabaseAdapter:
     def get_hotels(self) -> List[Dict]:
         """Get all hotels"""
         if self.use_supabase:
+            # Lazy import - only import supabase when actually needed
+            from .supabase_config import get_supabase_client
+            # Lazy import - only import supabase when actually needed
+            from .supabase_config import get_supabase_client
             supabase = get_supabase_client()
             result = supabase.table("hotels").select("*").execute()
             return result.data
@@ -59,6 +64,8 @@ class DatabaseAdapter:
     def get_hotel_by_id(self, hotel_id: int) -> Optional[Dict]:
         """Get hotel by ID"""
         if self.use_supabase:
+            # Lazy import - only import supabase when actually needed
+            from .supabase_config import get_supabase_client
             supabase = get_supabase_client()
             result = supabase.table("hotels").select("*").eq("id", hotel_id).execute()
             return result.data[0] if result.data else None
@@ -82,6 +89,8 @@ class DatabaseAdapter:
     def authenticate_hotel(self, hotel_name: str, password: str) -> Optional[int]:
         """Authenticate hotel and return hotel_id"""
         if self.use_supabase:
+            # Lazy import - only import supabase when actually needed
+            from .supabase_config import get_supabase_client
             supabase = get_supabase_client()
             result = supabase.table("hotels").select("id").eq("hotel_name", hotel_name).eq("password", password).execute()
             return result.data[0]["id"] if result.data else None
@@ -97,6 +106,8 @@ class DatabaseAdapter:
     def get_dishes_by_hotel(self, hotel_id: int) -> List[Dict]:
         """Get all dishes for a hotel"""
         if self.use_supabase:
+            # Lazy import - only import supabase when actually needed
+            from .supabase_config import get_supabase_client
             supabase = get_supabase_client()
             result = supabase.table("dishes").select("*").eq("hotel_id", hotel_id).execute()
             return result.data
@@ -130,6 +141,8 @@ class DatabaseAdapter:
     def create_dish(self, dish_data: Dict) -> Dict:
         """Create a new dish"""
         if self.use_supabase:
+            # Lazy import - only import supabase when actually needed
+            from .supabase_config import get_supabase_service_client
             supabase = get_supabase_service_client()
             result = supabase.table("dishes").insert(dish_data).execute()
             return result.data[0]
@@ -163,6 +176,8 @@ class DatabaseAdapter:
     def update_dish(self, dish_id: int, hotel_id: int, dish_data: Dict) -> Optional[Dict]:
         """Update a dish"""
         if self.use_supabase:
+            # Lazy import - only import supabase when actually needed
+            from .supabase_config import get_supabase_service_client
             supabase = get_supabase_service_client()
             result = supabase.table("dishes").update(dish_data).eq("id", dish_id).eq("hotel_id", hotel_id).execute()
             return result.data[0] if result.data else None
@@ -199,6 +214,8 @@ class DatabaseAdapter:
     def delete_dish(self, dish_id: int, hotel_id: int) -> bool:
         """Delete a dish"""
         if self.use_supabase:
+            # Lazy import - only import supabase when actually needed
+            from .supabase_config import get_supabase_service_client
             supabase = get_supabase_service_client()
             result = supabase.table("dishes").delete().eq("id", dish_id).eq("hotel_id", hotel_id).execute()
             return len(result.data) > 0
