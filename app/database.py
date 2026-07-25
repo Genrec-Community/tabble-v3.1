@@ -239,8 +239,12 @@ class Hotel(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     hotel_name = Column(String, unique=True, index=True, nullable=False)
+    name = Column(String, nullable=True)  # Display name (can be same as hotel_name)
     password = Column(String, nullable=False)
-    phone_number = Column(String, nullable=True, index=True)  # Added phone number field
+    phone_number = Column(String, nullable=True, index=True)
+    phone = Column(String, nullable=True, index=True)  # Alias for phone_number
+    address = Column(String, nullable=True)  # Hotel address
+    email = Column(String, nullable=True)  # Hotel email
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(
         DateTime,
@@ -505,13 +509,14 @@ class ChefAccount(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     hotel_id = Column(Integer, ForeignKey("hotels.id"), nullable=False, index=True)
-    gmail = Column(String, nullable=False, index=True)
+    username = Column(String, nullable=False, index=True)
+    password = Column(String, nullable=False)  # Hashed password
     display_name = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (
-        UniqueConstraint("hotel_id", "gmail", name="uq_chef_hotel_gmail"),
+        UniqueConstraint("hotel_id", "username", name="uq_chef_hotel_username"),
     )
 
     hotel = relationship("Hotel", back_populates="chef_accounts")

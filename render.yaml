@@ -1,14 +1,71 @@
 services:
+  # Backend API Service - Optimized for Render Free Tier
   - type: web
     name: tabble-backend
+    runtime: python
     env: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: python run.py
+    region: singapore  # Choose closest to your users
+    plan: free
+
+    # Build configuration
+    buildCommand: |
+      pip install --upgrade pip
+      pip install -r requirements.txt
+      mkdir -p app/static/images
+
+    # Start command
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1
+
+    # Health check - UptimeRobot will ping this
+    healthCheckPath: /health
+
+    # Persistent disk for images (1GB free)
+    disk:
+      name: tabble-static
+      mountPath: /opt/render/project/src/app/static/images
+      sizeGB: 1
+
+    # Environment variables
     envVars:
       - key: RENDER
         value: "true"
+
       - key: PYTHON_VERSION
         value: "3.11.9"
+
       - key: PORT
         generateValue: true
-    healthCheckPath: /health
+
+      - key: HOST
+        value: "0.0.0.0"
+
+      - key: DATABASE_TYPE
+        value: sqlite
+
+      # Update after frontend deployment
+      - key: FRONTEND_URL
+        value: https://your-frontend-url.com
+
+      - key: CORS_ORIGINS
+        value: "*"
+
+      - key: DEMO_MODE
+        value: "true"
+
+      - key: APP_ENV
+        value: production
+
+      # Admin password for /adminofthetabble
+      - key: ADMIN_PASSWORD
+        value: adminoftabble
+
+      # SECRETS - Add via Render Dashboard
+      - key: SECRET_KEY
+        sync: false
+
+      - key: FAST2SMS_API_KEY
+        sync: false
+
+    # Auto-deploy from main
+    autoDeploy: true
+    branch: main

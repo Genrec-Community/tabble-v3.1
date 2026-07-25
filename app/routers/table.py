@@ -18,6 +18,32 @@ router = APIRouter(
 )
 
 
+def _max_tables_per_hotel() -> int:
+    """Return the physical-table limit for this POC installation."""
+    try:
+        return max(1, int(os.getenv("POC_MAX_TABLES_PER_HOTEL", "1")))
+    except ValueError:
+        return 1
+
+
+def _ensure_table_capacity(db: Session, hotel_id: int, requested_tables: int) -> None:
+    """Keep the POC constrained to its configured number of physical tables."""
+    from sqlalchemy import func, distinct
+
+    existing_tables = db.query(func.count(distinct(TableModel.table_number))).filter(
+        TableModel.hotel_id == hotel_id
+    ).scalar() or 0
+    limit = _max_tables_per_hotel()
+    if existing_tables + requested_tables > limit:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"This POC supports {limit} physical table{'s' if limit != 1 else ''} per hotel. "
+                "Remove an unused table before creating another."
+            ),
+        )
+
+
 # Dependency to get session-aware database
 def get_session_database(request: Request):
     session_id = get_session_id(request)
@@ -83,6 +109,8 @@ def create_table(table: TableCreate, request: Request, db: Session = Depends(get
             status_code=400,
             detail=f"Table {table.table_number} already exists for this hotel",
         )
+
+    _ensure_table_capacity(db, hotel_id, requested_tables=1)
 
     new_slots = []
     for slot in (1, 2):
@@ -322,6 +350,8 @@ def create_tables_batch(num_tables: int, request: Request, db: Session = Depends
     if num_tables <= 0:
         raise HTTPException(status_code=400, detail="Number of tables must be greater than 0")
 
+    _ensure_table_capacity(db, hotel_id, requested_tables=num_tables)
+
     highest_table = (
         db.query(TableModel)
         .filter(TableModel.hotel_id == hotel_id)
@@ -386,7 +416,7 @@ def generate_qr(table_id: int, request: Request, db: Session = Depends(get_sessi
         db.commit()
         db.refresh(db_table)
 
-    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
     qr_url = f"{frontend_url}/order?t={db_table.qr_token}"
     png_bytes = _generate_qr_image(qr_url)
 
@@ -411,7 +441,7 @@ def get_qr_image(table_id: int, request: Request, db: Session = Depends(get_sess
     if not db_table.qr_token:
         raise HTTPException(status_code=400, detail="QR code not yet generated for this table")
 
-    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
     qr_url = f"{frontend_url}/order?t={db_table.qr_token}"
     png_bytes = _generate_qr_image(qr_url)
 

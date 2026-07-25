@@ -4,16 +4,19 @@ from sqlalchemy.orm import sessionmaker
 from typing import List
 from datetime import datetime, timezone
 from pydantic import BaseModel
+import hashlib
 
 from ..database import get_db, Dish, Order, OrderItem, get_session_db, get_hotel_id_from_request, engine, Hotel, ChefAccount, db_manager
 from ..models.dish import Dish as DishModel
 from ..models.order import Order as OrderModel
 from ..middleware import get_session_id
-from ..firebase_config import verify_firebase_token
 
 
-class ChefGoogleAuthRequest(BaseModel):
-    id_token: str
+class ChefLoginRequest(BaseModel):
+    username: str
+    password: str
+    hotel_id: int
+
 
 router = APIRouter(
     prefix="/chef",
@@ -22,50 +25,42 @@ router = APIRouter(
 )
 
 
-# Chef Google Sign-In — no hotel headers required, Gmail identifies the hotel
-@router.post("/auth/google")
-def chef_google_auth(payload: ChefGoogleAuthRequest, request: Request):
-    try:
-        claims = verify_firebase_token(payload.id_token)
-    except ValueError as e:
-        raise HTTPException(status_code=401, detail=str(e))
+# Chef Login — username/password authentication
+@router.post("/auth/login")
+def chef_login(payload: ChefLoginRequest, request: Request):
+    # Hash the password
+    password_hash = hashlib.sha256(payload.password.encode()).hexdigest()
 
-    gmail = claims.get("email", "").lower()
-    display_name = claims.get("name", "") or gmail
-
-    # Look up chef account by Gmail (across all hotels)
+    # Look up chef account by username and hotel
     Session = sessionmaker(bind=engine)
     db = Session()
     try:
         chef = db.query(ChefAccount).filter(
-            ChefAccount.gmail == gmail,
+            ChefAccount.username == payload.username,
+            ChefAccount.hotel_id == payload.hotel_id,
             ChefAccount.is_active == True,
         ).first()
 
-        if not chef:
+        if not chef or chef.password != password_hash:
             raise HTTPException(
                 status_code=401,
-                detail="Your Google account is not registered as a chef for any hotel. Ask your hotel admin to add your Gmail."
+                detail="Invalid username or password"
             )
 
         hotel = db.query(Hotel).filter(Hotel.id == chef.hotel_id).first()
         if not hotel:
             raise HTTPException(status_code=404, detail="Hotel not found")
 
-        # Update display name if changed
-        if chef.display_name != display_name:
-            chef.display_name = display_name
-            db.commit()
-
         # Set hotel context for this session
         session_id = get_session_id(request)
         db_manager.set_hotel_context(session_id, chef.hotel_id)
 
         return {
+            "chef_id": chef.id,
             "hotel_id": chef.hotel_id,
             "hotel_name": hotel.hotel_name,
-            "display_name": display_name,
-            "gmail": gmail,
+            "display_name": chef.display_name or chef.username,
+            "username": chef.username,
         }
     finally:
         db.close()

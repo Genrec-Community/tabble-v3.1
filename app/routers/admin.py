@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from typing import List, Optional
 from pydantic import BaseModel
 import os
 import shutil
+import hashlib
 from datetime import datetime, timezone
 from ..utils.pdf_generator import generate_bill_pdf, generate_multi_order_bill_pdf
 from ..storage_adapter import get_storage_adapter
@@ -18,6 +20,9 @@ from ..database import (
     Person,
     Settings,
     ChefAccount,
+    Hotel,
+    Table as TableModel,
+    MenuItem,
     get_session_db,
     get_session_current_database,
     get_hotel_id_from_request,
@@ -745,8 +750,15 @@ def get_completed_orders_for_billing(
 # ── Chef Account Management ──────────────────────────────────────────────────
 
 class ChefCreateRequest(BaseModel):
-    gmail: str
+    username: str
+    password: str
     display_name: Optional[str] = None
+
+
+class ChefUpdateRequest(BaseModel):
+    password: Optional[str] = None
+    display_name: Optional[str] = None
+    is_active: Optional[bool] = None
 
 
 @router.get("/chefs")
@@ -756,7 +768,7 @@ def list_chefs(request: Request, db: Session = Depends(get_session_database)):
     return [
         {
             "id": c.id,
-            "gmail": c.gmail,
+            "username": c.username,
             "display_name": c.display_name,
             "is_active": c.is_active,
             "created_at": c.created_at,
@@ -768,26 +780,61 @@ def list_chefs(request: Request, db: Session = Depends(get_session_database)):
 @router.post("/chefs")
 def add_chef(payload: ChefCreateRequest, request: Request, db: Session = Depends(get_session_database)):
     hotel_id = get_hotel_id_from_request(request)
-    gmail = payload.gmail.lower().strip()
+    username = payload.username.lower().strip()
 
     existing = db.query(ChefAccount).filter(
         ChefAccount.hotel_id == hotel_id,
-        ChefAccount.gmail == gmail,
+        ChefAccount.username == username,
     ).first()
     if existing:
-        raise HTTPException(status_code=400, detail="This Gmail is already registered as a chef for this hotel")
+        raise HTTPException(status_code=400, detail="This username is already taken for this hotel")
+
+    # Hash password
+    password_hash = hashlib.sha256(payload.password.encode()).hexdigest()
 
     chef = ChefAccount(
         hotel_id=hotel_id,
-        gmail=gmail,
-        display_name=payload.display_name or gmail.split("@")[0],
+        username=username,
+        password=password_hash,
+        display_name=payload.display_name or username,
         is_active=True,
         created_at=datetime.now(timezone.utc),
     )
     db.add(chef)
     db.commit()
     db.refresh(chef)
-    return {"id": chef.id, "gmail": chef.gmail, "display_name": chef.display_name, "is_active": chef.is_active}
+    return {
+        "id": chef.id,
+        "username": chef.username,
+        "display_name": chef.display_name,
+        "is_active": chef.is_active
+    }
+
+
+@router.put("/chefs/{chef_id}")
+def update_chef(chef_id: int, payload: ChefUpdateRequest, request: Request, db: Session = Depends(get_session_database)):
+    hotel_id = get_hotel_id_from_request(request)
+    chef = db.query(ChefAccount).filter(
+        ChefAccount.id == chef_id, ChefAccount.hotel_id == hotel_id
+    ).first()
+    if not chef:
+        raise HTTPException(status_code=404, detail="Chef not found")
+
+    if payload.password:
+        chef.password = hashlib.sha256(payload.password.encode()).hexdigest()
+    if payload.display_name is not None:
+        chef.display_name = payload.display_name
+    if payload.is_active is not None:
+        chef.is_active = payload.is_active
+
+    db.commit()
+    db.refresh(chef)
+    return {
+        "id": chef.id,
+        "username": chef.username,
+        "display_name": chef.display_name,
+        "is_active": chef.is_active
+    }
 
 
 @router.put("/chefs/{chef_id}/toggle")
@@ -800,7 +847,7 @@ def toggle_chef(chef_id: int, request: Request, db: Session = Depends(get_sessio
         raise HTTPException(status_code=404, detail="Chef not found")
     chef.is_active = not chef.is_active
     db.commit()
-    return {"id": chef.id, "gmail": chef.gmail, "is_active": chef.is_active}
+    return {"id": chef.id, "username": chef.username, "is_active": chef.is_active}
 
 
 @router.delete("/chefs/{chef_id}")
@@ -813,4 +860,237 @@ def remove_chef(chef_id: int, request: Request, db: Session = Depends(get_sessio
         raise HTTPException(status_code=404, detail="Chef not found")
     db.delete(chef)
     db.commit()
-    return {"message": f"Chef {chef.gmail} removed"}
+    return {"message": f"Chef {chef.username} removed"}
+
+
+# ── Super Admin - Hotel Management ───────────────────────────────────────────
+
+class SuperAdminAuth(BaseModel):
+    password: str
+
+
+class HotelCreateRequest(BaseModel):
+    name: str
+    phone: str
+    password: str
+    address: Optional[str] = ""
+    email: Optional[str] = ""
+
+
+class HotelUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    password: Optional[str] = None
+    address: Optional[str] = None
+    email: Optional[str] = None
+
+
+class HotelResponseModel(BaseModel):
+    id: int
+    name: str
+    phone: str
+    address: Optional[str]
+    email: Optional[str]
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+    @classmethod
+    def from_hotel(cls, hotel):
+        """Convert Hotel DB model to response model"""
+        return cls(
+            id=hotel.id,
+            name=hotel.hotel_name,
+            phone=hotel.phone_number or '',
+            address=hotel.address or '',
+            email=hotel.email or '',
+            created_at=hotel.created_at
+        )
+
+
+@router.post("/super/auth")
+def verify_super_admin_password(auth: SuperAdminAuth, db: Session = Depends(get_db)):
+    admin_password = os.getenv("ADMIN_PASSWORD", "adminoftabble")
+
+    if auth.password != admin_password:
+        raise HTTPException(status_code=401, detail="Invalid admin password")
+
+    return {"success": True, "message": "Authentication successful"}
+
+
+@router.get("/super/hotels", response_model=List[HotelResponseModel])
+def get_all_hotels_super(db: Session = Depends(get_db)):
+    hotels = db.query(Hotel).order_by(Hotel.created_at.desc()).all()
+    return [HotelResponseModel.from_hotel(h) for h in hotels]
+
+
+@router.get("/super/hotels/{hotel_id}/stats")
+def get_hotel_stats_super(hotel_id: int, db: Session = Depends(get_db)):
+    hotel = db.query(Hotel).filter(Hotel.id == hotel_id).first()
+    if not hotel:
+        raise HTTPException(status_code=404, detail="Hotel not found")
+
+    # Count tables (distinct table numbers)
+    total_tables = db.query(func.count(func.distinct(TableModel.table_number))).filter(
+        TableModel.hotel_id == hotel_id
+    ).scalar() or 0
+
+    # Count menu items
+    total_menu_items = db.query(func.count(MenuItem.id)).filter(
+        MenuItem.hotel_id == hotel_id
+    ).scalar() or 0
+
+    # Count orders
+    total_orders = db.query(func.count(Order.id)).filter(
+        Order.hotel_id == hotel_id
+    ).scalar() or 0
+
+    # Count completed orders
+    completed_orders = db.query(func.count(Order.id)).filter(
+        Order.hotel_id == hotel_id,
+        Order.status == "completed"
+    ).scalar() or 0
+
+    # Calculate total revenue
+    total_revenue = db.query(func.sum(Order.total_amount)).filter(
+        Order.hotel_id == hotel_id,
+        Order.status == "completed"
+    ).scalar() or 0
+
+    return {
+        "hotel_id": hotel_id,
+        "hotel_name": hotel.hotel_name,
+        "total_tables": total_tables,
+        "total_menu_items": total_menu_items,
+        "total_orders": total_orders,
+        "completed_orders": completed_orders,
+        "total_revenue": float(total_revenue) if total_revenue else 0
+    }
+
+
+@router.get("/super/stats/overview")
+def get_overview_stats_super(db: Session = Depends(get_db)):
+    total_hotels = db.query(func.count(Hotel.id)).scalar() or 0
+    total_tables = db.query(func.count(func.distinct(TableModel.table_number))).scalar() or 0
+    total_menu_items = db.query(func.count(MenuItem.id)).scalar() or 0
+    total_orders = db.query(func.count(Order.id)).scalar() or 0
+    completed_orders = db.query(func.count(Order.id)).filter(Order.status == "completed").scalar() or 0
+    total_revenue = db.query(func.sum(Order.total_amount)).filter(Order.status == "completed").scalar() or 0
+
+    return {
+        "total_hotels": total_hotels,
+        "total_tables": total_tables,
+        "total_menu_items": total_menu_items,
+        "total_orders": total_orders,
+        "completed_orders": completed_orders,
+        "total_revenue": float(total_revenue) if total_revenue else 0
+    }
+
+
+@router.post("/super/hotels", response_model=HotelResponseModel)
+def create_hotel_super(hotel: HotelCreateRequest, db: Session = Depends(get_db)):
+    # Check if phone already exists
+    existing = db.query(Hotel).filter(Hotel.phone_number == hotel.phone).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Hotel with this phone number already exists")
+
+    # Hash password
+    password_hash = hashlib.sha256(hotel.password.encode()).hexdigest()
+
+    new_hotel = Hotel(
+        hotel_name=hotel.name,
+        name=hotel.name,
+        phone_number=hotel.phone,
+        phone=hotel.phone,
+        password=password_hash,
+        address=hotel.address,
+        email=hotel.email,
+        created_at=datetime.now(timezone.utc)
+    )
+
+    db.add(new_hotel)
+    db.commit()
+    db.refresh(new_hotel)
+
+    return HotelResponseModel.from_hotel(new_hotel)
+
+
+@router.put("/super/hotels/{hotel_id}", response_model=HotelResponseModel)
+def update_hotel_super(hotel_id: int, hotel_update: HotelUpdateRequest, db: Session = Depends(get_db)):
+    db_hotel = db.query(Hotel).filter(Hotel.id == hotel_id).first()
+    if not db_hotel:
+        raise HTTPException(status_code=404, detail="Hotel not found")
+
+    # Update fields if provided
+    if hotel_update.name is not None:
+        db_hotel.hotel_name = hotel_update.name
+        db_hotel.name = hotel_update.name
+
+    if hotel_update.phone is not None:
+        # Check if phone already used by another hotel
+        existing = db.query(Hotel).filter(
+            Hotel.phone_number == hotel_update.phone,
+            Hotel.id != hotel_id
+        ).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Phone number already in use by another hotel")
+        db_hotel.phone_number = hotel_update.phone
+        db_hotel.phone = hotel_update.phone
+
+    if hotel_update.password is not None:
+        # Hash new password
+        db_hotel.password = hashlib.sha256(hotel_update.password.encode()).hexdigest()
+
+    if hotel_update.address is not None:
+        db_hotel.address = hotel_update.address
+
+    if hotel_update.email is not None:
+        db_hotel.email = hotel_update.email
+
+    db.commit()
+    db.refresh(db_hotel)
+
+    return HotelResponseModel.from_hotel(db_hotel)
+
+
+@router.delete("/super/hotels/{hotel_id}")
+def delete_hotel_super(hotel_id: int, db: Session = Depends(get_db)):
+    db_hotel = db.query(Hotel).filter(Hotel.id == hotel_id).first()
+    if not db_hotel:
+        raise HTTPException(status_code=404, detail="Hotel not found")
+
+    # Check if hotel has any active orders
+    active_orders = db.query(Order).filter(
+        Order.hotel_id == hotel_id,
+        Order.status.in_(["pending", "preparing", "ready"])
+    ).count()
+
+    if active_orders > 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot delete hotel with {active_orders} active orders. Complete or cancel them first."
+        )
+
+    # Delete associated data
+    db.query(TableModel).filter(TableModel.hotel_id == hotel_id).delete()
+    db.query(MenuItem).filter(MenuItem.hotel_id == hotel_id).delete()
+    db.query(Dish).filter(Dish.hotel_id == hotel_id).delete()
+    db.query(ChefAccount).filter(ChefAccount.hotel_id == hotel_id).delete()
+    db.query(Settings).filter(Settings.hotel_id == hotel_id).delete()
+
+    # Delete order items first (foreign key constraint)
+    order_ids = [o.id for o in db.query(Order.id).filter(Order.hotel_id == hotel_id).all()]
+    if order_ids:
+        db.query(OrderItem).filter(OrderItem.order_id.in_(order_ids)).delete(synchronize_session=False)
+
+    # Delete orders
+    db.query(Order).filter(Order.hotel_id == hotel_id).delete()
+
+    # Finally delete hotel
+    hotel_name = db_hotel.hotel_name
+    db.delete(db_hotel)
+    db.commit()
+
+    return {"success": True, "message": f"Hotel '{hotel_name}' and all associated data deleted successfully"}
+
