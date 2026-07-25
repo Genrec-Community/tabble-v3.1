@@ -22,7 +22,6 @@ from ..database import (
     ChefAccount,
     Hotel,
     Table as TableModel,
-    MenuItem,
     get_session_db,
     get_session_current_database,
     get_hotel_id_from_request,
