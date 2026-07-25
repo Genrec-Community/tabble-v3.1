@@ -66,6 +66,6 @@ services:
       - key: FAST2SMS_API_KEY
         sync: false
 
-    # Auto-deploy from main
+    # Auto-deploy from backend branch
     autoDeploy: true
-    branch: main
+    branch: tabblefinal-backend
