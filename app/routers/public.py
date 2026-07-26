@@ -8,6 +8,25 @@ router = APIRouter(
 )
 
 
+@router.get("/hotels")
+def get_hotels():
+    """Get list of all hotels for chef login dropdown. No auth required."""
+    Session = sessionmaker(bind=engine)
+    db = Session()
+    try:
+        hotels = db.query(Hotel).order_by(Hotel.hotel_name).all()
+        return [
+            {
+                "id": hotel.id,
+                "name": hotel.hotel_name,
+                "hotel_name": hotel.hotel_name  # Backward compatibility
+            }
+            for hotel in hotels
+        ]
+    finally:
+        db.close()
+
+
 @router.get("/scan/{qr_token}")
 def scan_qr_token(qr_token: str):
     """Resolve a QR token to hotel + table + slot context. No auth required."""
