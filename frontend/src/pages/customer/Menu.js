@@ -67,9 +67,9 @@ const CustomerMenu = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const queryParams = new URLSearchParams(location.search);
-  const tableNumber = queryParams.get('table_number');
-  const uniqueId = queryParams.get('unique_id');
-  const userId = queryParams.get('user_id');
+  const tableNumber = queryParams.get('table_number') || localStorage.getItem('tableNumber');
+  const uniqueId = queryParams.get('unique_id') || localStorage.getItem('customerUniqueId');
+  const userId = queryParams.get('user_id') || localStorage.getItem('customerId');
   const slotNumber = queryParams.get('slot_number') || localStorage.getItem('slotNumber') || '1';
 
   // Whether this hotel shows prices on the menu
@@ -391,6 +391,17 @@ const CustomerMenu = () => {
 
       // Show appropriate message
       if (errorCount === 0) {
+        // Payment successful - clear cart and session
+        clearCart();
+
+        // Clear cart from localStorage explicitly
+        const qrToken = localStorage.getItem('customerQrToken');
+        if (qrToken) {
+          localStorage.removeItem(`customerCart_${qrToken}`);
+        }
+        localStorage.setItem('customerOrderStatus', 'completed');
+        localStorage.setItem('lastOrderCompletedAt', new Date().toISOString());
+
         setSnackbar({
           open: true,
           message: 'Payment completed successfully! The bill will arrive at your table soon.',
@@ -504,14 +515,14 @@ const CustomerMenu = () => {
 
   return (
     <ProductionErrorBoundary>
-      <Container maxWidth="xl" sx={{ px: { xs: 1, sm: 2 }, position: 'relative' }}>
+      <Container maxWidth="lg" sx={{ px: { xs: 0, sm: 2 }, position: 'relative', pb: 2 }}>
       {/* Back to Home Button - Only show if user hasn't placed any order in current session */}
       {!hasPlacedOrderInSession && (
         <Box
           sx={{
             position: 'fixed',
-            top: 20,
-            left: 20,
+            top: { xs: 'calc(12px + var(--safe-area-top, 0px))', sm: 20 },
+            left: { xs: 'calc(12px + var(--safe-area-left, 0px))', sm: 20 },
             zIndex: 1000,
           }}
         >
@@ -523,9 +534,9 @@ const CustomerMenu = () => {
               backgroundColor: 'rgba(0, 0, 0, 0.8)',
               color: 'white',
               border: '2px solid rgba(255, 165, 0, 0.5)',
-              borderRadius: '25px',
-              px: 3,
-              py: 1,
+              borderRadius: '12px',
+              px: { xs: 1.25, sm: 2 },
+              py: 0.8,
               fontWeight: 'bold',
               fontSize: '0.9rem',
               backdropFilter: 'blur(10px)',
@@ -573,22 +584,14 @@ const CustomerMenu = () => {
           <Paper
             elevation={3}
             sx={{
-              p: 2,
+              p: { xs: 2, sm: 3 },
               mb: 6,
-              borderRadius: '6px',
-              backgroundColor: '#121212',
+              borderRadius: { xs: '24px 24px 0 0', sm: '20px' },
+              backgroundColor: '#171715',
               color: '#FFFFFF',
-              border: '1px solid rgba(255, 165, 0, 0.2)',
+              border: '1px solid rgba(255,255,255,0.08)',
               position: 'relative',
-              '&::after': {
-                content: '""',
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '4px',
-                backgroundColor: '#FFA500',
-              }
+              boxShadow: '0 12px 30px rgba(0,0,0,0.18)',
             }}
           >
             <Typography variant="h4" component="h2" fontWeight="bold" gutterBottom
@@ -596,11 +599,12 @@ const CustomerMenu = () => {
                 display: 'flex',
                 alignItems: 'center',
                 color: '#FFFFFF',
-                mb: 3,
+                mb: 2.5,
+                fontSize: { xs: '1.3rem', sm: '1.75rem', md: '2.125rem' },
                 '&:after': {
                   content: '""',
                   display: 'block',
-                  height: '2px',
+                  height: '1px',
                   flexGrow: 1,
                   backgroundColor: 'rgba(255, 165, 0, 0.3)',
                   ml: 2
@@ -611,22 +615,20 @@ const CustomerMenu = () => {
             </Typography>
 
             {/* Vegetarian Filter */}
-            <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center' }}>
+            <Box sx={{ mb: 2.5, display: 'flex', justifyContent: 'flex-start', overflowX: 'auto' }}>
               <Tabs
                 value={vegetarianFilter}
                 onChange={handleVegetarianFilterChange}
                 variant="standard"
                 sx={{
-                  '& .MuiTabs-indicator': {
-                    backgroundColor: '#FFA500',
-                  },
+                  '& .MuiTabs-indicator': { display: 'none' },
                   '& .MuiTab-root': {
-                    color: 'rgba(255, 255, 255, 0.7)',
+                    color: 'rgba(255, 255, 255, 0.7)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '999px', mr: 1,
                     fontWeight: 'medium',
                     minWidth: 'auto',
                     px: 2,
                     '&.Mui-selected': {
-                      color: '#FFA500',
+                      color: '#171715', backgroundColor: '#F7B538',
                     },
                   },
                 }}
@@ -720,7 +722,7 @@ const CustomerMenu = () => {
             <>
               <Box
                 sx={{
-                  height: 200,
+                  height: { xs: 160, sm: 200 },
                   borderRadius: '12px',
                   overflow: 'hidden',
                   mb: 3,
@@ -730,6 +732,7 @@ const CustomerMenu = () => {
                 <img
                   src={selectedDish.image_path ? `${process.env.REACT_APP_API_BASE_URL}${selectedDish.image_path}` : 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=600&q=80'}
                   alt={selectedDish.name}
+                  loading="lazy"
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
                 <Box
@@ -794,10 +797,12 @@ const CustomerMenu = () => {
                 }}
               >
                 <IconButton
-                  size="small"
+                  size="medium"
                   onClick={decrementQuantity}
                   sx={{
                     color: quantity === 1 ? 'rgba(255,255,255,0.3)' : '#FFA500',
+                    minWidth: 44,
+                    minHeight: 44,
                     '&:hover': {
                       backgroundColor: quantity === 1 ? 'transparent' : 'rgba(255,165,0,0.1)'
                     }
@@ -815,14 +820,15 @@ const CustomerMenu = () => {
                       setQuantity(val);
                     }
                   }}
+                  inputProps={{ inputMode: 'numeric', pattern: '[0-9]*' }}
                   InputProps={{
                     disableUnderline: true,
                     inputProps: {
-                      style: { textAlign: 'center', width: '30px', fontWeight: 'bold', color: 'white' }
+                      style: { textAlign: 'center', width: '40px', fontWeight: 'bold', color: 'white' }
                     }
                   }}
                 />
-                <IconButton size="small" onClick={incrementQuantity} sx={{ color: '#FFA500' }}>
+                <IconButton size="medium" onClick={incrementQuantity} sx={{ color: '#FFA500', minWidth: 44, minHeight: 44 }}>
                   <AddIcon />
                 </IconButton>
               </Box>
@@ -943,20 +949,22 @@ const CustomerMenu = () => {
         position="fixed"
         sx={{
           top: 'auto', bottom: 0,
-          backgroundColor: '#000',
-          borderTop: '1px solid rgba(255,165,0,0.2)',
-          boxShadow: '0 -4px 10px rgba(0,0,0,0.3)',
+          backgroundColor: 'rgba(23,23,21,0.96)',
+          borderTop: '1px solid rgba(255,255,255,0.1)',
+          boxShadow: '0 -8px 28px rgba(0,0,0,0.32)',
+          backdropFilter: 'blur(16px)',
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
         }}
       >
         <Toolbar
           sx={{
             display: 'flex',
-            flexWrap: 'wrap',
+            flexWrap: 'nowrap',
             gap: 1,
             py: 1,
             px: { xs: 1, sm: 2 },
             justifyContent: 'space-between',
-            minHeight: { xs: 56, sm: 64 },
+            minHeight: { xs: 64, sm: 68 },
           }}
         >
           {/* Orders history button */}
@@ -966,16 +974,14 @@ const CustomerMenu = () => {
             startIcon={<HistoryIcon />}
             onClick={handleOpenOrderHistory}
             sx={{
-              borderColor: 'rgba(255,165,0,0.5)', color: '#FFA500',
+              borderColor: 'rgba(255,255,255,0.18)', color: 'rgba(255,255,255,0.86)', borderRadius: '12px',
               '&:hover': { borderColor: '#FFA500', bgcolor: 'rgba(255,165,0,0.1)' },
-              minWidth: 0, px: { xs: 1.5, sm: 2 },
+              minWidth: 0, px: { xs: 1.25, sm: 2 },
               fontSize: { xs: '0.75rem', sm: '0.875rem' },
             }}
           >
             Orders
           </Button>
-
-          <Box sx={{ flex: 1 }} />
 
           {/* Cart button */}
           <Button
@@ -989,7 +995,7 @@ const CustomerMenu = () => {
             }
             onClick={handleOpenCartDialog}
             sx={{
-              bgcolor: '#FFA500', color: '#000', fontWeight: 700,
+              bgcolor: '#F7B538', color: '#1A1408', fontWeight: 700, borderRadius: '12px',
               px: { xs: 1.5, sm: 3 },
               fontSize: { xs: '0.75rem', sm: '0.875rem' },
               '&:hover': { bgcolor: '#E69500' },
@@ -1008,11 +1014,12 @@ const CustomerMenu = () => {
               startIcon={<PaymentIcon />}
               onClick={handleRequestPayment}
               sx={{
-                ml: 2,
-                py: 1.2,
-                px: 3,
-                borderRadius: '4px',
+                ml: 0,
+                py: { xs: 0.75, sm: 1.2 },
+                px: { xs: 1.25, sm: 3 },
+                borderRadius: '12px',
                 fontWeight: 'bold',
+                fontSize: { xs: '0.75rem', sm: '0.875rem' },
                 backgroundColor: '#4DAA57',
                 color: '#FFFFFF',
                 border: '2px solid #4DAA57',
@@ -1038,12 +1045,11 @@ const CustomerMenu = () => {
               Payment
             </Button>
           )}
-          <Box sx={{ flexGrow: 1 }} />
         </Toolbar>
       </AppBar>
 
-      {/* Add padding at the bottom to account for the bottom bar */}
-      <Box sx={{ height: 80 }} />
+      {/* Add padding at the bottom to account for the bottom bar + safe area */}
+      <Box sx={{ height: { xs: 'calc(92px + env(safe-area-inset-bottom, 0px))', sm: 88 } }} />
 
       {/* Payment Dialog */}
       <Dialog
@@ -1297,7 +1303,7 @@ const CustomerMenu = () => {
         open={snackbar.open}
         autoHideDuration={6000}
         onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
         <Alert
           onClose={handleCloseSnackbar}

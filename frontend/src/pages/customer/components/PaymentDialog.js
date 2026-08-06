@@ -59,7 +59,7 @@ const PaymentDialog = ({
           backgroundColor: '#000000',
           boxShadow: '0 20px 50px rgba(0, 0, 0, 0.5)',
           overflow: 'hidden',
-          maxHeight: '90vh'
+          maxHeight: { xs: '95dvh', sm: '90vh' }
         }
       }}
     >

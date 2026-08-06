@@ -202,10 +202,40 @@ export const useOrderManagement = (userId, tableNumber) => {
 };
 
 /**
- * Optimized hook for cart management
+ * Optimized hook for cart management with localStorage persistence
  */
 export const useCartManagement = () => {
-  const [cart, setCart] = useState([]);
+  // Get current QR token to identify the session
+  const qrToken = localStorage.getItem('customerQrToken') || 'default';
+  const cartStorageKey = `customerCart_${qrToken}`;
+
+  // Initialize cart from localStorage
+  const [cart, setCart] = useState(() => {
+    try {
+      const savedCart = localStorage.getItem(cartStorageKey);
+      return savedCart ? JSON.parse(savedCart) : [];
+    } catch (error) {
+      console.error('Error loading cart from localStorage:', error);
+      return [];
+    }
+  });
+
+  // Save cart to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem(cartStorageKey, JSON.stringify(cart));
+      localStorage.setItem('customerCartUpdatedAt', new Date().toISOString());
+
+      // Track if cart has items (order is active)
+      if (cart.length > 0) {
+        localStorage.setItem('customerOrderStatus', 'active');
+      } else {
+        localStorage.removeItem('customerOrderStatus');
+      }
+    } catch (error) {
+      console.error('Error saving cart to localStorage:', error);
+    }
+  }, [cart, cartStorageKey]);
 
   const addToCart = useCallback((dish, quantity, remarks) => {
     const actualPrice = dish.is_offer === 1 ?
@@ -263,7 +293,15 @@ export const useCartManagement = () => {
 
   const clearCart = useCallback(() => {
     setCart([]);
-  }, []);
+    // Also clear from localStorage
+    try {
+      localStorage.removeItem(cartStorageKey);
+      localStorage.removeItem('customerOrderStatus');
+      localStorage.removeItem('customerCartUpdatedAt');
+    } catch (error) {
+      console.error('Error clearing cart from localStorage:', error);
+    }
+  }, [cartStorageKey]);
 
   const cartTotal = useMemo(() => {
     return cart.reduce((total, item) => total + (item.price * item.quantity), 0).toFixed(2);

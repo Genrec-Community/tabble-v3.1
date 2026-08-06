@@ -97,7 +97,7 @@ const CustomerLogin = () => {
   if (checking) {
     return (
       <Box sx={{
-        minHeight: '100vh', display: 'flex', alignItems: 'center',
+        minHeight: '100dvh', display: 'flex', alignItems: 'center',
         justifyContent: 'center', bgcolor: '#000',
       }}>
         <CircularProgress sx={{ color: '#FFA500' }} />
@@ -106,7 +106,7 @@ const CustomerLogin = () => {
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#000', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ minHeight: '100dvh', bgcolor: '#000', display: 'flex', flexDirection: 'column' }}>
       {/* Food image gallery strip */}
       <Grid container sx={{ height: { xs: 140, sm: 200 }, overflow: 'hidden' }}>
         {foodImages.map((src, i) => (

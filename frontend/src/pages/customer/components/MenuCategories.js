@@ -17,7 +17,7 @@ const MenuCategories = ({ categories, currentCategory, handleCategoryChange, loa
       onChange={handleCategoryChange}
       variant="scrollable"
       scrollButtons="auto"
-      sx={{ mb: 4, mt: 2 }}
+      sx={{ mb: { xs: 2.5, sm: 4 }, mt: 1, '& .MuiTabs-scroller': { px: 0.25 } }}
     >
       {categories.map((category) => (
         <CategoryTab key={category} label={category} value={category} />

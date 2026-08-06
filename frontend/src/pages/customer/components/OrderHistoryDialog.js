@@ -336,12 +336,14 @@ const OrderHistoryDialog = ({
                                   onClick={() => openCancelDialog(order.id)}
                                   sx={{
                                     mr: 2,
+                                    minWidth: 44,
+                                    minHeight: 44,
                                     color: '#FF385C',
                                     '&:hover': {
                                       backgroundColor: 'rgba(255, 56, 92, 0.1)'
                                     }
                                   }}
-                                  size="small"
+                                  size="medium"
                                 >
                                   <CancelIcon />
                                 </IconButton>

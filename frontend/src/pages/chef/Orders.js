@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   Container,
   Typography,
@@ -228,18 +228,18 @@ const ChefOrders = () => {
     <Box sx={{ backgroundColor: '#000000', minHeight: '100vh', color: '#FFFFFF' }}>
       {/* Header Section */}
       <Box mb={4}>
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+        <Box display="flex" justifyContent="space-between" alignItems="center" gap={2} mb={3}>
           <Box>
-            <Typography variant="h4" component="h1" fontWeight="bold" gutterBottom sx={{ color: '#FFFFFF' }}>
+            <Typography variant="h4" component="h1" fontWeight="bold" gutterBottom sx={{ color: '#FFFFFF', fontSize: { xs: '1.6rem', sm: '2.125rem' } }}>
               Kitchen Orders
             </Typography>
-            <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+            <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.7)', display: { xs: 'none', sm: 'block' } }}>
               Manage incoming orders and track preparation progress
             </Typography>
           </Box>
           <Tooltip title="Refresh Orders">
             <Fab
-              size="medium"
+              size="small"
               color="primary"
               onClick={handleRefresh}
               disabled={refreshing}
@@ -255,35 +255,6 @@ const ChefOrders = () => {
           </Tooltip>
         </Box>
 
-        <Tabs
-          value={1}
-          aria-label="chef tabs"
-          sx={{
-            mb: 3,
-            '& .MuiTab-root': {
-              color: 'rgba(255, 255, 255, 0.7)',
-              '&.Mui-selected': {
-                color: '#FFA500',
-              },
-            },
-            '& .MuiTabs-indicator': {
-              backgroundColor: '#FFA500',
-            },
-          }}
-        >
-          <Tab
-            label="Kitchen Dashboard"
-            component={RouterLink}
-            to="/chef"
-            sx={{ fontWeight: 'medium' }}
-          />
-          <Tab
-            label="Orders"
-            component={RouterLink}
-            to="/chef/orders"
-            sx={{ fontWeight: 'medium' }}
-          />
-        </Tabs>
       </Box>
 
       {/* Order Status Tabs */}

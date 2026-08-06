@@ -53,7 +53,7 @@ const AddToCartDialog = ({
       <DialogContent dividers>
         <Box
           sx={{
-            height: 200,
+            height: { xs: 160, sm: 200 },
             borderRadius: '12px',
             overflow: 'hidden',
             mb: 3,
@@ -63,6 +63,7 @@ const AddToCartDialog = ({
           <img
             src={selectedDish.image_path ? `${process.env.REACT_APP_API_BASE_URL}${selectedDish.image_path}` : 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=600&q=80'}
             alt={selectedDish.name}
+            loading="lazy"
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />
           <Box
@@ -124,9 +125,11 @@ const AddToCartDialog = ({
           }}
         >
           <IconButton
-            size="small"
+            size="medium"
             onClick={decrementQuantity}
             sx={{
+              minWidth: 44,
+              minHeight: 44,
               color: quantity === 1 ? 'text.disabled' : 'primary.main',
               '&:hover': {
                 backgroundColor: quantity === 1 ? 'transparent' : 'rgba(0,0,0,0.04)'
@@ -145,14 +148,15 @@ const AddToCartDialog = ({
                 setQuantity(val);
               }
             }}
+            inputProps={{ inputMode: 'numeric', pattern: '[0-9]*' }}
             InputProps={{
               disableUnderline: true,
               inputProps: {
-                style: { textAlign: 'center', width: '30px', fontWeight: 'bold' }
+                style: { textAlign: 'center', width: '40px', fontWeight: 'bold' }
               }
             }}
           />
-          <IconButton size="small" onClick={incrementQuantity} color="primary">
+          <IconButton size="medium" onClick={incrementQuantity} color="primary" sx={{ minWidth: 44, minHeight: 44 }}>
             <AddIcon />
           </IconButton>
         </Box>

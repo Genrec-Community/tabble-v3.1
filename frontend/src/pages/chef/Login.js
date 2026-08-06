@@ -1,39 +1,94 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Paper, Typography, Button, CircularProgress, Alert } from '@mui/material';
-import GoogleIcon from '@mui/icons-material/Google';
-import { signInWithPopup } from 'firebase/auth';
-import { auth, googleProvider } from '../../firebase';
+import {
+  Box,
+  Paper,
+  Typography,
+  TextField,
+  Button,
+  CircularProgress,
+  Alert,
+  MenuItem,
+  InputAdornment,
+  IconButton
+} from '@mui/material';
+import {
+  Restaurant as RestaurantIcon,
+  Visibility,
+  VisibilityOff
+} from '@mui/icons-material';
 import api from '../../services/api';
 
 const ChefLogin = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [hotels, setHotels] = useState([]);
+  const [loadingHotels, setLoadingHotels] = useState(true);
 
-  const handleGoogleLogin = async () => {
+  const [formData, setFormData] = useState({
+    username: '',
+    password: '',
+    hotel_id: ''
+  });
+
+  useEffect(() => {
+    fetchHotels();
+  }, []);
+
+  const fetchHotels = async () => {
+    try {
+      const response = await api.get('/public/hotels');
+      setHotels(response.data);
+    } catch (err) {
+      setError('Failed to load hotels');
+    } finally {
+      setLoadingHotels(false);
+    }
+  };
+
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+    setError('');
+  };
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+
+    if (!formData.username || !formData.password || !formData.hotel_id) {
+      setError('Please fill in all fields');
+      return;
+    }
+
     setLoading(true);
     setError('');
+
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const idToken = await result.user.getIdToken();
+      const response = await api.post('/chef/auth/login', {
+        username: formData.username,
+        password: formData.password,
+        hotel_id: parseInt(formData.hotel_id)
+      });
 
-      const res = await api.post('/chef/auth/google', { id_token: idToken });
-      const { hotel_id, hotel_name, display_name, gmail } = res.data;
+      const { chef_id, hotel_id, hotel_name, display_name, username } = response.data;
 
+      // Store chef session data
+      localStorage.setItem('chefId', String(chef_id));
       localStorage.setItem('chefHotelId', String(hotel_id));
       localStorage.setItem('chefHotelName', hotel_name);
       localStorage.setItem('chefDisplayName', display_name);
-      localStorage.setItem('chefGmail', gmail);
+      localStorage.setItem('chefUsername', username);
       localStorage.setItem('selectedHotel', hotel_name);
-      localStorage.setItem('hotelPassword', '');
       localStorage.setItem('selectedDatabase', hotel_name);
 
       navigate('/chef');
     } catch (err) {
-      const msg = err.response?.data?.detail || err.message || 'Sign-in failed';
+      const msg = err.response?.data?.detail || 'Login failed. Please check your credentials.';
       setError(msg);
-      await auth.signOut().catch(() => {});
     } finally {
       setLoading(false);
     }
@@ -46,43 +101,148 @@ const ChefLogin = () => {
         url('https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?auto=format&fit=crop&w=1920&q=80')`,
       backgroundSize: 'cover',
       backgroundPosition: 'center',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      p: 2,
     }}>
       <Paper sx={{
-        p: 4, width: '100%', maxWidth: 400,
+        p: 4,
+        width: '100%',
+        maxWidth: 420,
         bgcolor: 'rgba(18,18,18,0.95)',
         border: '1px solid rgba(76,175,80,0.3)',
-        borderRadius: 3, textAlign: 'center',
+        borderRadius: 3,
       }}>
-        <Typography variant="h2" sx={{ mb: 1 }}>👨‍🍳</Typography>
-        <Typography variant="h5" fontWeight="bold" sx={{ color: '#4CAF50', mb: 0.5 }}>
-          Chef Portal
-        </Typography>
-        <Typography variant="body2" sx={{ color: '#888', mb: 3 }}>
-          Sign in with the Google account your hotel admin registered
-        </Typography>
+        <Box sx={{ textAlign: 'center', mb: 3 }}>
+          <RestaurantIcon sx={{ fontSize: 60, color: '#4CAF50', mb: 1 }} />
+          <Typography variant="h5" fontWeight="bold" sx={{ color: '#4CAF50', mb: 0.5 }}>
+            Chef Portal
+          </Typography>
+          <Typography variant="body2" sx={{ color: '#888' }}>
+            Sign in to access kitchen orders
+          </Typography>
+        </Box>
 
         {error && (
-          <Alert severity="error" sx={{ mb: 2, textAlign: 'left' }}>{error}</Alert>
+          <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
         )}
 
-        <Button
-          variant="contained"
-          fullWidth
-          onClick={handleGoogleLogin}
-          disabled={loading}
-          startIcon={loading ? <CircularProgress size={18} sx={{ color: '#000' }} /> : <GoogleIcon />}
-          sx={{
-            bgcolor: '#4CAF50', color: '#fff', fontWeight: 700, py: 1.5,
-            '&:hover': { bgcolor: '#388E3C' },
-          }}
-        >
-          {loading ? 'Signing in...' : 'Continue with Google'}
-        </Button>
+        <form onSubmit={handleLogin}>
+          <TextField
+            fullWidth
+            select
+            label="Select Hotel"
+            name="hotel_id"
+            value={formData.hotel_id}
+            onChange={handleChange}
+            disabled={loadingHotels}
+            sx={{
+              mb: 2,
+              '& .MuiOutlinedInput-root': {
+                color: 'white',
+                '& fieldset': { borderColor: 'rgba(255,255,255,0.3)' },
+                '&:hover fieldset': { borderColor: 'rgba(76,175,80,0.5)' },
+                '&.Mui-focused fieldset': { borderColor: '#4CAF50' }
+              },
+              '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' },
+              '& .MuiInputLabel-root.Mui-focused': { color: '#4CAF50' }
+            }}
+          >
+            {loadingHotels ? (
+              <MenuItem value="">
+                <CircularProgress size={20} />
+              </MenuItem>
+            ) : (
+              hotels.map((hotel) => (
+                <MenuItem key={hotel.id} value={hotel.id}>
+                  {hotel.name || hotel.hotel_name}
+                </MenuItem>
+              ))
+            )}
+          </TextField>
+
+          <TextField
+            fullWidth
+            label="Username"
+            name="username"
+            value={formData.username}
+            onChange={handleChange}
+            autoComplete="username"
+            sx={{
+              mb: 2,
+              '& .MuiOutlinedInput-root': {
+                color: 'white',
+                '& fieldset': { borderColor: 'rgba(255,255,255,0.3)' },
+                '&:hover fieldset': { borderColor: 'rgba(76,175,80,0.5)' },
+                '&.Mui-focused fieldset': { borderColor: '#4CAF50' }
+              },
+              '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' },
+              '& .MuiInputLabel-root.Mui-focused': { color: '#4CAF50' }
+            }}
+          />
+
+          <TextField
+            fullWidth
+            type={showPassword ? 'text' : 'password'}
+            label="Password"
+            name="password"
+            value={formData.password}
+            onChange={handleChange}
+            autoComplete="current-password"
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    onClick={() => setShowPassword(!showPassword)}
+                    edge="end"
+                    sx={{ color: 'rgba(255,255,255,0.7)' }}
+                  >
+                    {showPassword ? <VisibilityOff /> : <Visibility />}
+                  </IconButton>
+                </InputAdornment>
+              )
+            }}
+            sx={{
+              mb: 3,
+              '& .MuiOutlinedInput-root': {
+                color: 'white',
+                '& fieldset': { borderColor: 'rgba(255,255,255,0.3)' },
+                '&:hover fieldset': { borderColor: 'rgba(76,175,80,0.5)' },
+                '&.Mui-focused fieldset': { borderColor: '#4CAF50' }
+              },
+              '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' },
+              '& .MuiInputLabel-root.Mui-focused': { color: '#4CAF50' }
+            }}
+          />
+
+          <Button
+            type="submit"
+            variant="contained"
+            fullWidth
+            disabled={loading}
+            sx={{
+              bgcolor: '#4CAF50',
+              color: '#fff',
+              fontWeight: 700,
+              py: 1.5,
+              '&:hover': { bgcolor: '#388E3C' },
+              '&:disabled': { bgcolor: 'rgba(76,175,80,0.3)' }
+            }}
+          >
+            {loading ? <CircularProgress size={24} sx={{ color: '#fff' }} /> : 'Sign In'}
+          </Button>
+        </form>
 
         <Typography
           variant="body2"
-          sx={{ color: '#555', mt: 3, cursor: 'pointer', '&:hover': { color: '#4CAF50' } }}
+          sx={{
+            color: '#555',
+            mt: 3,
+            textAlign: 'center',
+            cursor: 'pointer',
+            '&:hover': { color: '#4CAF50' }
+          }}
           onClick={() => navigate('/')}
         >
           ← Back to Home

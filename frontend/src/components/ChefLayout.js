@@ -1,41 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { Link as RouterLink, useLocation, Outlet, useNavigate } from 'react-router-dom';
 import {
-  Box, AppBar, Toolbar, Typography, Button, useTheme, Tabs, Tab
+  Box, AppBar, Toolbar, Typography, Button, Tabs, Tab
 } from '@mui/material';
 import { Restaurant as RestaurantIcon } from '@mui/icons-material';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '../firebase';
-import api from '../services/api';
+import LogoutIcon from '@mui/icons-material/Logout';
 
 const ChefLayout = () => {
-  const theme = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
   const [chefName, setChefName] = useState('');
   const [currentTab, setCurrentTab] = useState(0);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        navigate('/chef/login');
-        return;
-      }
-      try {
-        const idToken = await user.getIdToken();
-        const res = await api.post('/chef/auth/google', { id_token: idToken });
-        const { display_name, hotel_name } = res.data;
-        setChefName(display_name);
-        localStorage.setItem('chefHotelName', hotel_name);
-        localStorage.setItem('selectedHotel', hotel_name);
-        localStorage.setItem('selectedDatabase', hotel_name);
-      } catch {
-        // Gmail no longer registered — sign out and redirect
-        await auth.signOut();
-        navigate('/chef/login');
-      }
-    });
-    return () => unsubscribe();
+    // Check if chef is logged in
+    const chefId = localStorage.getItem('chefId');
+    const displayName = localStorage.getItem('chefDisplayName');
+    const hotelName = localStorage.getItem('chefHotelName');
+
+    if (!chefId || !hotelName) {
+      navigate('/chef/login');
+      return;
+    }
+
+    setChefName(displayName || 'Chef');
   }, [navigate]);
 
   useEffect(() => {
@@ -44,24 +32,32 @@ const ChefLayout = () => {
   }, [location.pathname]);
 
   const handleSignOut = async () => {
-    await auth.signOut();
+    // Clear all chef session data
     [
-      'chefHotelName', 'chefDisplayName', 'chefGmail', 'chefHotelId',
-      'selectedHotel', 'hotelPassword', 'selectedDatabase', 'databasePassword',
+      'chefId',
+      'chefHotelId',
+      'chefHotelName',
+      'chefDisplayName',
+      'chefUsername',
+      'selectedHotel',
+      'hotelPassword',
+      'selectedDatabase',
+      'databasePassword',
     ].forEach(k => localStorage.removeItem(k));
+
     navigate('/chef/login');
   };
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', backgroundColor: '#000', color: '#FFF' }}>
       <AppBar position="static" sx={{ backgroundColor: '#000', boxShadow: 'none', borderBottom: '1px solid rgba(255,165,0,0.2)' }}>
-        <Toolbar>
-          <RestaurantIcon sx={{ mr: 2, color: 'primary.main' }} />
-          <Typography variant="h6" fontWeight="bold" sx={{ flexGrow: 1, color: '#FFA500' }}>
+        <Toolbar sx={{ minHeight: { xs: 56, sm: 64 }, px: { xs: 2, sm: 3 } }}>
+          <RestaurantIcon sx={{ mr: 1, color: 'primary.main' }} />
+          <Typography variant="h6" fontWeight="bold" sx={{ flexGrow: 1, color: '#FFA500', fontSize: { xs: '1rem', sm: '1.25rem' } }}>
             Tabble — Kitchen
           </Typography>
           {chefName && (
-            <Typography variant="body2" sx={{ color: '#ccc', mr: 2 }}>
+            <Typography variant="body2" sx={{ color: '#ccc', mr: 2, display: { xs: 'none', sm: 'block' } }}>
               👨‍🍳 {chefName}
             </Typography>
           )}
@@ -69,19 +65,22 @@ const ChefLayout = () => {
             color="inherit"
             size="small"
             onClick={handleSignOut}
-            sx={{ color: '#FFA500', border: '1px solid rgba(255,165,0,0.3)' }}
+            startIcon={<LogoutIcon fontSize="small" />}
+            aria-label="Sign out of kitchen"
+            sx={{ color: '#FFA500', border: '1px solid rgba(255,165,0,0.3)', minWidth: 44, px: { xs: 1, sm: 1.5 } }}
           >
-            Sign Out
+            <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>Sign Out</Box>
           </Button>
         </Toolbar>
         <Tabs value={currentTab} textColor="inherit"
           TabIndicatorProps={{ style: { backgroundColor: '#FFA500' } }}
-          sx={{ px: 2 }}>
+          variant="fullWidth"
+          sx={{ px: { xs: 0, sm: 2 }, '& .MuiTab-root': { minHeight: 48, fontWeight: 700 } }}>
           <Tab label="Dashboard" component={RouterLink} to="/chef" />
           <Tab label="Orders" component={RouterLink} to="/chef/orders" />
         </Tabs>
       </AppBar>
-      <Box sx={{ flex: 1 }}>
+      <Box sx={{ flex: 1, px: { xs: 2, sm: 3 }, py: { xs: 2, sm: 3 } }}>
         <Outlet />
       </Box>
     </Box>

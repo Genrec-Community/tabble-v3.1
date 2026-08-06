@@ -36,7 +36,7 @@ const MenuItemsGrid = ({
         sx={{
           display: 'flex',
           alignItems: 'center',
-          mb: 4,
+          mb: { xs: 2, sm: 3 },
           '&:after': {
             content: '""',
             display: 'block',
@@ -55,45 +55,63 @@ const MenuItemsGrid = ({
 
       {/* Menu Items Grid */}
       {loading ? (
-        <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight={{ xs: '250px', sm: '400px' }}>
           <CircularProgress sx={{ color: '#FFA500' }} />
         </Box>
       ) : (
-        <Grid container spacing={6}>
+        <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }}>
           {displayDishes.map((dish) => (
-            <Grid item xs={12} sm={6} md={6} key={dish.id}>
+            <Grid item xs={12} sm={6} md={4} lg={3} key={dish.id}>
               <Zoom in={true} style={{ transitionDelay: '100ms' }}>
-                <DishCard onClick={() => handleOpenDialog(dish)} sx={{ display: 'flex', flexDirection: 'row', height: '340px' }}>
-                  {/* Left side - Image */}
-                  <Box sx={{ width: '55%', position: 'relative' }}>
+                <DishCard onClick={() => handleOpenDialog(dish)}>
+                  {/* Image Section */}
+                  <Box sx={{ position: 'relative', width: '100%', paddingTop: '75%', overflow: 'hidden' }}>
                     <Box
                       component="img"
                       src={dish.image_path ? `${process.env.REACT_APP_API_BASE_URL}${dish.image_path}` : 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=600&q=80'}
                       alt={dish.name}
+                      loading="lazy"
                       sx={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
                         width: '100%',
                         height: '100%',
                         objectFit: 'cover',
-                        position: 'relative'
+                        transition: 'transform 0.3s ease',
                       }}
                     />
 
+                    {/* Gradient Overlay */}
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        height: '50%',
+                        background: 'linear-gradient(to top, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0) 100%)',
+                        pointerEvents: 'none'
+                      }}
+                    />
+
+                    {/* Popular/New Badge */}
                     {dish.isPopular && (
-                      <SpecialBadge>
-                        <LocalOfferIcon /> Popular
+                      <SpecialBadge sx={{ top: 12, left: 12 }}>
+                        <LocalOfferIcon sx={{ fontSize: 14 }} /> Popular
                       </SpecialBadge>
                     )}
 
                     {dish.isNew && !dish.isPopular && (
-                      <SpecialBadge sx={{ backgroundColor: theme.palette.secondary.main }}>
-                        <LocalOfferIcon /> New
+                      <SpecialBadge sx={{ top: 12, left: 12, borderColor: theme.palette.secondary.main, color: theme.palette.secondary.main }}>
+                        <LocalOfferIcon sx={{ fontSize: 14, color: theme.palette.secondary.main }} /> New
                       </SpecialBadge>
                     )}
 
+                    {/* Category Badges - Only show in All view */}
                     {currentCategory === 'All' && (
-                      <Box sx={{ position: 'absolute', top: 8, left: 8, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      <Box sx={{ position: 'absolute', top: 12, right: 12, display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'flex-end' }}>
                         {(() => {
-                          // Parse categories from JSON format
                           let dishCategories = [];
                           try {
                             dishCategories = JSON.parse(dish.category || '[]');
@@ -104,7 +122,7 @@ const MenuItemsGrid = ({
                             dishCategories = dish.category ? [dish.category] : [];
                           }
 
-                          return dishCategories.slice(0, 2).map((cat, index) => (
+                          return dishCategories.slice(0, 1).map((cat, index) => (
                             <CategoryBadge
                               key={index}
                               label={cat}
@@ -113,36 +131,21 @@ const MenuItemsGrid = ({
                             />
                           ));
                         })()}
-                        {(() => {
-                          let dishCategories = [];
-                          try {
-                            dishCategories = JSON.parse(dish.category || '[]');
-                          } catch (e) {
-                            dishCategories = dish.category ? [dish.category] : [];
-                          }
-                          return dishCategories.length > 2 && (
-                            <CategoryBadge
-                              label={`+${dishCategories.length - 2}`}
-                              size="small"
-                              categorycolor="#666"
-                            />
-                          );
-                        })()}
                       </Box>
                     )}
 
-                    {/* Vegetarian/Non-Vegetarian Indicator Overlay */}
+                    {/* Vegetarian/Non-Vegetarian Indicator */}
                     <Box
                       sx={{
                         position: 'absolute',
-                        top: 8,
-                        right: 8,
-                        width: 20,
-                        height: 20,
-                        borderRadius: '50%',
-                        backgroundColor: dish.is_vegetarian === 1 ? '#4CAF50' : '#F44336',
-                        border: '2px solid white',
-                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+                        bottom: 12,
+                        left: 12,
+                        width: 24,
+                        height: 24,
+                        borderRadius: '4px',
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                        border: '2px solid',
+                        borderColor: dish.is_vegetarian === 1 ? '#4CAF50' : '#F44336',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -154,70 +157,90 @@ const MenuItemsGrid = ({
                           width: 8,
                           height: 8,
                           borderRadius: '50%',
-                          backgroundColor: 'white',
-                          opacity: 0.9
+                          backgroundColor: dish.is_vegetarian === 1 ? '#4CAF50' : '#F44336',
                         }}
                       />
                     </Box>
                   </Box>
 
-                  {/* Right side - Content */}
-                  <Box sx={{ display: 'flex', flexDirection: 'column', width: '45%' }}>
-                    <CardContent sx={{
-                      flex: '1 0 auto',
-                      p: { xs: 1.5, sm: 2 },
-                      display: 'flex',
-                      flexDirection: 'column',
-                      justifyContent: 'space-between',
-                      height: '100%',
-                      backgroundColor: '#121212',
-                      color: 'white'
-                    }}>
-                      <Box>
-                        <Box display="flex" alignItems="center" gap={1} mb={1}>
-                          <Typography gutterBottom variant="h5" component="div" fontWeight="bold" color="white" sx={{ mb: 0 }}>
-                            {dish.name}
-                          </Typography>
-                        </Box>
+                  {/* Content Section */}
+                  <CardContent sx={{
+                    p: { xs: 1.5, sm: 2 },
+                    backgroundColor: '#171715',
+                    color: 'white',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 1.5,
+                    flexGrow: 1
+                  }}>
+                    {/* Dish Name */}
+                    <Typography
+                      variant="h6"
+                      component="div"
+                      fontWeight="bold"
+                      color="white"
+                      sx={{
+                        fontSize: { xs: '1rem', sm: '1.125rem' },
+                        lineHeight: 1.3,
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                        minHeight: { xs: '2.6rem', sm: '2.9rem' }
+                      }}
+                    >
+                      {dish.name}
+                    </Typography>
 
-                        {dish.description && (
-                          <Typography
-                            variant="h6"
-                            sx={{ mb: 1, color: 'rgba(255,255,255,0.7)', lineHeight: 1.4 }}
-                          >
-                            {dish.description.length > 80
-                              ? dish.description.substring(0, 80) + '...'
-                              : dish.description}
-                          </Typography>
-                        )}
-                      </Box>
+                    {/* Description */}
+                    {dish.description && (
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          color: 'rgba(255,255,255,0.65)',
+                          lineHeight: 1.5,
+                          fontSize: { xs: '0.8rem', sm: '0.875rem' },
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                          minHeight: { xs: '2.4rem', sm: '2.625rem' }
+                        }}
+                      >
+                        {dish.description}
+                      </Typography>
+                    )}
 
-                      <Box>
-                        <Divider sx={{ my: 1, backgroundColor: 'rgba(255, 165, 0, 0.2)' }} />
+                    <Divider sx={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
 
-                        <Box display="flex" justifyContent="space-between" alignItems="center" mt={2}>
-                          {showPrices ? (
-                            <Typography variant="h6" fontWeight="bold" color="#FFA500">
-                              ₹{dish.price.toFixed(2)}
-                            </Typography>
-                          ) : (
-                            <Box />
-                          )}
-                          <AddButton
-                            variant="contained"
-                            startIcon={<AddIcon />}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenDialog(dish);
-                            }}
-                            sx={{ py: 1.5, px: 3, fontSize: '1.1rem' }}
-                          >
-                            Add
-                          </AddButton>
-                        </Box>
-                      </Box>
-                    </CardContent>
-                  </Box>
+                    {/* Price and Add Button */}
+                    <Box display="flex" justifyContent="space-between" alignItems="center">
+                      {showPrices ? (
+                        <Typography variant="h6" fontWeight="bold" color="#FFA500" sx={{ fontSize: { xs: '1.125rem', sm: '1.25rem' } }}>
+                          ₹{dish.price.toFixed(2)}
+                        </Typography>
+                      ) : (
+                        <Box />
+                      )}
+                      <AddButton
+                        variant="contained"
+                        startIcon={<AddIcon sx={{ fontSize: { xs: 18, sm: 20 } }} />}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenDialog(dish);
+                        }}
+                        sx={{
+                          py: { xs: 0.75, sm: 1 },
+                          px: { xs: 2, sm: 2.5 },
+                          fontSize: { xs: '0.875rem', sm: '0.9375rem' },
+                          minWidth: { xs: 80, sm: 90 },
+                          fontWeight: 700
+                        }}
+                      >
+                        Add
+                      </AddButton>
+                    </Box>
+                  </CardContent>
                 </DishCard>
               </Zoom>
             </Grid>

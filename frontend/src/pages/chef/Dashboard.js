@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router-dom';
 import {
   Container,
   Typography,
@@ -9,13 +9,10 @@ import {
   Card,
   CardContent,
   Button,
-  Tabs,
-  Tab,
   Divider,
   Alert,
   CircularProgress,
   Fab,
-  Badge,
   Chip,
   CardActions,
   Tooltip
@@ -33,7 +30,6 @@ import KitchenIcon from '@mui/icons-material/Kitchen';
 import { chefService, adminService } from '../../services/api';
 
 const ChefDashboard = () => {
-  const navigate = useNavigate();
   const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
   const [acceptedOrdersCount, setAcceptedOrdersCount] = useState(0);
   const [completedOrdersCount, setCompletedOrdersCount] = useState(0);
@@ -98,19 +94,19 @@ const ChefDashboard = () => {
     <Box sx={{ backgroundColor: '#000000', minHeight: '100vh', color: '#FFFFFF', pb: 4 }}>
       {/* Header Section */}
       <Box mb={4}>
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+        <Box display="flex" justifyContent="space-between" alignItems="center" gap={2} mb={3}>
           <Box>
-            <Typography variant="h4" component="h1" fontWeight="bold" gutterBottom sx={{ color: '#FFFFFF' }}>
+            <Typography variant="h4" component="h1" fontWeight="bold" gutterBottom sx={{ color: '#FFFFFF', fontSize: { xs: '1.6rem', sm: '2.125rem' } }}>
               Kitchen Dashboard
             </Typography>
-            <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+            <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.7)', display: { xs: 'none', sm: 'block' } }}>
               Monitor and manage kitchen operations in real-time
             </Typography>
           </Box>
           <Box display="flex" gap={2} alignItems="center">
             <Tooltip title="Refresh Data">
               <Fab
-                size="medium"
+                size="small"
                 color="primary"
                 onClick={handleRefresh}
                 disabled={refreshing}
@@ -127,39 +123,6 @@ const ChefDashboard = () => {
           </Box>
         </Box>
 
-        <Tabs
-          value={0}
-          aria-label="chef tabs"
-          sx={{
-            mb: 3,
-            '& .MuiTab-root': {
-              color: 'rgba(255, 255, 255, 0.7)',
-              '&.Mui-selected': {
-                color: '#FFA500',
-              },
-            },
-            '& .MuiTabs-indicator': {
-              backgroundColor: '#FFA500',
-            },
-          }}
-        >
-          <Tab
-            label="Kitchen Dashboard"
-            component={RouterLink}
-            to="/chef"
-            sx={{ fontWeight: 'medium' }}
-          />
-          <Tab
-            label={
-              <Badge badgeContent={pendingOrdersCount + acceptedOrdersCount} color="primary">
-                Orders
-              </Badge>
-            }
-            component={RouterLink}
-            to="/chef/orders"
-            sx={{ fontWeight: 'medium' }}
-          />
-        </Tabs>
       </Box>
 
       <Alert

@@ -14,11 +14,12 @@ const Home = () => {
     localStorage.setItem('selectedDatabase', 'demo');
     localStorage.setItem('tableNumber', '1');
     localStorage.setItem('slotNumber', '1');
+    localStorage.setItem('customerUniqueId', 'DEMO');
+    localStorage.setItem('customerId', 'demo');
     // Clear password-based auth so QR token path is used
     localStorage.removeItem('customerDatabasePassword');
     localStorage.removeItem('databasePassword');
-    // We'll redirect to /customer — QRLanding context is already set via fetch on mount
-    navigate('/customer/demo-entry');
+    navigate('/customer/demo-entry?table_number=1&slot_number=1&unique_id=DEMO&user_id=demo');
   };
 
   const cards = [

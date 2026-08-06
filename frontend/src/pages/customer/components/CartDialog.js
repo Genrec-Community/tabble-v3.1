@@ -150,6 +150,8 @@ const CartDialog = ({
                               disabled={index === 0}
                               sx={{
                                 mb: 0.8,
+                                minWidth: 44,
+                                minHeight: 44,
                                 backgroundColor: 'rgba(255, 165, 0, 0.15)',
                                 color: '#FFA500',
                                 '&:hover': {
@@ -169,6 +171,8 @@ const CartDialog = ({
                               onClick={() => handleReorderCart(index, 'down')}
                               disabled={index === cart.length - 1}
                               sx={{
+                                minWidth: 44,
+                                minHeight: 44,
                                 backgroundColor: 'rgba(255, 165, 0, 0.15)',
                                 color: '#FFA500',
                                 '&:hover': {
@@ -188,6 +192,8 @@ const CartDialog = ({
                           size="medium"
                           onClick={() => handleRemoveFromCart(index)}
                           sx={{
+                            minWidth: 44,
+                            minHeight: 44,
                             backgroundColor: 'rgba(255, 90, 95, 0.15)',
                             color: '#FF385C',
                             '&:hover': {
@@ -216,6 +222,7 @@ const CartDialog = ({
                         <img
                           src={item.image ? `${process.env.REACT_APP_API_BASE_URL}${item.image}` : 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=600&q=80'}
                           alt={item.dish_name}
+                          loading="lazy"
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         />
                       </Box>

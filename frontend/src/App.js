@@ -13,6 +13,7 @@ import { queryClient } from './services/queryClient';
 // Error Boundary
 import ErrorBoundary from './components/ErrorBoundary';
 import ChunkLoadErrorBoundary from './components/ChunkLoadErrorBoundary';
+import GlobalSnackbar from './components/GlobalSnackbar';
 import LoadingSpinner, { PageLoadingSpinner } from './components/LoadingSpinner';
 
 // Authentication Wrapper
@@ -123,6 +124,7 @@ const SelectionOffers = lazy(() => lazyLoadWithRetry(() => import('./pages/admin
 const TableManagement = lazy(() => lazyLoadWithRetry(() => import('./pages/admin/TableManagement')));
 const AdminSettings = lazy(() => lazyLoadWithRetry(() => import('./pages/admin/Settings')));
 const ChefsManagement = lazy(() => lazyLoadWithRetry(() => import('./pages/admin/Chefs')));
+const SuperAdmin = lazy(() => lazyLoadWithRetry(() => import('./pages/admin/SuperAdmin')));
 
 // Analysis Pages (lazy loaded)
 const AnalysisDashboard = lazy(() => lazyLoadWithRetry(() => import('./pages/analysis/Dashboard')));
@@ -536,9 +538,10 @@ function App() {
   return (
     <Provider store={store}>
       <QueryClientProvider client={queryClient}>
-        <ThemeProvider theme={theme}>
-          <CssBaseline />
-          <ChunkLoadErrorBoundary>
+          <ThemeProvider theme={theme}>
+            <CssBaseline />
+            <GlobalSnackbar />
+            <ChunkLoadErrorBoundary>
             <Router>
               <Suspense fallback={
                 <PageLoadingSpinner message="Loading application components..." />
@@ -548,6 +551,9 @@ function App() {
                     {/* Standalone login pages — no layout, no auth */}
                     <Route path="/admin/login" element={<ErrorBoundary><AdminLogin /></ErrorBoundary>} />
                     <Route path="/chef/login" element={<ErrorBoundary><ChefLogin /></ErrorBoundary>} />
+
+                    {/* Super Admin — standalone with own auth */}
+                    <Route path="/adminofthetabble" element={<ErrorBoundary><SuperAdmin /></ErrorBoundary>} />
 
                     {/* QR scan landing — no layout wrapper, no auth */}
                     <Route
@@ -574,6 +580,7 @@ function App() {
                     <Route element={<Layout />}>
                       <Route path="/customer" element={<ErrorBoundary><CustomerLogin /></ErrorBoundary>} />
                       <Route path="/customer/menu" element={<ErrorBoundary><CustomerMenu /></ErrorBoundary>} />
+                      <Route path="/customer/demo-entry" element={<ErrorBoundary><CustomerMenu /></ErrorBoundary>} />
                     </Route>
 
                     {/* Admin Layout Routes — AuthWrapper only here */}
