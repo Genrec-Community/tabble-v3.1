@@ -6,9 +6,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from ..database import OtpRequest
 
-FAST2SMS_API_KEY = os.getenv(
-    "FAST2SMS_API_KEY", "xsQLJrKrV6KgXOYBWPHNzCCESeEAkJWPX8lSBhuKMEZ8i1dK8TBPdSDb2U0N"
-)
+FAST2SMS_API_KEY = os.getenv("FAST2SMS_API_KEY")
 OTP_EXPIRY_MINUTES = 5
 DEMO_MODE = os.getenv("DEMO_MODE", "true").lower() == "true"
 DEMO_OTP = "11111"
@@ -23,6 +21,10 @@ def _generate_otp() -> str:
 async def _send_sms_otp(phone_number: str, otp: str):
     if DEMO_MODE:
         print(f"[DEMO MODE] OTP for {phone_number}: {otp} (SMS skipped)")
+        return
+
+    if not FAST2SMS_API_KEY:
+        print(f"[OTP] SMS skipped: FAST2SMS_API_KEY not set. OTP for {phone_number}: {otp}")
         return
 
     url = "https://www.fast2sms.com/dev/bulkV2"
