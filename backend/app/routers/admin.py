@@ -936,8 +936,8 @@ def get_hotel_stats_super(hotel_id: int, db: Session = Depends(get_db)):
     ).scalar() or 0
 
     # Count menu items
-    total_menu_items = db.query(func.count(MenuItem.id)).filter(
-        MenuItem.hotel_id == hotel_id
+    total_menu_items = db.query(func.count(Dish.id)).filter(
+        Dish.hotel_id == hotel_id
     ).scalar() or 0
 
     # Count orders
@@ -972,7 +972,7 @@ def get_hotel_stats_super(hotel_id: int, db: Session = Depends(get_db)):
 def get_overview_stats_super(db: Session = Depends(get_db)):
     total_hotels = db.query(func.count(Hotel.id)).scalar() or 0
     total_tables = db.query(func.count(func.distinct(TableModel.table_number))).scalar() or 0
-    total_menu_items = db.query(func.count(MenuItem.id)).scalar() or 0
+    total_menu_items = db.query(func.count(Dish.id)).scalar() or 0
     total_orders = db.query(func.count(Order.id)).scalar() or 0
     completed_orders = db.query(func.count(Order.id)).filter(Order.status == "completed").scalar() or 0
     total_revenue = db.query(func.sum(Order.total_amount)).filter(Order.status == "completed").scalar() or 0
@@ -1073,7 +1073,6 @@ def delete_hotel_super(hotel_id: int, db: Session = Depends(get_db)):
 
     # Delete associated data
     db.query(TableModel).filter(TableModel.hotel_id == hotel_id).delete()
-    db.query(MenuItem).filter(MenuItem.hotel_id == hotel_id).delete()
     db.query(Dish).filter(Dish.hotel_id == hotel_id).delete()
     db.query(ChefAccount).filter(ChefAccount.hotel_id == hotel_id).delete()
     db.query(Settings).filter(Settings.hotel_id == hotel_id).delete()

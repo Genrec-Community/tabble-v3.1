@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 import uvicorn
 import os
+from pathlib import Path
 
 from .database import get_db, create_tables
 from .routers import (
@@ -28,22 +29,43 @@ from .middleware import SessionMiddleware
 app = FastAPI(title="Tabble - Hotel Management App")
 
 # Add CORS middleware to allow cross-origin requests
+# CORS: explicit origins (env `CORS_ORIGINS` comma-separated). Wildcard + credentials is
+# rejected by browsers, so default to the local dev/LAN frontend origins.
+cors_origins_env = os.getenv("CORS_ORIGINS", "").strip()
+cors_origins = (
+    [o.strip() for o in cors_origins_env.split(",") if o.strip()]
+    if cors_origins_env
+    else [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://10.150.138.137:3000",
+        "http://localhost:8000",
+    ]
+)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],  # Allow all methods
     allow_headers=["*"],  # Allow all headers
+    expose_headers=["x-session-id", "content-disposition"],
 )
 
 # Add session middleware for database management
 app.add_middleware(SessionMiddleware, require_database=True)
 
+# Resolve paths relative to this file so the server works from any CWD
+BASE_DIR = Path(__file__).resolve().parent.parent
+
 # Mount static files
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+app.mount(
+    "/static",
+    StaticFiles(directory=BASE_DIR / "app" / "static"),
+    name="static",
+)
 
 # Setup templates
-templates = Jinja2Templates(directory="templates")
+templates = Jinja2Templates(directory=BASE_DIR / "templates")
 
 # Include routers
 app.include_router(chef.router)
@@ -63,7 +85,7 @@ app.include_router(public.router)
 create_tables()
 
 # Check if we have the React build folder
-react_build_dir = "frontend/build"
+react_build_dir = BASE_DIR.parent / "frontend" / "build"
 has_react_build = os.path.isdir(react_build_dir)
 
 if has_react_build:

@@ -18,6 +18,16 @@ import threading
 from typing import Dict, Optional
 import uuid
 import csv
+from pathlib import Path
+
+# Resolve all paths relative to this file so the app works from any CWD
+BASE_DIR = Path(__file__).resolve().parent.parent
+DATABASE_PATH = BASE_DIR / "Tabble.db"
+HOTELS_CSV_PATH = BASE_DIR / "hotels.csv"
+
+
+def sqlite_url(path: Path) -> str:
+    return f"sqlite:///{path.as_posix()}"
 
 # Base declarative class
 Base = declarative_base()
@@ -56,7 +66,7 @@ def import_hotels_from_csv(db_session):
         # Read from hotels.csv
         hotels_imported = 0
         print("Reading hotels.csv...")
-        with open("hotels.csv", "r") as file:
+        with open(HOTELS_CSV_PATH, "r") as file:
             reader = csv.DictReader(file)
             print("CSV columns:", reader.fieldnames)
             for row in reader:
@@ -122,7 +132,7 @@ class DatabaseManager:
 
     def _create_connection(self, hotel_id: Optional[int] = None) -> dict:
         """Create a new database connection to unified database"""
-        database_url = f"sqlite:///./Tabble.db"
+        database_url = sqlite_url(DATABASE_PATH)
         engine = create_engine(database_url, connect_args={"check_same_thread": False})
         session_factory = sessionmaker(autocommit=False, autoflush=False, bind=engine)
         session_local = scoped_session(session_factory)
@@ -224,7 +234,7 @@ db_manager = DatabaseManager()
 
 # Global variables for database connection (unified database)
 CURRENT_DATABASE = "Tabble.db"
-DATABASE_URL = f"sqlite:///./Tabble.db"  # Using the unified database
+DATABASE_URL = sqlite_url(DATABASE_PATH)  # Using the unified database
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 session_factory = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 SessionLocal = scoped_session(session_factory)
@@ -532,10 +542,8 @@ def switch_database(database_name):
 
         # Update global variables
         CURRENT_DATABASE = database_name
-        DATABASE_URL = (
-            f"sqlite:///./tabble_new.db"
-            if database_name == "tabble_new.db"
-            else f"sqlite:///./{database_name}"
+        DATABASE_URL = sqlite_url(
+            BASE_DIR / ("tabble_new.db" if database_name == "tabble_new.db" else database_name)
         )
 
         # Dispose of the old engine and create a new one

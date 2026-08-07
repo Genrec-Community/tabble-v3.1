@@ -40,6 +40,8 @@ pip install -r requirements.txt
 python run.py        # serves on http://0.0.0.0:8001 (LAN access)
 ```
 
+A `.venv` with all requirements is already set up at `backend/.venv`.
+
 Or: `uvicorn app.main:app --reload --port 8000` (docs at `http://localhost:8000/docs`).
 
 > The backend **must be started from inside `backend/`** — file paths (`app/static`, `hotels.csv`, `Tabble.db`) are relative to the working directory and will crash/misbehave if you run from anywhere else (see "What to fix" #2).
@@ -91,8 +93,8 @@ Grouped by severity. These are hard errors (breaks build/startup/feature), not s
    ```
    TypeScript `export type` syntax in a `.js` file. Create React App 5 does not run the TS preset on `.js` files → Babel `SyntaxError`, both `npm start` and `npm run build` die. **Fix:** delete the two lines (nothing imports them), or rename the file to `index.ts`.
 
-2. **Backend CWD-dependent paths — `app/main.py:43`, `app/database.py:59,100,125,227`**
-   `app/static`, `hotels.csv`, and `SQLite:///./Tabble.db` are resolved against the current working directory. Starting uvicorn from anywhere but `backend/` raises `RuntimeError: Directory 'app/static' does not exist` (evaluated at import in `main.py`). **Fix:** make paths relative to `__file__` (e.g. `Path(__file__).resolve().parent.parent / "static"`).
+2. ~~Backend CWD-dependent paths — `app/main.py:43`, `app/database.py:59,100,125,227`~~
+   **✅ FIXED.** Paths now resolve from `__file__` (via `BASE_DIR` in `app/main.py` and `app/database.py`), so the server runs from any working directory — verified by importing and booting uvicorn from outside `backend/`.
 
 3. **Missing templates dir — `app/main.py:46` + `:85-121`**
    `Jinja2Templates(directory="templates")` points to a directory that does not exist. Startup survives, but the six HTML routes (`/chef`, `/chef/orders`, `/customer`, `/customer/menu`, `/admin`, `/admin/dishes`) raise `TemplateNotFound` when hit. **Fix:** remove these routes (they're shadowed by the React SPA anyway) or add a real `templates/` dir.

@@ -447,7 +447,9 @@ const SuperAdmin = () => {
             fullWidth
             label="Phone"
             value={hotelForm.phone}
-            onChange={(e) => setHotelForm({ ...hotelForm, phone: e.target.value })}
+            onChange={(e) => setHotelForm({ ...hotelForm, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+            error={hotelForm.phone.length > 0 && hotelForm.phone.length !== 10}
+            helperText={hotelForm.phone.length > 0 && hotelForm.phone.length !== 10 ? 'Enter a valid 10-digit mobile number' : ''}
             sx={{ mb: 2, ...textFieldStyles }}
           />
           <TextField
@@ -518,7 +520,9 @@ const SuperAdmin = () => {
             fullWidth
             label="Phone"
             value={hotelForm.phone}
-            onChange={(e) => setHotelForm({ ...hotelForm, phone: e.target.value })}
+            onChange={(e) => setHotelForm({ ...hotelForm, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+            error={hotelForm.phone.length > 0 && hotelForm.phone.length !== 10}
+            helperText={hotelForm.phone.length > 0 && hotelForm.phone.length !== 10 ? 'Enter a valid 10-digit mobile number' : ''}
             sx={{ mb: 2, ...textFieldStyles }}
           />
           <TextField
