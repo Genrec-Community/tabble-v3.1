@@ -11,7 +11,7 @@ backend/*.db
 backend/*.sqlite
 backend/*.sqlite3
 backend/.venv/
-backend/.env
+#backend/.env
 backend/.env.local
 backend/.env.production
 backend/.env.*.local
