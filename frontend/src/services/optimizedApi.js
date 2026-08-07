@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { getApiBaseUrl } from '../utils/apiBaseUrl';
 
 /**
  * Optimized API service with intelligent caching and request optimization
@@ -21,7 +22,7 @@ class OptimizedApiService {
 
     // Setup axios instance
     this.api = axios.create({
-      baseURL: process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000',
+      baseURL: getApiBaseUrl(),
       timeout: 10000,
     });
 

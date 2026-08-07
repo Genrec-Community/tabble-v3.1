@@ -33,6 +33,7 @@ import AnalyticsIcon from '@mui/icons-material/Analytics';
 import SettingsIcon from '@mui/icons-material/Settings';
 import GroupIcon from '@mui/icons-material/Group';
 import MenuIcon from '@mui/icons-material/Menu';
+import ThemeModeToggle from './ThemeModeToggle';
 
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
@@ -242,7 +243,7 @@ const AdminLayout = () => {
         p: 2
       }}>
         <FoodBankIcon sx={{ fontSize: 32, mr: 1.5, color: theme.palette.primary.main }} />
-        <Typography variant="h6" fontWeight="bold" sx={{ color: '#FFFFFF' }}>
+        <Typography variant="h6" fontWeight="bold" sx={{ color: theme.palette.text.primary }}>
           TABBLE ADMIN
         </Typography>
       </Box>
@@ -275,12 +276,12 @@ const AdminLayout = () => {
                     primary={item.text}
                     primaryTypographyProps={{
                       fontWeight: 'medium',
-                      color: '#FFFFFF'
+                      color: theme.palette.text.primary
                     }}
                   />
                   {item.text === 'Menu Management' ?
-                    (menuOpen ? <ExpandLess sx={{ color: '#FFFFFF' }} /> : <ExpandMore sx={{ color: '#FFFFFF' }} />) :
-                    (offersOpen ? <ExpandLess sx={{ color: '#FFFFFF' }} /> : <ExpandMore sx={{ color: '#FFFFFF' }} />)
+                    (menuOpen ? <ExpandLess sx={{ color: theme.palette.text.primary }} /> : <ExpandMore sx={{ color: theme.palette.text.primary }} />) :
+                    (offersOpen ? <ExpandLess sx={{ color: theme.palette.text.primary }} /> : <ExpandMore sx={{ color: theme.palette.text.primary }} />)
                   }
                 </ListItemButton>
               </ListItem>
@@ -314,7 +315,7 @@ const AdminLayout = () => {
                         <ListItemIcon sx={{
                           color: isActive(subItem.path) ?
                             theme.palette.primary.main :
-                            'rgba(255, 255, 255, 0.7)'
+                            theme.palette.text.secondary
                         }}>
                           {subItem.icon}
                         </ListItemIcon>
@@ -323,8 +324,8 @@ const AdminLayout = () => {
                           primaryTypographyProps={{
                             fontWeight: isActive(subItem.path) ? 'bold' : 'medium',
                             color: isActive(subItem.path) ?
-                              '#FFFFFF' :
-                              'rgba(255, 255, 255, 0.7)'
+                              theme.palette.text.primary :
+                              theme.palette.text.secondary
                           }}
                         />
                       </ListItemButton>
@@ -356,7 +357,7 @@ const AdminLayout = () => {
                 <ListItemIcon sx={{
                   color: isActive(item.path) ?
                     theme.palette.primary.main :
-                    'rgba(255, 255, 255, 0.7)'
+                    theme.palette.text.secondary
                 }}>
                   {item.icon}
                 </ListItemIcon>
@@ -365,8 +366,8 @@ const AdminLayout = () => {
                   primaryTypographyProps={{
                     fontWeight: isActive(item.path) ? 'bold' : 'medium',
                     color: isActive(item.path) ?
-                      '#FFFFFF' :
-                      'rgba(255, 255, 255, 0.7)'
+                      theme.palette.text.primary :
+                      theme.palette.text.secondary
                   }}
                 />
               </ListItemButton>
@@ -376,7 +377,7 @@ const AdminLayout = () => {
       </List>
       <Divider sx={{ backgroundColor: 'rgba(255, 165, 0, 0.2)', mt: 2 }} />
       <Box sx={{ p: 2, textAlign: 'center' }}>
-        <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.5)' }}>
+        <Typography variant="body2" sx={{ color: theme.palette.text.secondary }}>
           &copy; {new Date().getFullYear()} Tabble
         </Typography>
       </Box>
@@ -389,7 +390,8 @@ const AdminLayout = () => {
       <AppBar
         position="fixed"
         sx={{
-          backgroundColor: '#000000',
+          backgroundColor: theme.palette.background.default,
+          color: theme.palette.text.primary,
           boxShadow: 'none',
           borderBottom: '1px solid rgba(255, 165, 0, 0.2)',
           width: '100%',
@@ -427,6 +429,7 @@ const AdminLayout = () => {
             {getCurrentPageTitle()}
           </Typography>
 
+          <ThemeModeToggle />
           
         </Toolbar>
       </AppBar>
@@ -444,7 +447,7 @@ const AdminLayout = () => {
           '& .MuiDrawer-paper': {
             width: drawerWidth,
             boxSizing: 'border-box',
-            backgroundColor: '#121212',
+            backgroundColor: theme.palette.background.paper,
             borderRight: '1px solid rgba(255, 165, 0, 0.2)',
             mt: '64px', // Height of AppBar
             height: 'calc(100% - 64px)',

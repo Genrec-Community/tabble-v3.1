@@ -1,21 +1,7 @@
 import uvicorn
 import os
-import socket
 
-
-def get_ip_address():
-    """Get the local IP address of the machine."""
-    try:
-        # Create a socket connection to an external server
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        # Doesn't need to be reachable
-        s.connect(("8.8.8.8", 80))
-        ip_address = s.getsockname()[0]
-        s.close()
-        return ip_address
-    except Exception as e:
-        print(f"Error getting IP address: {e}")
-        return "127.0.0.1"  # Return localhost if there's an error
+from app.utils.network import get_lan_ip
 
 
 if __name__ == "__main__":
@@ -25,7 +11,7 @@ if __name__ == "__main__":
     # Check for force reset flag
 
     # Get the IP address
-    ip_address = get_ip_address()
+    ip_address = get_lan_ip()
 
     # Display access information
     print("\n" + "=" * 50)

@@ -29,7 +29,8 @@ import {
   MenuItem,
   Select,
   FormControl,
-  InputLabel
+  InputLabel,
+  useTheme
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import PersonIcon from '@mui/icons-material/Person';
@@ -77,6 +78,7 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
 }));
 
 const CompletedOrders = () => {
+  const theme = useTheme();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -395,7 +397,7 @@ const CompletedOrders = () => {
             boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
             border: '2px solid rgba(255, 165, 0, 0.2)',
             overflow: 'hidden',
-            backgroundColor: '#121212',
+            backgroundColor: theme.palette.background.paper,
           }}
         >
           <Table>

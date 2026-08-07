@@ -17,6 +17,7 @@ import os
 import threading
 from typing import Dict, Optional
 import uuid
+import hashlib
 import csv
 from pathlib import Path
 
@@ -198,23 +199,28 @@ class DatabaseManager:
             return None
 
     def authenticate_hotel(self, hotel_name: str, password: str) -> Optional[int]:
-        """Authenticate hotel and return hotel_id"""
+        """Authenticate hotel and return hotel_id.
+
+        Accepts both plain-text passwords (CSV/demo seeded hotels) and
+        SHA-256 hashed passwords (created via the super admin panel).
+        """
         try:
             # Use global engine to query hotels table
             from sqlalchemy.orm import sessionmaker
 
             Session = sessionmaker(bind=engine)
             db = Session()
-            print(f"{hotel_name=}|{password=}")
             hotel = (
                 db.query(Hotel)
-                .filter(Hotel.hotel_name == hotel_name, Hotel.password == password)
+                .filter(Hotel.hotel_name == hotel_name)
                 .first()
             )
-
             db.close()
 
-            if hotel:
+            if hotel and (
+                hotel.password == password
+                or hotel.password == hashlib.sha256(password.encode("utf-8")).hexdigest()
+            ):
                 return hotel.id
             return None
         except Exception as e:

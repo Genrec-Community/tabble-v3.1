@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { Box, Typography, Paper } from '@mui/material';
+import { Box, Typography, Paper, useTheme } from '@mui/material';
 import DatabaseSelector from './DatabaseSelector';
 import { setHotelInfo } from '../store/slices/authSlice';
 import { adminService } from '../services/api';
 
 const AuthWrapper = ({ children }) => {
+  const theme = useTheme();
   const dispatch = useDispatch();
   const { selectedHotel, hotelPassword } = useSelector((state) => state.auth);
   const [showSelector, setShowSelector] = useState(false);
@@ -78,7 +79,7 @@ const AuthWrapper = ({ children }) => {
         alignItems="center"
         minHeight="100vh"
         sx={{
-          background: 'linear-gradient(135deg, #121212 0%, #1e1e1e 100%)',
+          background: theme.palette.background.default,
         }}
       >
         <Paper
@@ -86,7 +87,7 @@ const AuthWrapper = ({ children }) => {
           sx={{
             p: 4,
             textAlign: 'center',
-            backgroundColor: 'rgba(18, 18, 18, 0.9)',
+            backgroundColor: theme.palette.background.paper,
             border: '2px solid rgba(255, 165, 0, 0.3)',
             borderRadius: 2,
           }}
@@ -123,7 +124,7 @@ const AuthWrapper = ({ children }) => {
           display: 'flex',
           alignItems: 'center',
           gap: 2,
-          backgroundColor: 'rgba(18, 18, 18, 0.9)',
+          backgroundColor: theme.palette.background.paper,
           border: '1px solid rgba(255, 165, 0, 0.3)',
           borderRadius: 1,
           px: 2,

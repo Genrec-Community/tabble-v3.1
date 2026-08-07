@@ -1,296 +1,96 @@
-# Tabble v3.1 - Restaurant QR Ordering System
+# Tabble v3.1 — Backend (FastAPI)
 
-**Production-grade restaurant ordering system with QR codes, Firebase authentication, and real-time order management.**
+Restaurant QR-ordering backend: FastAPI + SQLAlchemy over a single SQLite file, Firebase Admin for Google sign-in verification, auto-generated table QR codes.
 
-## 🎯 Quick Start - Deploy 3 Test Hotels
+**Start it from `backend/`:**
 
-```bash
-# 1. Validate configuration
-python validate_deployment.py
-
-# 2. Create 3 test hotels in database
-python setup_test_hotels.py
-
-# 3. Start interactive deployment wizard
-python deploy_wizard.py
+```powershell
+.\.venv\Scripts\python.exe run.py    # 0.0.0.0:8001, --reload (port hardcoded in run.py:22)
 ```
 
-**Test Hotels Created:**
-- **Hotel Paradise** - `paradise_admin` / `Paradise@2026`
-- **Hotel Riverside** - `riverside_admin` / `Riverside@2026`
-- **Hotel Summit** - `summit_admin` / `Summit@2026`
+Alternative: `.\.venv\Scripts\python.exe -m app.main` (reads `PORT`, default 8000). API docs: `http://localhost:8001/docs`.
 
-## 📚 Complete Documentation
+## Environment
 
-All deployment and testing guides are in **[guides/](guides/)**:
+**`backend/.env` is not loaded by the code.** There is no `load_dotenv` anywhere — `.env`/`.env.example` are documentation only. Env vars come from the shell/IDE/Render, otherwise the in-code defaults apply.
 
-| Guide | Purpose |
-|-------|---------|
-| **[DEPLOYMENT_README.md](guides/DEPLOYMENT_README.md)** | 🚀 **START HERE** - Quick deployment walkthrough |
-| **[PRODUCTION_TEST_DEPLOYMENT.md](guides/PRODUCTION_TEST_DEPLOYMENT.md)** | Complete production setup with all details |
-| **[TESTING_CHECKLIST.md](guides/TESTING_CHECKLIST.md)** | Systematic testing for all 3 hotels |
-| **[QR_TESTING_GUIDE.md](guides/QR_TESTING_GUIDE.md)** | Mobile QR code testing procedures |
-| **[GUIDE.md](guides/GUIDE.md)** | Development and local setup |
-| **[POC_DEPLOYMENT.md](guides/POC_DEPLOYMENT.md)** | Single-table POC deployment |
+Variables actually read (`os.getenv`):
 
-## ✨ Key Features
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `DEMO_MODE` | `true` | Seed demo hotel `demo`/`demo123`, 6 dishes, 3 tables×2 slots; fixed OTP `11111`, no SMS |
+| `CORS_ORIGINS` | dev origins | Comma-separated frontend origins; `main.py` **always** appends `http://<lan-ip>:3000` and `:8001` |
+| `ADMIN_PASSWORD` | `adminoftabble` | Super admin at `/admin/super/auth` |
+| `FRONTEND_URL` | `http://<auto-detected lan>:3000` | Base URL embedded in table QR PNGs |
+| `FRONTEND_PORT` | `3000` | Port when auto-detecting the QR base URL |
+| `POC_MAX_TABLES_PER_HOTEL` | `1` | Hard cap on physical tables per hotel |
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | — | Firebase Admin service-account JSON |
+| `FIREBASE_SERVICE_ACCOUNT_BASE64` | — | Same credentials, base64-encoded (wins over JSON) |
+| `FIREBASE_PROJECT_ID` | `tabble-v4` | Firebase project |
+| `FAST2SMS_API_KEY` | a hardcoded key | SMS OTP service (only active when `DEMO_MODE=false`) |
+| `HOST` / `PORT` | `0.0.0.0` / `8000` | Only read by `python -m app.main`; `run.py` ignores them |
 
-### 🏨 Multi-Hotel System
-- Complete hotel isolation (separate menus, orders, tables)
-- Independent admin and chef access per hotel
-- Shared Supabase database with proper isolation
+`RENDER`, `APP_ENV`, `DATABASE_TYPE`, `SECRET_KEY` are declared in `render.yaml` but read by nobody. The app is always SQLite.
 
-### 📱 QR Code Ordering
-- 2 QR codes per table (Seat 1 & Seat 2)
-- Mobile-optimized scanning experience
-- Automatic seat occupancy detection
-- Dynamic QR generation with UUID tokens
+## Architecture
 
-### 🔐 Authentication
-- **Admin**: Hotel name + password
-- **Chef**: Firebase Google Sign-In
-- **Customer**: Firebase Google Sign-In
-- Persistent sessions across page reloads
+- **Entrypoint**: `app/main.py` — mounts `/static`, includes 12 routers, calls `create_tables()`, and mounts the React SPA at `/` when `frontend/build` exists.
+- **One SQLite file** `backend/Tabble.db`. `create_tables()` (`app/database.py:576`) runs `metadata.create_all` plus idempotent raw `ALTER TABLE` adds (e.g. `tables.qr_token`, `slot_number`, `google_uid`, `show_prices`).
+- **Hotels seeding**: `backend/hotels.csv` (`hotel_name,password,hotel_id` — `hotel_id` ignored) imported when the Hotel table is empty; otherwise only phone-number backfill.
+- **Multi-tenancy**: single DB; `SessionMiddleware` (`app/middleware/session_middleware.py`) keys a per-session hotel context by the `x-session-id` header. Endpoints resolve the hotel via `get_hotel_id_from_request()` (`app/database.py:705`). Client auth is via `x-hotel-name` + `x-hotel-password` headers, or `x-qr-token` for QR sessions. `require_database=True` is set at `main.py:62`.
 
-### 🍽️ Complete Restaurant Management
-- Real-time menu management
-- Dish availability toggle
-- Today's specials
-- Order tracking and history
-- Chef dashboard with status updates
-- Admin panel with full control
+  Paths **exempt** from session validation: `/admin/`, `/public/`, `/settings/public/`, `/chef/auth/`, and the 6 `/settings` switch/database endpoints (databases, hotels, switch-database, switch-hotel, current-database, current-hotel).
 
-## 🔄 Complete Pipeline Verification
+- **Firebase**: `app/firebase_config.py` builds the Admin SDK from the service-account env vars; if absent it falls back to Application Default Credentials (no import-time crash). `verify_firebase_token` is used by `customer.py` for `/customer/api/auth/google`. Chef/admin are NOT Firebase — chef logs in with hotel credentials via `/chef/auth/login`.
 
-### Pipeline Flow
-```
-1. QR Code Generation (Admin)
-   └─> Backend generates UUID token for table/seat
-   └─> QR encodes: https://domain.com/order?t={token}
+- **Storage**: `app/storage_adapter.py` saves uploads to **CWD-relative** `app/static/images/...` and returns `/static/...` URLs. Run the server from `backend/` for uploads to work (`run.py` also does `os.makedirs("app/static/images", exist_ok=True)`).
 
-2. Customer Scans QR
-   └─> Opens URL in mobile browser
-   └─> Frontend calls /public/scan/{token}
-   └─> Backend returns: hotel_name, table_number, slot_number, is_occupied
+## QR code flow
 
-3. Customer Login
-   └─> Redirects to Google Sign-In (Firebase)
-   └─> Firebase returns user: uid, email, name, picture
-   └─> Session stored in localStorage + Firebase persistence
+- `POST /tables/{table_id}/generate-qr` (idempotent — the `uuid4` token is created once) and `GET /tables/{table_id}/qr-image` both build `qr_url = f"{get_frontend_url()}/order?t={token}"` (`app/routers/table.py`).
+- `get_frontend_url()` (`app/utils/network.py`): uses `FRONTEND_URL` env if set, otherwise auto-detects the machine's LAN IP → `http://<lan-ip>:<FRONTEND_PORT|3000>`. PNG response headers: `x-qr-token`, `x-qr-url`.
+- Regenerate a QR after any URL change — the PNG embeds the previous URL.
 
-4. Customer Orders
-   └─> Browse menu (filtered by availability)
-   └─> Add items to cart
-   └─> Place order
-   └─> Backend creates order linked to customer UID
+## Routers & key endpoints
 
-5. Chef Processes
-   └─> Chef sees order in real-time
-   └─> Accepts order (status: Pending → Preparing)
-   └─> Marks ready (status: Preparing → Ready)
-   └─> Completes (status: Ready → Completed)
+| Router file | Prefix | Notable endpoints |
+|-------------|--------|-------------------|
+| `public.py` | `/public` | `GET /public/scan/{token}`, `GET /public/hotels` |
+| `table.py` | `/tables` | `POST /tables/`, `POST /tables/batch`, `PUT /tables/{id}/occupy|free`, `PUT /tables/number/{n}/occupy|free`, `POST /tables/{id}/generate-qr`, `GET /tables/{id}/qr-image` |
+| `settings.py` | `/settings` | `GET /settings/hotels`, `POST /settings/switch-hotel`, `POST /settings/switch-database`, public `show-prices` |
+| `customer.py` | `/customer` | `POST /customer/api/login`, `POST /customer/api/orders`, `GET /customer/api/person/{id}/orders`, `PUT /customer/api/orders/{id}/payment|cancel`, `POST /customer/api/auth/google`, `POST /customer/api/phone-auth` |
+| `chef.py` | `/chef` | `POST /chef/auth/login`, `GET /chef/orders/pending|accepted|completed-orders-count`, `PUT /chef/orders/{id}/accept|complete` |
+| `admin.py` | `/admin` | orders + bills (`GET /admin/orders/{id}/bill`, `POST /admin/orders/multi-bill`, `POST /admin/orders/merge`), dishes/offers/specials/loyalty CRUD, `POST /admin/super/auth`, `GET|POST|PUT|DELETE /admin/super/hotels...` |
+| `hotel_auth.py` | `/hotel-auth` | `POST /hotel-auth/send-otp`, `POST /hotel-auth/verify-otp`, `GET /hotel-auth/check-verification/{action}` |
+| `feedback.py` | `/feedback` | submit + `GET /feedback/order/{order_id}` |
+| `loyalty.py` / `selection_offer.py` | `/loyalty`, `/selection-offers` | discounts (`/selection-offers/discount/{amount}`) |
+| `analytics.py` | `/analytics` | dashboards/stats |
+| `system.py` | `/monitoring` | system diagnostics |
 
-6. Real-time Updates
-   └─> Customer sees status changes without refresh
-   └─> Updates via polling or WebSocket (depending on config)
+## Auth & session mechanics
+
+- Requests carry `x-session-id` (generated client-side once and persisted, `frontend/src/services/api.js`).
+- On validation, the middleware resolves the hotel from the stored session context; header auth (`x-hotel-name`/`x-hotel-password` or `x-qr-token`) is consumed inside it. A request without hotel context on a validated endpoint returns `400 "No hotel selected"`.
+- `/admin/`, `/public/`, `/settings/public/`, `/chef/auth/`, and the settings/switch endpoints never require a hotel session.
+
+## Deployment (Render)
+
+`render.yaml` defines the `tabble-backend` service (free tier, Singapore): build `pip install -r requirements.txt`, start `uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1`, persistent disk mounted at `app/static/images`, `autoDeploy` from branch `tabblefinal-backend`. Set real `FRONTEND_URL`, `CORS_ORIGINS` (not `"*"` — the code forces `allow_credentials=True`), and `ADMIN_PASSWORD` in the dashboard.
+
+## No tests / verification
+
+There are none. Verify changes with:
+
+```powershell
+.\.venv\Scripts\python.exe -m py_compile <changed files>
+.\.venv\Scripts\python.exe -c "import sys; sys.path.insert(0,'.'); import app.main"   # also creates/seeds Tabble.db
 ```
 
-### Key Endpoints Verified
+## Known issues
 
-**Public (No Auth):**
-- ✅ `GET /public/scan/{qr_token}` - Resolve QR token to hotel/table/slot
+- `templates/` doesn't exist but `Jinja2Templates(BASE_DIR/"templates")` is referenced (`main.py:75`); the legacy HTML routes (`/chef`, `/customer`, `/admin`, ...) fail to render and are shadowed by the React build mount at `/`.
+- `app/services/optimized_queries.py` is dead code referencing non-existent columns (`Dish.is_visible`, `OrderItem.position`) — don't wire it in as-is.
+- `__init__.py` is missing in `app/`, `app/routers/`, `app/models/` (namespace packages work, but tooling may complain).
+- `FAST2SMS_API_KEY` ships a hardcoded default key (`otp_service.py:10`).
 
-**Table Management:**
-- ✅ `POST /tables/` - Create table (auto-creates 2 slots)
-- ✅ `POST /tables/{table_id}/generate-qr` - Generate QR code PNG
-- ✅ `GET /tables/{table_id}/qr-image` - Get existing QR code
-
-**Authentication:**
-- ✅ `POST /auth/admin/login` - Admin hotel + password login
-- ✅ `POST /auth/chef/google` - Chef Firebase Google Sign-In
-- ✅ `POST /auth/customer/google` - Customer Firebase Google Sign-In
-
-**Orders:**
-- ✅ Customer places order with table/slot context
-- ✅ Chef receives orders filtered by their hotel
-- ✅ Order status updates propagate to all interfaces
-
-**Frontend Routes:**
-- ✅ `/order?t={token}` - QR landing page (resolves token)
-- ✅ `/customer/menu` - Customer ordering interface
-- ✅ `/chef/login` - Chef Google login
-- ✅ `/chef/orders` - Chef dashboard
-- ✅ `/admin/login` - Admin login
-- ✅ `/admin/dashboard` - Admin panel
-
-## ⚙️ Configuration
-
-### Backend Environment
-
-Create `.env.production`:
-
-```env
-SECRET_KEY=<generate-with-secrets.token_urlsafe(32)>
-FRONTEND_URL=https://your-production-frontend.com
-DATABASE_TYPE=supabase
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_ANON_KEY=<your-anon-key>
-SUPABASE_SERVICE_KEY=<your-service-key>
-FIREBASE_PROJECT_ID=tabble-v4
-FIREBASE_SERVICE_ACCOUNT_BASE64=<base64-encoded-service-account-json>
-POC_MAX_TABLES_PER_HOTEL=1
-DEMO_MODE=false
-```
-
-### Frontend Environment
-
-Create `frontend/.env.production`:
-
-```env
-REACT_APP_API_BASE_URL=https://your-backend-api.com
-REACT_APP_FIREBASE_API_KEY=<firebase-api-key>
-REACT_APP_FIREBASE_AUTH_DOMAIN=<project>.firebaseapp.com
-REACT_APP_FIREBASE_PROJECT_ID=<project-id>
-REACT_APP_FIREBASE_STORAGE_BUCKET=<project>.firebasestorage.app
-REACT_APP_FIREBASE_MESSAGING_SENDER_ID=<sender-id>
-REACT_APP_FIREBASE_APP_ID=<app-id>
-REACT_APP_FIREBASE_MEASUREMENT_ID=<measurement-id>
-```
-
-### Firebase Console Setup
-
-1. Enable Google Authentication
-2. Add production domain to Authorized Domains
-3. Generate service account key (Project Settings → Service Accounts)
-4. Base64 encode the JSON file:
-   ```powershell
-   [Convert]::ToBase64String([IO.File]::ReadAllBytes("path/to/service-account.json"))
-   ```
-
-## 🛠️ Development
-
-```bash
-# Backend
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
-
-# Frontend
-cd frontend
-npm install
-npm start
-```
-
-Access:
-- Frontend: `http://localhost:3000`
-- Backend: `http://localhost:8000`
-- API Docs: `http://localhost:8000/docs`
-
-## 📦 Tech Stack
-
-**Backend:**
-- FastAPI (Python)
-- Supabase (PostgreSQL)
-- Firebase Admin SDK
-- SQLAlchemy ORM
-- Python qrcode library
-
-**Frontend:**
-- React 18
-- React Router v6
-- Material-UI (MUI)
-- Redux Toolkit
-- React Query
-- Firebase JS SDK
-
-## 📊 Project Structure
-
-```
-tabble-v3.1/
-├── app/                        # Backend (FastAPI)
-│   ├── routers/
-│   │   ├── public.py          # QR scan endpoint (no auth)
-│   │   ├── table.py           # Table & QR management
-│   │   ├── admin.py           # Admin endpoints
-│   │   ├── customer.py        # Customer endpoints
-│   │   └── auth.py            # Authentication
-│   ├── database.py            # SQLAlchemy models
-│   ├── firebase_config.py     # Firebase integration
-│   └── middleware/            # Session & auth middleware
-├── frontend/                   # Frontend (React)
-│   ├── src/
-│   │   ├── pages/
-│   │   │   ├── customer/      # QRLanding, Menu, Login
-│   │   │   ├── chef/          # Chef dashboard
-│   │   │   └── admin/         # Admin panel
-│   │   ├── components/        # Shared components
-│   │   └── firebase.js        # Firebase config
-├── guides/                     # Documentation
-├── migration/                  # Database migrations
-├── setup_test_hotels.py       # Create 3 test hotels
-├── validate_deployment.py     # Pre-deployment validation
-└── deploy_wizard.py           # Interactive deployment
-```
-
-## 🧪 Testing
-
-Follow **[guides/TESTING_CHECKLIST.md](guides/TESTING_CHECKLIST.md)** for complete testing:
-
-**Critical Tests:**
-1. ✅ QR scan on mobile device (mobile data, not WiFi)
-2. ✅ Firebase Google authentication
-3. ✅ Complete order flow: Customer → Chef → Status Updates
-4. ✅ Multi-hotel isolation (orders don't cross hotels)
-5. ✅ Mobile optimization (< 3s page load)
-6. ✅ Real-time updates without refresh
-
-## 🚨 Common Issues
-
-### QR Code Shows localhost
-**Fix**: Update `FRONTEND_URL` in `.env.production`, restart backend, **regenerate all QR codes**
-
-### Google Login Fails
-**Fix**: Add production domain to Firebase Console → Authentication → Authorized Domains
-
-### Orders Not Appearing
-**Check**: Browser console for errors, verify backend is running, check CORS headers
-
-### Table Creation Blocked
-**Expected**: `POC_MAX_TABLES_PER_HOTEL=1` enforces 1 table limit for testing
-
-## 🚀 Deployment
-
-### Recommended Stack
-- **Backend**: Railway, Render, Heroku, VPS
-- **Frontend**: Vercel, Netlify, Firebase Hosting
-- **Database**: Supabase (managed PostgreSQL)
-- **Auth**: Firebase Authentication
-
-### Deploy Steps
-1. Set all environment variables
-2. Run `python validate_deployment.py`
-3. Run `python setup_test_hotels.py`
-4. Deploy backend to hosting platform
-5. Build frontend: `cd frontend && npm run build`
-6. Deploy frontend build/ folder
-7. Test QR codes on mobile devices
-8. Follow [TESTING_CHECKLIST.md](guides/TESTING_CHECKLIST.md)
-
-## ✅ Success Criteria
-
-System is production-ready when:
-- ✅ All 3 hotels operate independently
-- ✅ QR codes resolve correctly on mobile
-- ✅ Google authentication works seamlessly
-- ✅ Complete order pipeline works
-- ✅ Real-time updates without manual refresh
-- ✅ Mobile experience is smooth
-- ✅ No errors in production console
-- ✅ All items in testing checklist passed
-
-## 📄 License
-
-Proprietary - All rights reserved
-
----
-
-**Tabble v3.1** - Built for production restaurant ordering
+Proprietary — all rights reserved.

@@ -18,10 +18,10 @@ export const CategoryTab = styled(Tab)(({ theme }) => ({
   padding: '8px 14px',
   fontWeight: 600,
   textTransform: 'none',
-  color: 'rgba(255,255,255,0.72)',
+  color: theme.palette.text.secondary,
   borderRadius: '999px',
   border: '1px solid rgba(255,255,255,0.11)',
-  backgroundColor: 'rgba(255,255,255,0.04)',
+  backgroundColor: theme.palette.background.paper,
   '&.Mui-selected': {
     backgroundColor: '#F7B538',
     color: '#1A1408',
@@ -29,7 +29,7 @@ export const CategoryTab = styled(Tab)(({ theme }) => ({
     border: '1px solid transparent',
   },
   '&:hover': {
-    backgroundColor: 'rgba(255,255,255,0.09)',
+    backgroundColor: theme.palette.action.hover,
   },
 }));
 
@@ -48,8 +48,8 @@ export const DishCard = styled(Card)(({ theme }) => ({
   transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
   borderRadius: '16px',
   overflow: 'hidden',
-  backgroundColor: '#171715',
-  color: '#FFFFFF',
+  backgroundColor: theme.palette.background.paper,
+  color: theme.palette.text.primary,
   boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
   border: '1px solid rgba(255,255,255,0.08)',
   position: 'relative',
@@ -87,8 +87,8 @@ export const CartPaper = styled(Paper)(({ theme }) => ({
   borderRadius: '6px',
   maxHeight: 'calc(100dvh - 100px)',
   overflow: 'auto',
-  backgroundColor: '#121212',
-  color: '#FFFFFF',
+  backgroundColor: theme.palette.background.paper,
+  color: theme.palette.text.primary,
   boxShadow: '0 15px 35px rgba(0, 0, 0, 0.3)',
   border: '1px solid rgba(255, 165, 0, 0.2)',
 }));

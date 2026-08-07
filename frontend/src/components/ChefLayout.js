@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Link as RouterLink, useLocation, Outlet, useNavigate } from 'react-router-dom';
 import {
-  Box, AppBar, Toolbar, Typography, Button, Tabs, Tab
+  Box, AppBar, Toolbar, Typography, Button, Tabs, Tab, useTheme
 } from '@mui/material';
 import { Restaurant as RestaurantIcon } from '@mui/icons-material';
 import LogoutIcon from '@mui/icons-material/Logout';
+import ThemeModeToggle from './ThemeModeToggle';
 
 const ChefLayout = () => {
+  const theme = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
   const [chefName, setChefName] = useState('');
@@ -49,15 +51,16 @@ const ChefLayout = () => {
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', backgroundColor: '#000', color: '#FFF' }}>
-      <AppBar position="static" sx={{ backgroundColor: '#000', boxShadow: 'none', borderBottom: '1px solid rgba(255,165,0,0.2)' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', backgroundColor: theme.palette.background.default, color: theme.palette.text.primary }}>
+      <AppBar position="static" sx={{ backgroundColor: theme.palette.background.default, boxShadow: 'none', borderBottom: '1px solid rgba(255,165,0,0.2)' }}>
         <Toolbar sx={{ minHeight: { xs: 56, sm: 64 }, px: { xs: 2, sm: 3 } }}>
           <RestaurantIcon sx={{ mr: 1, color: 'primary.main' }} />
           <Typography variant="h6" fontWeight="bold" sx={{ flexGrow: 1, color: '#FFA500', fontSize: { xs: '1rem', sm: '1.25rem' } }}>
             Tabble — Kitchen
           </Typography>
+          <ThemeModeToggle size={20} />
           {chefName && (
-            <Typography variant="body2" sx={{ color: '#ccc', mr: 2, display: { xs: 'none', sm: 'block' } }}>
+            <Typography variant="body2" sx={{ color: theme.palette.text.secondary, mr: 2, display: { xs: 'none', sm: 'block' } }}>
               👨‍🍳 {chefName}
             </Typography>
           )}

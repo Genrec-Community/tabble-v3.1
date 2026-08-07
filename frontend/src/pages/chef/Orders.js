@@ -29,7 +29,8 @@ import {
   LinearProgress,
   Tooltip,
   IconButton,
-  Fab
+  Fab,
+  useTheme
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
@@ -41,6 +42,7 @@ import TimerIcon from '@mui/icons-material/Timer';
 import { chefService, adminService } from '../../services/api';
 
 const ChefOrders = () => {
+  const theme = useTheme();
   const navigate = useNavigate();
   const [pendingOrders, setPendingOrders] = useState([]);
   const [acceptedOrders, setAcceptedOrders] = useState([]);
@@ -225,15 +227,15 @@ const ChefOrders = () => {
   };
 
   return (
-    <Box sx={{ backgroundColor: '#000000', minHeight: '100vh', color: '#FFFFFF' }}>
+    <Box sx={{ backgroundColor: theme.palette.background.default, minHeight: '100vh', color: theme.palette.text.primary }}>
       {/* Header Section */}
       <Box mb={4}>
         <Box display="flex" justifyContent="space-between" alignItems="center" gap={2} mb={3}>
           <Box>
-            <Typography variant="h4" component="h1" fontWeight="bold" gutterBottom sx={{ color: '#FFFFFF', fontSize: { xs: '1.6rem', sm: '2.125rem' } }}>
+<Typography variant="h4" component="h1" fontWeight="bold" gutterBottom sx={{ color: theme.palette.text.primary, fontSize: { xs: '1.6rem', sm: '2.125rem' } }}>
               Kitchen Orders
             </Typography>
-            <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.7)', display: { xs: 'none', sm: 'block' } }}>
+            <Typography variant="body1" sx={{ color: theme.palette.text.secondary, display: { xs: 'none', sm: 'block' } }}>
               Manage incoming orders and track preparation progress
             </Typography>
           </Box>
@@ -260,7 +262,7 @@ const ChefOrders = () => {
       {/* Order Status Tabs */}
       <Paper sx={{
         mb: 4,
-        backgroundColor: '#121212',
+        backgroundColor: theme.palette.background.paper,
         border: '1px solid rgba(255, 165, 0, 0.2)'
       }}>
         <Tabs
@@ -272,7 +274,7 @@ const ChefOrders = () => {
             borderColor: 'rgba(255, 165, 0, 0.2)',
             '& .MuiTab-root': {
               py: 2,
-              color: 'rgba(255, 255, 255, 0.7)',
+              color: theme.palette.text.secondary,
               '&.Mui-selected': {
                 color: '#FFA500',
               },
@@ -314,7 +316,7 @@ const ChefOrders = () => {
       {/* Pending Orders Tab Panel */}
       {activeTab === 0 && (
         <Box mb={4}>
-          <Typography variant="h5" component="h2" gutterBottom fontWeight="medium" sx={{ color: '#FFFFFF' }}>
+          <Typography variant="h5" component="h2" gutterBottom fontWeight="medium" sx={{ color: theme.palette.text.primary }}>
             Orders Waiting for Acceptance
           </Typography>
 
@@ -337,7 +339,7 @@ const ChefOrders = () => {
                       <Zoom in={true} style={{ transitionDelay: '100ms' }}>
                         <Card
                           sx={{
-                            backgroundColor: '#121212',
+                            backgroundColor: theme.palette.background.paper,
                             borderLeft: '6px solid',
                             borderColor: 'primary.main',
                             transition: 'all 0.3s ease',
@@ -453,7 +455,7 @@ const ChefOrders = () => {
       {/* Accepted Orders Tab Panel */}
       {activeTab === 1 && (
         <Box mb={4}>
-          <Typography variant="h5" component="h2" gutterBottom fontWeight="medium" sx={{ color: '#FFFFFF' }}>
+          <Typography variant="h5" component="h2" gutterBottom fontWeight="medium" sx={{ color: theme.palette.text.primary }}>
             Orders Being Prepared
           </Typography>
 
@@ -472,7 +474,7 @@ const ChefOrders = () => {
                   <Zoom in={true} style={{ transitionDelay: '100ms' }}>
                     <Card
                       sx={{
-                        backgroundColor: '#121212',
+                        backgroundColor: theme.palette.background.paper,
                         borderLeft: '4px solid',
                         borderColor: 'info.main',
                         '&:hover': {
@@ -577,8 +579,8 @@ const ChefOrders = () => {
         onClose={handleConfirmClose}
         PaperProps={{
           sx: {
-            backgroundColor: '#121212',
-            color: '#FFFFFF',
+            backgroundColor: theme.palette.background.paper,
+            color: theme.palette.text.primary,
           }
         }}
       >
@@ -623,8 +625,8 @@ const ChefOrders = () => {
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         sx={{
           '& .MuiAlert-root': {
-            backgroundColor: '#121212',
-            color: '#FFFFFF',
+            backgroundColor: theme.palette.background.paper,
+            color: theme.palette.text.primary,
           }
         }}
       >

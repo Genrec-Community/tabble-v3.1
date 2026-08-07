@@ -8,6 +8,9 @@
 ::-webkit-scrollbar-track {
   background: #121212;
 }
+html[data-theme="light"] ::-webkit-scrollbar-track {
+  background: #E5E5E2;
+}
 ::-webkit-scrollbar-thumb {
   background: #FFA500;
   border-radius: 4px;
@@ -20,6 +23,9 @@
 ::selection {
   background-color: rgba(255, 165, 0, 0.3);
   color: #FFFFFF;
+}
+html[data-theme="light"] ::selection {
+  color: #1A1A1A;
 }
 
 /* Smooth scrolling */

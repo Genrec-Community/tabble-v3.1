@@ -45,7 +45,7 @@ const TableCard = styled(Card)(({ theme, occupied }) => ({
     ? `3px solid ${theme.palette.error.main}`
     : `3px solid ${theme.palette.success.main}`,
   borderRadius: '12px',
-  backgroundColor: '#121212',
+  backgroundColor: theme.palette.background.paper,
   boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
   '&:hover': {
     transform: 'translateY(-5px)',

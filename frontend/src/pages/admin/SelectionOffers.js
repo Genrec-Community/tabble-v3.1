@@ -28,7 +28,8 @@ import {
   Snackbar,
   Divider,
   Grid,
-  InputAdornment
+  InputAdornment,
+  useTheme
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import AddIcon from '@mui/icons-material/Add';
@@ -77,6 +78,7 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
 }));
 
 const SelectionOffers = () => {
+  const theme = useTheme();
   // State
   const [offers, setOffers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -368,7 +370,7 @@ const SelectionOffers = () => {
               boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
               border: '2px solid rgba(255, 165, 0, 0.2)',
               overflow: 'hidden',
-              backgroundColor: '#121212',
+              backgroundColor: theme.palette.background.paper,
             }}
           >
             <Table>

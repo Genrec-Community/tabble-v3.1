@@ -23,7 +23,8 @@ import {
   Chip,
   CircularProgress,
   Alert,
-  Snackbar
+  Snackbar,
+  useTheme
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -38,10 +39,12 @@ import {
   Lock as LockIcon
 } from '@mui/icons-material';
 import axios from 'axios';
+import { apiBaseUrl } from '../../utils/apiBaseUrl';
 
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = apiBaseUrl;
 
 const SuperAdmin = () => {
+  const theme = useTheme();
   const [authenticated, setAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState('');
@@ -194,17 +197,17 @@ const SuperAdmin = () => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: 'linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)'
+          background: theme.palette.background.default,
         }}
       >
-        <Card sx={{ maxWidth: 400, width: '100%', m: 2, backgroundColor: '#171715', color: 'white' }}>
+        <Card sx={{ maxWidth: 400, width: '100%', m: 2, backgroundColor: theme.palette.background.paper, color: theme.palette.text.primary }}>
           <CardContent sx={{ p: 4 }}>
             <Box sx={{ textAlign: 'center', mb: 3 }}>
               <LockIcon sx={{ fontSize: 60, color: '#F7B538', mb: 2 }} />
               <Typography variant="h5" fontWeight="bold" gutterBottom>
                 Super Admin Access
               </Typography>
-              <Typography variant="body2" color="rgba(255,255,255,0.7)">
+              <Typography variant="body2" color={theme.palette.text.secondary}>
                 Enter password to continue
               </Typography>
             </Box>
@@ -221,12 +224,12 @@ const SuperAdmin = () => {
               sx={{
                 mb: 2,
                 '& .MuiOutlinedInput-root': {
-                  color: 'white',
+                  color: theme.palette.text.primary,
                   '& fieldset': { borderColor: 'rgba(255,255,255,0.3)' },
                   '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.5)' },
                   '&.Mui-focused fieldset': { borderColor: '#F7B538' }
                 },
-                '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' }
+                '& .MuiInputLabel-root': { color: theme.palette.text.secondary }
               }}
             />
 
@@ -252,13 +255,13 @@ const SuperAdmin = () => {
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', backgroundColor: '#0A0A0A', color: 'white', py: 4 }}>
+    <Box sx={{ minHeight: '100vh', backgroundColor: theme.palette.background.default, color: theme.palette.text.primary, py: 4 }}>
       <Container maxWidth="xl">
         <Box sx={{ mb: 4 }}>
           <Typography variant="h4" fontWeight="bold" gutterBottom sx={{ color: '#F7B538' }}>
             Super Admin Dashboard
           </Typography>
-          <Typography variant="body1" color="rgba(255,255,255,0.7)">
+          <Typography variant="body1" color={theme.palette.text.secondary}>
             Manage all hotels and view system statistics
           </Typography>
         </Box>
@@ -266,14 +269,14 @@ const SuperAdmin = () => {
         {overviewStats && (
           <Grid container spacing={3} sx={{ mb: 4 }}>
             <Grid item xs={12} sm={6} md={2.4}>
-              <Card sx={{ backgroundColor: '#171715', color: 'white', border: '1px solid rgba(247, 181, 56, 0.3)' }}>
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                    <HotelIcon sx={{ color: '#F7B538', mr: 1 }} />
-                    <Typography variant="body2" color="rgba(255,255,255,0.7)">
-                      Total Hotels
-                    </Typography>
-                  </Box>
+<Card sx={{ backgroundColor: theme.palette.background.paper, color: theme.palette.text.primary, border: '1px solid rgba(247, 181, 56, 0.3)' }}>
+                  <CardContent>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                      <HotelIcon sx={{ color: '#F7B538', mr: 1 }} />
+                      <Typography variant="body2" color={theme.palette.text.secondary}>
+                        Total Hotels
+                      </Typography>
+                    </Box>
                   <Typography variant="h4" fontWeight="bold">
                     {overviewStats.total_hotels}
                   </Typography>
@@ -282,14 +285,14 @@ const SuperAdmin = () => {
             </Grid>
 
             <Grid item xs={12} sm={6} md={2.4}>
-              <Card sx={{ backgroundColor: '#171715', color: 'white', border: '1px solid rgba(247, 181, 56, 0.3)' }}>
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                    <TableIcon sx={{ color: '#F7B538', mr: 1 }} />
-                    <Typography variant="body2" color="rgba(255,255,255,0.7)">
-                      Total Tables
-                    </Typography>
-                  </Box>
+<Card sx={{ backgroundColor: theme.palette.background.paper, color: theme.palette.text.primary, border: '1px solid rgba(247, 181, 56, 0.3)' }}>
+                  <CardContent>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                      <TableIcon sx={{ color: '#F7B538', mr: 1 }} />
+                      <Typography variant="body2" color={theme.palette.text.secondary}>
+                        Total Tables
+                      </Typography>
+                    </Box>
                   <Typography variant="h4" fontWeight="bold">
                     {overviewStats.total_tables}
                   </Typography>
@@ -298,14 +301,14 @@ const SuperAdmin = () => {
             </Grid>
 
             <Grid item xs={12} sm={6} md={2.4}>
-              <Card sx={{ backgroundColor: '#171715', color: 'white', border: '1px solid rgba(247, 181, 56, 0.3)' }}>
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                    <RestaurantIcon sx={{ color: '#F7B538', mr: 1 }} />
-                    <Typography variant="body2" color="rgba(255,255,255,0.7)">
-                      Menu Items
-                    </Typography>
-                  </Box>
+<Card sx={{ backgroundColor: theme.palette.background.paper, color: theme.palette.text.primary, border: '1px solid rgba(247, 181, 56, 0.3)' }}>
+                  <CardContent>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                      <RestaurantIcon sx={{ color: '#F7B538', mr: 1 }} />
+                      <Typography variant="body2" color={theme.palette.text.secondary}>
+                        Menu Items
+                      </Typography>
+                    </Box>
                   <Typography variant="h4" fontWeight="bold">
                     {overviewStats.total_menu_items}
                   </Typography>
@@ -314,14 +317,14 @@ const SuperAdmin = () => {
             </Grid>
 
             <Grid item xs={12} sm={6} md={2.4}>
-              <Card sx={{ backgroundColor: '#171715', color: 'white', border: '1px solid rgba(247, 181, 56, 0.3)' }}>
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                    <OrderIcon sx={{ color: '#F7B538', mr: 1 }} />
-                    <Typography variant="body2" color="rgba(255,255,255,0.7)">
-                      Total Orders
-                    </Typography>
-                  </Box>
+<Card sx={{ backgroundColor: theme.palette.background.paper, color: theme.palette.text.primary, border: '1px solid rgba(247, 181, 56, 0.3)' }}>
+                  <CardContent>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                      <OrderIcon sx={{ color: '#F7B538', mr: 1 }} />
+                      <Typography variant="body2" color={theme.palette.text.secondary}>
+                        Total Orders
+                      </Typography>
+                    </Box>
                   <Typography variant="h4" fontWeight="bold">
                     {overviewStats.total_orders}
                   </Typography>
@@ -330,14 +333,14 @@ const SuperAdmin = () => {
             </Grid>
 
             <Grid item xs={12} sm={6} md={2.4}>
-              <Card sx={{ backgroundColor: '#171715', color: 'white', border: '1px solid rgba(247, 181, 56, 0.3)' }}>
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                    <RevenueIcon sx={{ color: '#4CAF50', mr: 1 }} />
-                    <Typography variant="body2" color="rgba(255,255,255,0.7)">
-                      Total Revenue
-                    </Typography>
-                  </Box>
+<Card sx={{ backgroundColor: theme.palette.background.paper, color: theme.palette.text.primary, border: '1px solid rgba(247, 181, 56, 0.3)' }}>
+                  <CardContent>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                      <RevenueIcon sx={{ color: '#4CAF50', mr: 1 }} />
+                      <Typography variant="body2" color={theme.palette.text.secondary}>
+                        Total Revenue
+                      </Typography>
+                    </Box>
                   <Typography variant="h4" fontWeight="bold" sx={{ color: '#4CAF50' }}>
                     ₹{overviewStats.total_revenue.toFixed(2)}
                   </Typography>
@@ -347,7 +350,7 @@ const SuperAdmin = () => {
           </Grid>
         )}
 
-        <Card sx={{ backgroundColor: '#171715', color: 'white', border: '1px solid rgba(255,255,255,0.1)' }}>
+        <Card sx={{ backgroundColor: theme.palette.background.paper, color: theme.palette.text.primary, border: '1px solid rgba(255,255,255,0.1)' }}>
           <CardContent>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
               <Typography variant="h6" fontWeight="bold">
@@ -368,30 +371,30 @@ const SuperAdmin = () => {
               </Button>
             </Box>
 
-            <TableContainer component={Paper} sx={{ backgroundColor: '#1a1a1a' }}>
-              <Table>
-                <TableHead>
-                  <TableRow sx={{ backgroundColor: '#2d2d2d' }}>
-                    <TableCell sx={{ color: 'white', fontWeight: 700 }}>ID</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 700 }}>Name</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 700 }}>Phone</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 700 }}>Email</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 700 }}>Address</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 700 }}>Created</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 700 }} align="center">Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {hotels.map((hotel) => (
-                    <TableRow key={hotel.id} sx={{ '&:hover': { backgroundColor: '#2a2a2a' } }}>
-                      <TableCell sx={{ color: 'white' }}>{hotel.id}</TableCell>
-                      <TableCell sx={{ color: 'white', fontWeight: 600 }}>{hotel.name}</TableCell>
-                      <TableCell sx={{ color: 'white' }}>{hotel.phone}</TableCell>
-                      <TableCell sx={{ color: 'rgba(255,255,255,0.7)' }}>{hotel.email || '-'}</TableCell>
-                      <TableCell sx={{ color: 'rgba(255,255,255,0.7)' }}>{hotel.address || '-'}</TableCell>
-                      <TableCell sx={{ color: 'rgba(255,255,255,0.7)' }}>
-                        {new Date(hotel.created_at).toLocaleDateString()}
-                      </TableCell>
+<TableContainer component={Paper} sx={{ backgroundColor: theme.palette.background.paper }}>
+                  <Table>
+                    <TableHead>
+                      <TableRow sx={{ backgroundColor: theme.palette.background.paper }}>
+                        <TableCell sx={{ color: theme.palette.text.primary, fontWeight: 700 }}>ID</TableCell>
+                        <TableCell sx={{ color: theme.palette.text.primary, fontWeight: 700 }}>Name</TableCell>
+                        <TableCell sx={{ color: theme.palette.text.primary, fontWeight: 700 }}>Phone</TableCell>
+                        <TableCell sx={{ color: theme.palette.text.primary, fontWeight: 700 }}>Email</TableCell>
+                        <TableCell sx={{ color: theme.palette.text.primary, fontWeight: 700 }}>Address</TableCell>
+                        <TableCell sx={{ color: theme.palette.text.primary, fontWeight: 700 }}>Created</TableCell>
+                        <TableCell sx={{ color: theme.palette.text.primary, fontWeight: 700 }} align="center">Actions</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {hotels.map((hotel) => (
+                        <TableRow key={hotel.id} sx={{ '&:hover': { backgroundColor: theme.palette.background.default } }}>
+                          <TableCell sx={{ color: theme.palette.text.primary }}>{hotel.id}</TableCell>
+                          <TableCell sx={{ color: theme.palette.text.primary, fontWeight: 600 }}>{hotel.name}</TableCell>
+                          <TableCell sx={{ color: theme.palette.text.primary }}>{hotel.phone}</TableCell>
+                          <TableCell sx={{ color: theme.palette.text.secondary }}>{hotel.email || '-'}</TableCell>
+                          <TableCell sx={{ color: theme.palette.text.secondary }}>{hotel.address || '-'}</TableCell>
+                          <TableCell sx={{ color: theme.palette.text.secondary }}>
+                            {new Date(hotel.created_at).toLocaleDateString()}
+                          </TableCell>
                       <TableCell align="center">
                         <IconButton
                           size="small"
@@ -430,7 +433,7 @@ const SuperAdmin = () => {
         onClose={() => { setOpenAddDialog(false); resetForm(); }}
         maxWidth="sm"
         fullWidth
-        PaperProps={{ sx: { backgroundColor: '#171715', color: 'white' } }}
+        PaperProps={{ sx: { backgroundColor: theme.palette.background.paper, color: theme.palette.text.primary } }}
       >
         <DialogTitle sx={{ fontWeight: 700, borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
           Add New Hotel
@@ -441,7 +444,7 @@ const SuperAdmin = () => {
             label="Hotel Name"
             value={hotelForm.name}
             onChange={(e) => setHotelForm({ ...hotelForm, name: e.target.value })}
-            sx={{ mb: 2, ...textFieldStyles }}
+            sx={{ mb: 2, ...textFieldStyles(theme) }}
           />
           <TextField
             fullWidth
@@ -450,7 +453,7 @@ const SuperAdmin = () => {
             onChange={(e) => setHotelForm({ ...hotelForm, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
             error={hotelForm.phone.length > 0 && hotelForm.phone.length !== 10}
             helperText={hotelForm.phone.length > 0 && hotelForm.phone.length !== 10 ? 'Enter a valid 10-digit mobile number' : ''}
-            sx={{ mb: 2, ...textFieldStyles }}
+            sx={{ mb: 2, ...textFieldStyles(theme) }}
           />
           <TextField
             fullWidth
@@ -458,14 +461,14 @@ const SuperAdmin = () => {
             label="Password"
             value={hotelForm.password}
             onChange={(e) => setHotelForm({ ...hotelForm, password: e.target.value })}
-            sx={{ mb: 2, ...textFieldStyles }}
+            sx={{ mb: 2, ...textFieldStyles(theme) }}
           />
           <TextField
             fullWidth
             label="Email (Optional)"
             value={hotelForm.email}
             onChange={(e) => setHotelForm({ ...hotelForm, email: e.target.value })}
-            sx={{ mb: 2, ...textFieldStyles }}
+            sx={{ mb: 2, ...textFieldStyles(theme) }}
           />
           <TextField
             fullWidth
@@ -474,7 +477,7 @@ const SuperAdmin = () => {
             rows={2}
             value={hotelForm.address}
             onChange={(e) => setHotelForm({ ...hotelForm, address: e.target.value })}
-            sx={textFieldStyles}
+            sx={textFieldStyles(theme)}
           />
         </DialogContent>
         <DialogActions sx={{ p: 2, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
@@ -503,7 +506,7 @@ const SuperAdmin = () => {
         onClose={() => { setOpenEditDialog(false); resetForm(); }}
         maxWidth="sm"
         fullWidth
-        PaperProps={{ sx: { backgroundColor: '#171715', color: 'white' } }}
+        PaperProps={{ sx: { backgroundColor: theme.palette.background.paper, color: theme.palette.text.primary } }}
       >
         <DialogTitle sx={{ fontWeight: 700, borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
           Edit Hotel
@@ -514,7 +517,7 @@ const SuperAdmin = () => {
             label="Hotel Name"
             value={hotelForm.name}
             onChange={(e) => setHotelForm({ ...hotelForm, name: e.target.value })}
-            sx={{ mb: 2, ...textFieldStyles }}
+            sx={{ mb: 2, ...textFieldStyles(theme) }}
           />
           <TextField
             fullWidth
@@ -523,7 +526,7 @@ const SuperAdmin = () => {
             onChange={(e) => setHotelForm({ ...hotelForm, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
             error={hotelForm.phone.length > 0 && hotelForm.phone.length !== 10}
             helperText={hotelForm.phone.length > 0 && hotelForm.phone.length !== 10 ? 'Enter a valid 10-digit mobile number' : ''}
-            sx={{ mb: 2, ...textFieldStyles }}
+            sx={{ mb: 2, ...textFieldStyles(theme) }}
           />
           <TextField
             fullWidth
@@ -531,7 +534,7 @@ const SuperAdmin = () => {
             label="New Password (Leave empty to keep current)"
             value={hotelForm.password}
             onChange={(e) => setHotelForm({ ...hotelForm, password: e.target.value })}
-            sx={{ mb: 2, ...textFieldStyles }}
+            sx={{ mb: 2, ...textFieldStyles(theme) }}
             helperText="Only fill this if you want to change the password"
           />
           <TextField
@@ -539,7 +542,7 @@ const SuperAdmin = () => {
             label="Email"
             value={hotelForm.email}
             onChange={(e) => setHotelForm({ ...hotelForm, email: e.target.value })}
-            sx={{ mb: 2, ...textFieldStyles }}
+            sx={{ mb: 2, ...textFieldStyles(theme) }}
           />
           <TextField
             fullWidth
@@ -548,7 +551,7 @@ const SuperAdmin = () => {
             rows={2}
             value={hotelForm.address}
             onChange={(e) => setHotelForm({ ...hotelForm, address: e.target.value })}
-            sx={textFieldStyles}
+            sx={textFieldStyles(theme)}
           />
         </DialogContent>
         <DialogActions sx={{ p: 2, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
@@ -577,7 +580,7 @@ const SuperAdmin = () => {
         onClose={() => { setOpenStatsDialog(false); setSelectedHotel(null); }}
         maxWidth="sm"
         fullWidth
-        PaperProps={{ sx: { backgroundColor: '#171715', color: 'white' } }}
+        PaperProps={{ sx: { backgroundColor: theme.palette.background.paper, color: theme.palette.text.primary } }}
       >
         <DialogTitle sx={{ fontWeight: 700, borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
           Hotel Statistics - {selectedHotel?.name}
@@ -586,8 +589,8 @@ const SuperAdmin = () => {
           {selectedHotel && hotelStats[selectedHotel.id] ? (
             <Grid container spacing={2}>
               <Grid item xs={6}>
-                <Card sx={{ backgroundColor: '#2d2d2d', color: 'white', p: 2 }}>
-                  <Typography variant="body2" color="rgba(255,255,255,0.7)" gutterBottom>
+                <Card sx={{ backgroundColor: theme.palette.background.paper, color: theme.palette.text.primary, p: 2 }}>
+                  <Typography variant="body2" color={theme.palette.text.secondary} gutterBottom>
                     Tables
                   </Typography>
                   <Typography variant="h5" fontWeight="bold">
@@ -596,8 +599,8 @@ const SuperAdmin = () => {
                 </Card>
               </Grid>
               <Grid item xs={6}>
-                <Card sx={{ backgroundColor: '#2d2d2d', color: 'white', p: 2 }}>
-                  <Typography variant="body2" color="rgba(255,255,255,0.7)" gutterBottom>
+                <Card sx={{ backgroundColor: theme.palette.background.paper, color: theme.palette.text.primary, p: 2 }}>
+                  <Typography variant="body2" color={theme.palette.text.secondary} gutterBottom>
                     Menu Items
                   </Typography>
                   <Typography variant="h5" fontWeight="bold">
@@ -606,8 +609,8 @@ const SuperAdmin = () => {
                 </Card>
               </Grid>
               <Grid item xs={6}>
-                <Card sx={{ backgroundColor: '#2d2d2d', color: 'white', p: 2 }}>
-                  <Typography variant="body2" color="rgba(255,255,255,0.7)" gutterBottom>
+                <Card sx={{ backgroundColor: theme.palette.background.paper, color: theme.palette.text.primary, p: 2 }}>
+                  <Typography variant="body2" color={theme.palette.text.secondary} gutterBottom>
                     Total Orders
                   </Typography>
                   <Typography variant="h5" fontWeight="bold">
@@ -616,8 +619,8 @@ const SuperAdmin = () => {
                 </Card>
               </Grid>
               <Grid item xs={6}>
-                <Card sx={{ backgroundColor: '#2d2d2d', color: 'white', p: 2 }}>
-                  <Typography variant="body2" color="rgba(255,255,255,0.7)" gutterBottom>
+                <Card sx={{ backgroundColor: theme.palette.background.paper, color: theme.palette.text.primary, p: 2 }}>
+                  <Typography variant="body2" color={theme.palette.text.secondary} gutterBottom>
                     Completed
                   </Typography>
                   <Typography variant="h5" fontWeight="bold">
@@ -626,8 +629,8 @@ const SuperAdmin = () => {
                 </Card>
               </Grid>
               <Grid item xs={12}>
-                <Card sx={{ backgroundColor: '#2d2d2d', color: 'white', p: 2 }}>
-                  <Typography variant="body2" color="rgba(255,255,255,0.7)" gutterBottom>
+                <Card sx={{ backgroundColor: theme.palette.background.paper, color: theme.palette.text.primary, p: 2 }}>
+                  <Typography variant="body2" color={theme.palette.text.secondary} gutterBottom>
                     Total Revenue
                   </Typography>
                   <Typography variant="h4" fontWeight="bold" sx={{ color: '#4CAF50' }}>
@@ -668,15 +671,15 @@ const SuperAdmin = () => {
   );
 };
 
-const textFieldStyles = {
+const textFieldStyles = (theme) => ({
   '& .MuiOutlinedInput-root': {
-    color: 'white',
+    color: theme.palette.text.primary,
     '& fieldset': { borderColor: 'rgba(255,255,255,0.3)' },
     '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.5)' },
     '&.Mui-focused fieldset': { borderColor: '#F7B538' }
   },
-  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' },
-  '& .MuiFormHelperText-root': { color: 'rgba(255,255,255,0.5)' }
-};
+  '& .MuiInputLabel-root': { color: theme.palette.text.secondary },
+  '& .MuiFormHelperText-root': { color: theme.palette.text.secondary }
+});
 
 export default SuperAdmin;

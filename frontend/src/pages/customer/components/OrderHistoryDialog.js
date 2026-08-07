@@ -22,7 +22,8 @@ import {
   Tooltip,
   Snackbar,
   Alert,
-  DialogContentText
+  DialogContentText,
+  useTheme
 } from '@mui/material';
 import HistoryIcon from '@mui/icons-material/History';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
@@ -41,6 +42,7 @@ const OrderHistoryDialog = ({
   getStatusLabel,
   refreshOrders
 }) => {
+  const theme = useTheme();
   const [cancelDialog, setCancelDialog] = useState({
     open: false,
     orderId: null
@@ -109,7 +111,7 @@ const OrderHistoryDialog = ({
       PaperProps={{
         sx: {
           borderRadius: '12px',
-          backgroundColor: '#121212',
+          backgroundColor: theme.palette.background.paper,
           backgroundImage: 'linear-gradient(rgba(255, 165, 0, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 165, 0, 0.05) 1px, transparent 1px)',
           backgroundSize: '20px 20px',
           boxShadow: '0 20px 50px rgba(0, 0, 0, 0.5)',
@@ -134,7 +136,7 @@ const OrderHistoryDialog = ({
       }}>
         <Box display="flex" alignItems="center">
           <HistoryIcon sx={{ color: '#FFA500', fontSize: '2.2rem', mr: 2 }} />
-          <Typography variant="h5" component="h2" fontWeight="bold" color="#FFFFFF">
+          <Typography variant="h5" component="h2" fontWeight="bold" color={theme.palette.text.primary}>
             Your Order History
           </Typography>
         </Box>
@@ -159,7 +161,7 @@ const OrderHistoryDialog = ({
             <Typography color="#FFA500" variant="h5" gutterBottom fontWeight="bold">
               No orders found
             </Typography>
-            <Typography color="#FFFFFF" variant="body1" sx={{ fontSize: '1.1rem' }}>
+            <Typography color={theme.palette.text.primary} variant="body1" sx={{ fontSize: '1.1rem' }}>
               You haven't placed any orders yet
             </Typography>
           </Box>
@@ -176,7 +178,7 @@ const OrderHistoryDialog = ({
                       borderRadius: '8px',
                       boxShadow: '0 10px 30px rgba(0, 0, 0, 0.2)',
                       border: canCancel ? '2px solid #FFA500' : '1px solid rgba(255, 165, 0, 0.2)',
-                      backgroundColor: '#121212',
+                      backgroundColor: theme.palette.background.paper,
                       position: 'relative',
                       overflow: 'hidden',
                       transition: 'transform 0.3s ease, box-shadow 0.3s ease',
@@ -200,14 +202,14 @@ const OrderHistoryDialog = ({
                       <CardHeader
                         sx={{
                           borderBottom: '1px solid rgba(255, 165, 0, 0.15)',
-                          backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                          backgroundColor: theme.palette.action.hover,
                           py: 2
                         }}
                         title={
                           <Box display="flex" alignItems="center" justifyContent="space-between">
                             <Box display="flex" alignItems="center">
                               <ReceiptIcon sx={{ color: '#FFA500', mr: 1.5 }} />
-                              <Typography variant="h6" color="#FFFFFF">Order #{order.id}</Typography>
+                              <Typography variant="h6" color={theme.palette.text.primary}>Order #{order.id}</Typography>
                             </Box>
                             <Chip
                               label={getStatusLabel(order.status)}
@@ -231,8 +233,8 @@ const OrderHistoryDialog = ({
                         }
                         subheader={
                           <Box display="flex" alignItems="center" mt={1}>
-                            <AccessTimeIcon sx={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '1rem', mr: 1 }} />
-                            <Typography variant="body2" color="rgba(255, 255, 255, 0.6)">
+                            <AccessTimeIcon sx={{ color: theme.palette.text.secondary, fontSize: '1rem', mr: 1 }} />
+                            <Typography variant="body2" color={theme.palette.text.secondary}>
                               {formatDate(order.created_at)}
                             </Typography>
                           </Box>
@@ -242,13 +244,13 @@ const OrderHistoryDialog = ({
                       <CardContent sx={{ py: 2.5 }}>
                         <Box display="flex" alignItems="center" mb={2}>
                           <RestaurantIcon sx={{ color: '#FFA500', mr: 1.5 }} />
-                          <Typography variant="subtitle1" color="#FFFFFF" fontWeight="bold">
+                          <Typography variant="subtitle1" color={theme.palette.text.primary} fontWeight="bold">
                             Order Items
                           </Typography>
                         </Box>
 
                         <Paper elevation={0} sx={{
-                          backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                          backgroundColor: 'rgba(0, 0, 0, 0.03)',
                           border: '1px solid rgba(255, 165, 0, 0.15)',
                           borderRadius: '6px',
                           mb: 2.5,
@@ -281,7 +283,7 @@ const OrderHistoryDialog = ({
                                         }}>
                                           {index + 1}
                                         </Avatar>
-                                        <Typography variant="body1" color="#FFFFFF">
+                                        <Typography variant="body1" color={theme.palette.text.primary}>
                                           {item.dish?.name || "Unknown Dish"}
                                         </Typography>
                                         <Chip
@@ -297,13 +299,13 @@ const OrderHistoryDialog = ({
                                           }}
                                         />
                                       </Box>
-                                      <Typography variant="body2" color="rgba(255, 255, 255, 0.7)">
+                                      <Typography variant="body2" color={theme.palette.text.secondary}>
                                         Qty: {item.quantity}
                                       </Typography>
                                     </Box>
                                   }
                                   secondary={item.remarks && (
-                                    <Typography variant="caption" color="rgba(255, 255, 255, 0.6)" sx={{
+                                    <Typography variant="caption" color={theme.palette.text.secondary} sx={{
                                       display: 'block',
                                       mt: 0.5,
                                       fontStyle: 'italic'
@@ -325,7 +327,7 @@ const OrderHistoryDialog = ({
                         }}>
                           <Box display="flex" alignItems="center">
                             <TableRestaurantIcon sx={{ color: '#FFA500', mr: 1 }} />
-                            <Typography variant="body1" color="#FFFFFF">
+                            <Typography variant="body1" color={theme.palette.text.primary}>
                               Table #{order.table_number}
                             </Typography>
                           </Box>
@@ -365,7 +367,7 @@ const OrderHistoryDialog = ({
       </DialogContent>
       <DialogActions sx={{
         p: 3,
-        backgroundColor: 'rgba(0, 0, 0, 0.3)',
+        backgroundColor: theme.palette.background.paper,
         borderTop: '1px solid rgba(255, 165, 0, 0.2)'
       }}>
         <Button
@@ -373,7 +375,7 @@ const OrderHistoryDialog = ({
           variant="outlined"
           sx={{
             borderColor: 'rgba(255, 165, 0, 0.5)',
-            color: '#FFFFFF',
+            color: theme.palette.text.primary,
             borderWidth: '2px',
             py: 1.5,
             px: 4,

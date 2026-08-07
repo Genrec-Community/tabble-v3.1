@@ -26,8 +26,7 @@ import {
   Toolbar,
   CircularProgress,
   Tabs,
-  Tab,
-  Chip
+  Tab
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import RemoveIcon from '@mui/icons-material/Remove';
@@ -58,6 +57,7 @@ import TodaySpecials from './components/TodaySpecials';
 import MenuCategories from './components/MenuCategories';
 
 import MenuItemsGrid from './components/MenuItemsGrid';
+import { apiBaseUrl } from '../../utils/apiBaseUrl';
 
 const CustomerMenu = () => {
   // Performance monitoring
@@ -78,7 +78,7 @@ const CustomerMenu = () => {
   useEffect(() => {
     const hotelName = localStorage.getItem('customerSelectedDatabase') || localStorage.getItem('selectedDatabase');
     if (!hotelName) return;
-    fetch(`${process.env.REACT_APP_API_BASE_URL || 'http://localhost:8001'}/settings/public/show-prices?hotel_name=${encodeURIComponent(hotelName)}`)
+    fetch(`${apiBaseUrl}/settings/public/show-prices?hotel_name=${encodeURIComponent(hotelName)}`)
       .then(r => r.json())
       .then(data => setShowPrices(data.show_prices !== false))
       .catch(() => setShowPrices(true)); // default to showing prices on error
@@ -118,7 +118,7 @@ const CustomerMenu = () => {
     cart,
     addToCart,
     removeFromCart,
-    reorderCart,
+    moveCartItem,
     clearCart,
     cartTotal,
     cartCount
@@ -273,10 +273,6 @@ const CustomerMenu = () => {
   const handleRemoveFromCart = useCallback((index) => {
     removeFromCart(index);
   }, [removeFromCart]);
-
-  const handleReorderCart = useCallback((index, direction) => {
-    reorderCart(index, direction);
-  }, [reorderCart]);
 
   // Memoized calculate discounted price
   const calculateDiscountedPrice = useCallback((price, discount) => {
@@ -531,9 +527,9 @@ const CustomerMenu = () => {
             startIcon={<ArrowBackIcon />}
             onClick={handleBackToHome}
             sx={{
-              backgroundColor: 'rgba(0, 0, 0, 0.8)',
-              color: 'white',
-              border: '2px solid rgba(255, 165, 0, 0.5)',
+              backgroundColor: theme.palette.mode === 'light' ? 'rgba(255,255,255,0.9)' : 'rgba(0, 0, 0, 0.8)',
+              color: theme.palette.mode === 'light' ? '#1A1A1A' : 'white',
+              border: `2px solid ${theme.palette.mode === 'light' ? 'rgba(255, 165, 0, 0.6)' : 'rgba(255, 165, 0, 0.5)'}`,
               borderRadius: '12px',
               px: { xs: 1.25, sm: 2 },
               py: 0.8,
@@ -545,7 +541,7 @@ const CustomerMenu = () => {
               '&:hover': {
                 backgroundColor: 'rgba(255, 165, 0, 0.1)',
                 borderColor: '#FFA500',
-                color: 'white',
+                color: theme.palette.mode === 'light' ? '#1A1A1A' : 'white',
                 transform: 'translateY(-2px)',
                 boxShadow: '0 12px 40px rgba(255, 165, 0, 0.2)',
               },
@@ -554,7 +550,7 @@ const CustomerMenu = () => {
               }
             }}
           >
-            <HomeIcon sx={{ mr: 0.5, fontSize: '1.1rem', color: 'white' }} />
+            <HomeIcon sx={{ mr: 0.5, fontSize: '1.1rem', color: theme.palette.mode === 'light' ? '#1A1A1A' : 'white' }} />
             Home
           </Button>
         </Box>
@@ -587,8 +583,8 @@ const CustomerMenu = () => {
               p: { xs: 2, sm: 3 },
               mb: 6,
               borderRadius: { xs: '24px 24px 0 0', sm: '20px' },
-              backgroundColor: '#171715',
-              color: '#FFFFFF',
+              backgroundColor: theme.palette.background.paper,
+              color: theme.palette.text.primary,
               border: '1px solid rgba(255,255,255,0.08)',
               position: 'relative',
               boxShadow: '0 12px 30px rgba(0,0,0,0.18)',
@@ -598,7 +594,7 @@ const CustomerMenu = () => {
               sx={{
                 display: 'flex',
                 alignItems: 'center',
-                color: '#FFFFFF',
+                color: theme.palette.text.primary,
                 mb: 2.5,
                 fontSize: { xs: '1.3rem', sm: '1.75rem', md: '2.125rem' },
                 '&:after': {
@@ -623,7 +619,7 @@ const CustomerMenu = () => {
                 sx={{
                   '& .MuiTabs-indicator': { display: 'none' },
                   '& .MuiTab-root': {
-                    color: 'rgba(255, 255, 255, 0.7)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '999px', mr: 1,
+                    color: theme.palette.text.secondary, border: '1px solid rgba(255,255,255,0.1)', borderRadius: '999px', mr: 1,
                     fontWeight: 'medium',
                     minWidth: 'auto',
                     px: 2,
@@ -636,7 +632,7 @@ const CustomerMenu = () => {
                 <Tab
                   label="All"
                   value="All"
-                  icon={<Chip label="All" size="small" sx={{ bgcolor: 'rgba(255, 165, 0, 0.2)', color: 'white' }} />}
+                  icon={<Box sx={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: '#FFA500' }} />}
                   iconPosition="start"
                 />
                 <Tab
@@ -685,8 +681,8 @@ const CustomerMenu = () => {
         PaperProps={{
           sx: {
             borderRadius: '6px',
-            backgroundColor: '#121212',
-            color: 'white',
+            backgroundColor: theme.palette.background.paper,
+            color: theme.palette.text.primary,
             border: '1px solid rgba(255, 165, 0, 0.3)',
             boxShadow: '0 15px 40px rgba(0, 0, 0, 0.4)',
             position: 'relative',
@@ -714,7 +710,7 @@ const CustomerMenu = () => {
                 flexShrink: 0
               }}
             />
-            <Typography variant="h6" fontWeight="bold" color="white">{selectedDish?.name}</Typography>
+            <Typography variant="h6" fontWeight="bold" color={theme.palette.text.primary}>{selectedDish?.name}</Typography>
           </Box>
         </DialogTitle>
         <DialogContent dividers sx={{ borderColor: 'rgba(255, 165, 0, 0.2)' }}>
@@ -730,7 +726,7 @@ const CustomerMenu = () => {
                 }}
               >
                 <img
-                  src={selectedDish.image_path ? `${process.env.REACT_APP_API_BASE_URL}${selectedDish.image_path}` : 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=600&q=80'}
+                  src={selectedDish.image_path ? `${apiBaseUrl}${selectedDish.image_path}` : 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=600&q=80'}
                   alt={selectedDish.name}
                   loading="lazy"
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
@@ -772,16 +768,16 @@ const CustomerMenu = () => {
                 </Box>
               </Box>
 
-              <Typography variant="subtitle1" gutterBottom fontWeight="bold" color="white">
+              <Typography variant="subtitle1" gutterBottom fontWeight="bold" color={theme.palette.text.primary}>
                 Description
               </Typography>
-              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }} paragraph>
+              <Typography variant="body2" sx={{ color: theme.palette.text.secondary }} paragraph>
                 {selectedDish.description || 'A delicious dish prepared with quality ingredients.'}
               </Typography>
 
               <Divider sx={{ my: 2, backgroundColor: 'rgba(255, 165, 0, 0.2)' }} />
 
-              <Typography variant="subtitle1" gutterBottom fontWeight="bold" color="white">
+              <Typography variant="subtitle1" gutterBottom fontWeight="bold" color={theme.palette.text.primary}>
                 Quantity
               </Typography>
               <Box
@@ -793,14 +789,14 @@ const CustomerMenu = () => {
                   borderRadius: '4px',
                   width: 'fit-content',
                   px: 1,
-                  backgroundColor: 'rgba(0, 0, 0, 0.3)'
+                  backgroundColor: theme.palette.background.paper
                 }}
               >
                 <IconButton
                   size="medium"
                   onClick={decrementQuantity}
                   sx={{
-                    color: quantity === 1 ? 'rgba(255,255,255,0.3)' : '#FFA500',
+                    color: quantity === 1 ? theme.palette.text.disabled : '#FFA500',
                     minWidth: 44,
                     minHeight: 44,
                     '&:hover': {
@@ -824,7 +820,7 @@ const CustomerMenu = () => {
                   InputProps={{
                     disableUnderline: true,
                     inputProps: {
-                      style: { textAlign: 'center', width: '40px', fontWeight: 'bold', color: 'white' }
+                      style: { textAlign: 'center', width: '40px', fontWeight: 'bold', color: theme.palette.text.primary }
                     }
                   }}
                 />
@@ -834,7 +830,7 @@ const CustomerMenu = () => {
               </Box>
 
               <Box mt={3}>
-                <Typography variant="subtitle1" gutterBottom fontWeight="bold" color="white">
+                <Typography variant="subtitle1" gutterBottom fontWeight="bold" color={theme.palette.text.primary}>
                   Special Instructions (Optional)
                 </Typography>
                 <TextField
@@ -848,9 +844,9 @@ const CustomerMenu = () => {
                   sx={{
                     '& .MuiOutlinedInput-root': {
                       borderRadius: '4px',
-                      backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                      backgroundColor: theme.palette.background.paper,
                       borderColor: 'rgba(255, 165, 0, 0.3)',
-                      color: 'white',
+                      color: theme.palette.text.primary,
                       '&:hover .MuiOutlinedInput-notchedOutline': {
                         borderColor: 'rgba(255, 165, 0, 0.5)',
                       },
@@ -862,24 +858,24 @@ const CustomerMenu = () => {
                       },
                     },
                     '& .MuiInputBase-input': {
-                      color: 'white',
+                      color: theme.palette.text.primary,
                     },
                     '& .MuiFormLabel-root': {
-                      color: 'rgba(255, 255, 255, 0.7)',
+                      color: theme.palette.text.secondary,
                     },
                     '& .MuiFormLabel-root.Mui-focused': {
                       color: '#FFA500',
                     },
                   }}
                   InputProps={{
-                    style: { color: 'white' }
+                    style: { color: theme.palette.text.primary }
                   }}
                 />
               </Box>
             </>
           )}
         </DialogContent>
-        <DialogActions sx={{ px: 3, py: 3, backgroundColor: '#121212', borderTop: '1px solid rgba(255, 165, 0, 0.2)' }}>
+        <DialogActions sx={{ px: 3, py: 3, backgroundColor: theme.palette.background.paper, borderTop: '1px solid rgba(255, 165, 0, 0.2)' }}>
           <Button
             onClick={handleCloseDialog}
             variant="outlined"
@@ -926,7 +922,7 @@ const CustomerMenu = () => {
         calculateTotal={() => cartTotal}
         handlePlaceOrder={handlePlaceOrder}
         currentOrder={currentOrder}
-        handleReorderCart={handleReorderCart}
+        handleMoveCartItem={moveCartItem}
         specials={specials}
         handleOpenDialog={handleOpenDialog}
         calculateDiscountedPrice={calculateDiscountedPrice}
@@ -949,8 +945,10 @@ const CustomerMenu = () => {
         position="fixed"
         sx={{
           top: 'auto', bottom: 0,
-          backgroundColor: 'rgba(23,23,21,0.96)',
-          borderTop: '1px solid rgba(255,255,255,0.1)',
+          backgroundColor: theme.palette.mode === 'light'
+            ? 'rgba(255,255,255,0.96)'
+            : 'rgba(23,23,21,0.96)',
+          borderTop: `1px solid ${theme.palette.mode === 'light' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'}`,
           boxShadow: '0 -8px 28px rgba(0,0,0,0.32)',
           backdropFilter: 'blur(16px)',
           paddingBottom: 'env(safe-area-inset-bottom, 0px)',
@@ -974,7 +972,9 @@ const CustomerMenu = () => {
             startIcon={<HistoryIcon />}
             onClick={handleOpenOrderHistory}
             sx={{
-              borderColor: 'rgba(255,255,255,0.18)', color: 'rgba(255,255,255,0.86)', borderRadius: '12px',
+              borderColor: theme.palette.mode === 'light' ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.18)',
+              color: theme.palette.mode === 'light' ? '#1A1A1A' : 'rgba(255,255,255,0.86)',
+              borderRadius: '12px',
               '&:hover': { borderColor: '#FFA500', bgcolor: 'rgba(255,165,0,0.1)' },
               minWidth: 0, px: { xs: 1.25, sm: 2 },
               fontSize: { xs: '0.75rem', sm: '0.875rem' },
@@ -1060,8 +1060,8 @@ const CustomerMenu = () => {
         PaperProps={{
           sx: {
             borderRadius: '16px',
-            backgroundColor: '#121212',
-            color: 'white',
+            backgroundColor: theme.palette.background.paper,
+            color: theme.palette.text.primary,
             border: '1px solid rgba(255, 165, 0, 0.3)',
           }
         }}
@@ -1069,7 +1069,7 @@ const CustomerMenu = () => {
         <DialogTitle sx={{ borderBottom: '1px solid rgba(255, 165, 0, 0.2)' }}>
           <Box display="flex" alignItems="center">
             <PaymentIcon sx={{ mr: 2, color: '#FFA500' }} />
-            <Typography variant="h5" component="h2" fontWeight="bold" color="white">
+            <Typography variant="h5" component="h2" fontWeight="bold" color={theme.palette.text.primary}>
               Payment Details
             </Typography>
           </Box>
@@ -1084,18 +1084,18 @@ const CustomerMenu = () => {
                   mb: 3,
                   borderRadius: '12px',
                   border: '1px solid rgba(255, 165, 0, 0.2)',
-                  backgroundColor: 'rgba(0, 0, 0, 0.2)',
-                  color: 'white'
+                  backgroundColor: theme.palette.background.default,
+                  color: theme.palette.text.primary
                 }}
               >
                 <Typography variant="h6" gutterBottom fontWeight="bold" sx={{ color: '#FFA500' }}>
                   Bill Summary
                 </Typography>
                 <Box sx={{ mb: 2 }}>
-                  <Typography variant="subtitle2" sx={{ color: 'rgba(255, 255, 255, 0.7)' }} gutterBottom>
+                  <Typography variant="subtitle2" sx={{ color: theme.palette.text.secondary }} gutterBottom>
                     Table #{unpaidOrders[0].table_number}
                   </Typography>
-                  <Typography variant="subtitle2" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+                  <Typography variant="subtitle2" sx={{ color: theme.palette.text.secondary }}>
                     {unpaidOrders.length} Completed {unpaidOrders.length === 1 ? 'Order' : 'Orders'} Ready for Payment
                   </Typography>
                 </Box>
@@ -1104,7 +1104,7 @@ const CustomerMenu = () => {
                 {unpaidOrders.map((order, orderIndex) => (
                   <Box key={order.id} sx={{ mb: orderIndex < unpaidOrders.length - 1 ? 3 : 0 }}>
                     <Divider sx={{ my: 2, backgroundColor: 'rgba(255, 165, 0, 0.2)' }} />
-                    <Typography variant="subtitle2" gutterBottom fontWeight="bold" color="white">
+                    <Typography variant="subtitle2" gutterBottom fontWeight="bold" color={theme.palette.text.primary}>
                       Order #{order.id}
                     </Typography>
                     <List disablePadding>
@@ -1114,7 +1114,7 @@ const CustomerMenu = () => {
                             <ListItemText
                               primary={
                                 <Box display="flex" justifyContent="space-between">
-                                  <Typography variant="body2" color="white">
+                                  <Typography variant="body2" color={theme.palette.text.primary}>
                                     {item.dish?.name || "Unknown Dish"} x{item.quantity}
                                   </Typography>
                                   {showPrices && (
@@ -1128,7 +1128,7 @@ const CustomerMenu = () => {
                           </ListItem>
                         ))
                       ) : (
-                        <Typography variant="body2" color="rgba(255, 255, 255, 0.5)" sx={{ fontStyle: 'italic' }}>
+                        <Typography variant="body2" color={theme.palette.text.secondary} sx={{ fontStyle: 'italic' }}>
                           No items in this order
                         </Typography>
                       )}
@@ -1137,7 +1137,7 @@ const CustomerMenu = () => {
                     {/* Order Subtotal — hidden when prices are off */}
                     {showPrices && (
                     <Box display="flex" justifyContent="space-between" alignItems="center" sx={{ mt: 1, mb: 1 }}>
-                      <Typography variant="body2" color="rgba(255, 255, 255, 0.7)">
+                      <Typography variant="body2" color={theme.palette.text.secondary}>
                         Order Subtotal:
                       </Typography>
                       <Typography variant="body1" fontWeight="bold" color="#FFA500">
@@ -1162,7 +1162,7 @@ const CustomerMenu = () => {
                       {discounts.loyalty.message}
                     </Typography>
                   ) : (
-                    <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.5)', fontStyle: 'italic', mb: 0.5 }}>
+                    <Typography variant="body2" sx={{ color: theme.palette.text.secondary, fontStyle: 'italic', mb: 0.5 }}>
                       No loyalty discount applied
                     </Typography>
                   )}
@@ -1173,7 +1173,7 @@ const CustomerMenu = () => {
                       {discounts.selectionOffer.message}
                     </Typography>
                   ) : (
-                    <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.5)', fontStyle: 'italic' }}>
+                    <Typography variant="body2" sx={{ color: theme.palette.text.secondary, fontStyle: 'italic' }}>
                       No special offer discount applied
                     </Typography>
                   )}
@@ -1235,17 +1235,17 @@ const CustomerMenu = () => {
               </Paper>
 
               <Box sx={{ textAlign: 'center', mb: 2 }}>
-                <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)' }} paragraph>
+                <Typography variant="body2" sx={{ color: theme.palette.text.secondary }} paragraph>
                   Please proceed to the counter to complete your payment or click the button below to mark as paid.
                 </Typography>
               </Box>
             </Box>
           ) : (
             <Box textAlign="center" py={4}>
-              <Typography variant="h6" color="white" gutterBottom>
+              <Typography variant="h6" color={theme.palette.text.primary} gutterBottom>
                 No completed orders found for payment
               </Typography>
-              <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+              <Typography variant="body2" sx={{ color: theme.palette.text.secondary }}>
                 Orders must be completed by the chef before they can be paid. Please wait for your orders to be ready.
               </Typography>
             </Box>
@@ -1257,7 +1257,7 @@ const CustomerMenu = () => {
             variant="outlined"
             sx={{
               borderColor: 'rgba(255, 165, 0, 0.5)',
-              color: 'white',
+              color: theme.palette.text.primary,
               '&:hover': {
                 borderColor: 'rgba(255, 165, 0, 0.8)',
                 backgroundColor: 'rgba(255, 165, 0, 0.1)'

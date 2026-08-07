@@ -14,7 +14,8 @@ import {
   CircularProgress,
   Stepper,
   Step,
-  StepLabel
+  StepLabel,
+  useTheme
 } from '@mui/material';
 import TableRestaurantIcon from '@mui/icons-material/TableRestaurant';
 import DatabaseIcon from '@mui/icons-material/Storage';
@@ -24,7 +25,7 @@ import { adminService } from '../services/api';
 
 const StyledDialog = styled(Dialog)(({ theme }) => ({
   '& .MuiPaper-root': {
-    backgroundColor: '#121212',
+    backgroundColor: theme.palette.background.paper,
     borderRadius: '12px',
     boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
     border: '1px solid rgba(255, 165, 0, 0.2)',
@@ -33,9 +34,9 @@ const StyledDialog = styled(Dialog)(({ theme }) => ({
   }
 }));
 
-const StyledTextField = styled(TextField)(() => ({
+const StyledTextField = styled(TextField)(({ theme }) => ({
   '& .MuiOutlinedInput-root': {
-    backgroundColor: 'rgba(18, 18, 18, 0.8)',
+    backgroundColor: theme.palette.background.paper,
     borderRadius: '8px',
     border: '2px solid rgba(255, 165, 0, 0.3)',
     '& fieldset': {
@@ -50,20 +51,20 @@ const StyledTextField = styled(TextField)(() => ({
       boxShadow: '0 0 0 2px rgba(255, 165, 0, 0.2)',
     },
     '& .MuiSelect-select': {
-      color: '#FFFFFF !important',
+      color: `${theme.palette.text.primary} !important`,
     },
     '& .MuiSelect-icon': {
       color: '#FFA500',
     },
   },
   '& .MuiInputLabel-root': {
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: theme.palette.text.secondary,
     '&.Mui-focused': {
       color: '#FFA500',
     },
   },
   '& .MuiInputBase-input': {
-    color: '#FFFFFF',
+    color: theme.palette.text.primary,
     fontSize: '1.125rem',
     padding: '16px 14px',
   },
@@ -72,11 +73,12 @@ const StyledTextField = styled(TextField)(() => ({
   },
   // Enhanced styling for Select dropdown
   '& .MuiSelect-root': {
-    color: '#FFFFFF',
+    color: theme.palette.text.primary,
   },
 }));
 
 const TableSetup = ({ open, onClose }) => {
+  const theme = useTheme();
   const [activeStep, setActiveStep] = useState(0);
   const [tableNumber, setTableNumber] = useState('');
   const [databaseName, setDatabaseName] = useState('');
@@ -166,10 +168,10 @@ const TableSetup = ({ open, onClose }) => {
   const renderDatabaseStep = () => (
     <>
       <Box textAlign="center" mb={3}>
-        <Typography variant="h6" sx={{ color: 'white', mb: 1 }}>
+        <Typography variant="h6" sx={{ color: theme.palette.text.primary, mb: 1 }}>
           Select Database
         </Typography>
-        <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.7)' }}>
+        <Typography variant="body1" sx={{ color: theme.palette.text.secondary }}>
           Choose your hotel database and enter the password
         </Typography>
       </Box>
@@ -209,8 +211,8 @@ const TableSetup = ({ open, onClose }) => {
               border: '1px solid rgba(255, 165, 0, 0.4)',
               margin: '2px',
               borderRadius: '4px',
-              color: '#FFFFFF',
-              backgroundColor: 'rgba(18, 18, 18, 0.8)',
+              color: theme.palette.text.primary,
+              backgroundColor: theme.palette.background.paper,
               '&:hover': {
                 backgroundColor: 'rgba(255, 165, 0, 0.1)',
                 border: '1px solid rgba(255, 165, 0, 0.6)',
@@ -220,7 +222,7 @@ const TableSetup = ({ open, onClose }) => {
                 backgroundColor: 'rgba(255, 165, 0, 0.15)',
                 border: '1px solid rgba(255, 165, 0, 0.8)',
                 borderLeft: '4px solid #FFA500',
-                color: '#FFFFFF',
+                color: theme.palette.text.primary,
                 '&:hover': {
                   backgroundColor: 'rgba(255, 165, 0, 0.2)',
                   border: '1px solid #FFA500',
@@ -259,10 +261,10 @@ const TableSetup = ({ open, onClose }) => {
   const renderTableStep = () => (
     <>
       <Box textAlign="center" mb={3}>
-        <Typography variant="h6" sx={{ color: 'white', mb: 1 }}>
+        <Typography variant="h6" sx={{ color: theme.palette.text.primary, mb: 1 }}>
           Enter Table Number
         </Typography>
-        <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.7)' }}>
+        <Typography variant="body1" sx={{ color: theme.palette.text.secondary }}>
           Please enter your table number to continue
         </Typography>
       </Box>
@@ -307,7 +309,7 @@ const TableSetup = ({ open, onClose }) => {
       <DialogTitle id="table-setup-dialog-title">
         <Box display="flex" alignItems="center" justifyContent="center" mb={2}>
           <TableRestaurantIcon sx={{ color: 'primary.main', fontSize: 40, mr: 1.5 }} />
-          <Typography variant="h4" fontWeight="bold" sx={{ color: 'white' }}>
+          <Typography variant="h4" fontWeight="bold" sx={{ color: theme.palette.text.primary }}>
             TABBLE
           </Typography>
         </Box>
@@ -318,7 +320,7 @@ const TableSetup = ({ open, onClose }) => {
               <StepLabel
                 sx={{
                   '& .MuiStepLabel-label': {
-                    color: 'rgba(255,255,255,0.7)',
+                    color: theme.palette.text.secondary,
                     '&.Mui-active': {
                       color: '#FFA500',
                     },
@@ -327,7 +329,7 @@ const TableSetup = ({ open, onClose }) => {
                     },
                   },
                   '& .MuiStepIcon-root': {
-                    color: 'rgba(255,255,255,0.3)',
+                    color: theme.palette.text.secondary,
                     '&.Mui-active': {
                       color: '#FFA500',
                     },

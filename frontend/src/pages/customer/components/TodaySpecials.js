@@ -11,6 +11,7 @@ import {
 import WhatshotIcon from '@mui/icons-material/Whatshot';
 import { AddButton } from './MenuStyled';
 import AddIcon from '@mui/icons-material/Add';
+import { apiBaseUrl } from '../../../utils/apiBaseUrl';
 
 // Define keyframes for the shine animation
 const shine = keyframes`
@@ -173,7 +174,7 @@ const TodaySpecials = ({ specials, loading, handleOpenDialog }) => {
                       transform: 'scale(1.05)',
                     }
                   }}
-                  image={special.image_path ? `${process.env.REACT_APP_API_BASE_URL}${special.image_path}` : 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=600&q=80'}
+                  image={special.image_path ? `${apiBaseUrl}${special.image_path}` : 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=600&q=80'}
                   alt={special.name}
                 />
 

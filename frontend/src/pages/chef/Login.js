@@ -10,7 +10,8 @@ import {
   Alert,
   MenuItem,
   InputAdornment,
-  IconButton
+  IconButton,
+  useTheme
 } from '@mui/material';
 import {
   Restaurant as RestaurantIcon,
@@ -18,9 +19,12 @@ import {
   VisibilityOff
 } from '@mui/icons-material';
 import api from '../../services/api';
+import ThemeModeToggle from '../../components/ThemeModeToggle';
 
 const ChefLogin = () => {
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -94,23 +98,67 @@ const ChefLogin = () => {
     }
   };
 
+  // Uniform scrim for legibility — no edge vignette.
+  const overlay = isDark
+    ? 'linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6))'
+    : 'linear-gradient(rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.72))';
+
+  // Theme-aware green inputs
+  const fieldSx = isDark
+    ? {
+        '& .MuiOutlinedInput-root': {
+          color: 'white',
+          '& fieldset': { borderColor: 'rgba(255,255,255,0.3)' },
+          '&:hover fieldset': { borderColor: 'rgba(76,175,80,0.5)' },
+          '&.Mui-focused fieldset': { borderColor: '#4CAF50' }
+        },
+        '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' },
+        '& .MuiInputLabel-root.Mui-focused': { color: '#4CAF50' }
+      }
+    : {
+        '& .MuiOutlinedInput-root': {
+          '& fieldset': { borderColor: 'rgba(0,0,0,0.23)' },
+          '&:hover fieldset': { borderColor: 'rgba(76,175,80,0.5)' },
+          '&.Mui-focused fieldset': { borderColor: '#4CAF50' }
+        },
+        '& .MuiInputLabel-root': { color: '#666' },
+        '& .MuiInputLabel-root.Mui-focused': { color: '#4CAF50' },
+        '& .MuiInputBase-input': { color: '#1A1A1A' }
+      };
+
   return (
     <Box sx={{
+      position: 'relative',
       minHeight: '100vh',
-      background: `linear-gradient(rgba(0,0,0,0.85), rgba(0,0,0,0.8)),
+      background: `${overlay},
         url('https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?auto=format&fit=crop&w=1920&q=80')`,
       backgroundSize: 'cover',
       backgroundPosition: 'center',
+      backgroundRepeat: 'no-repeat',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
       p: 2,
     }}>
+      <Box sx={{ position: 'absolute', top: 16, right: 16 }}>
+        <Paper
+          elevation={1}
+          sx={{
+            p: 0.5,
+            borderRadius: 2,
+            bgcolor: isDark ? 'rgba(18,18,18,0.75)' : 'rgba(255,255,255,0.8)',
+            border: '1px solid rgba(76, 175, 80, 0.3)',
+          }}
+        >
+          <ThemeModeToggle />
+        </Paper>
+      </Box>
+
       <Paper sx={{
         p: 4,
         width: '100%',
         maxWidth: 420,
-        bgcolor: 'rgba(18,18,18,0.95)',
+        bgcolor: isDark ? 'rgba(18,18,18,0.95)' : 'rgba(255,255,255,0.95)',
         border: '1px solid rgba(76,175,80,0.3)',
         borderRadius: 3,
       }}>
@@ -119,7 +167,7 @@ const ChefLogin = () => {
           <Typography variant="h5" fontWeight="bold" sx={{ color: '#4CAF50', mb: 0.5 }}>
             Chef Portal
           </Typography>
-          <Typography variant="body2" sx={{ color: '#888' }}>
+          <Typography variant="body2" sx={{ color: isDark ? '#888' : '#555' }}>
             Sign in to access kitchen orders
           </Typography>
         </Box>
@@ -137,17 +185,7 @@ const ChefLogin = () => {
             value={formData.hotel_id}
             onChange={handleChange}
             disabled={loadingHotels}
-            sx={{
-              mb: 2,
-              '& .MuiOutlinedInput-root': {
-                color: 'white',
-                '& fieldset': { borderColor: 'rgba(255,255,255,0.3)' },
-                '&:hover fieldset': { borderColor: 'rgba(76,175,80,0.5)' },
-                '&.Mui-focused fieldset': { borderColor: '#4CAF50' }
-              },
-              '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' },
-              '& .MuiInputLabel-root.Mui-focused': { color: '#4CAF50' }
-            }}
+            sx={{ mb: 2, ...fieldSx }}
           >
             {loadingHotels ? (
               <MenuItem value="">
@@ -169,17 +207,7 @@ const ChefLogin = () => {
             value={formData.username}
             onChange={handleChange}
             autoComplete="username"
-            sx={{
-              mb: 2,
-              '& .MuiOutlinedInput-root': {
-                color: 'white',
-                '& fieldset': { borderColor: 'rgba(255,255,255,0.3)' },
-                '&:hover fieldset': { borderColor: 'rgba(76,175,80,0.5)' },
-                '&.Mui-focused fieldset': { borderColor: '#4CAF50' }
-              },
-              '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' },
-              '& .MuiInputLabel-root.Mui-focused': { color: '#4CAF50' }
-            }}
+            sx={{ mb: 2, ...fieldSx }}
           />
 
           <TextField
@@ -196,24 +224,14 @@ const ChefLogin = () => {
                   <IconButton
                     onClick={() => setShowPassword(!showPassword)}
                     edge="end"
-                    sx={{ color: 'rgba(255,255,255,0.7)' }}
+                    sx={{ color: isDark ? 'rgba(255,255,255,0.7)' : '#666' }}
                   >
                     {showPassword ? <VisibilityOff /> : <Visibility />}
                   </IconButton>
                 </InputAdornment>
               )
             }}
-            sx={{
-              mb: 3,
-              '& .MuiOutlinedInput-root': {
-                color: 'white',
-                '& fieldset': { borderColor: 'rgba(255,255,255,0.3)' },
-                '&:hover fieldset': { borderColor: 'rgba(76,175,80,0.5)' },
-                '&.Mui-focused fieldset': { borderColor: '#4CAF50' }
-              },
-              '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' },
-              '& .MuiInputLabel-root.Mui-focused': { color: '#4CAF50' }
-            }}
+            sx={{ mb: 3, ...fieldSx }}
           />
 
           <Button
@@ -237,7 +255,7 @@ const ChefLogin = () => {
         <Typography
           variant="body2"
           sx={{
-            color: '#555',
+            color: isDark ? '#555' : '#666',
             mt: 3,
             textAlign: 'center',
             cursor: 'pointer',

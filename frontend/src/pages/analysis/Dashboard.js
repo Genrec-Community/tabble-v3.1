@@ -24,7 +24,8 @@ import {
   TextField,
   Rating,
   LinearProgress,
-  Stack
+  Stack,
+  useTheme
 } from '@mui/material';
 import {
   BarChart,
@@ -77,6 +78,7 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
 const COLORS = ['#FFA500', '#E69500', '#FFB733', '#FFCB66', '#FFD480', '#FFE0A3'];
 
 const AnalysisDashboard = () => {
+  const theme = useTheme();
   // State
   const [dashboardStats, setDashboardStats] = useState({
     total_sales: 0,
@@ -600,7 +602,7 @@ const AnalysisDashboard = () => {
                         />
                         <Tooltip
                           formatter={(value) => [`₹${value}`, 'Revenue']}
-                          contentStyle={{ backgroundColor: '#121212', border: '1px solid #FFA500' }}
+                          contentStyle={{ backgroundColor: theme.palette.background.paper, border: '1px solid #FFA500' }}
                         />
                         <Legend />
                         <Bar

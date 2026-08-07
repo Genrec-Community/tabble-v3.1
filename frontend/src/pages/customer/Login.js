@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, Paper, Typography, Button, CircularProgress,
-  Alert, Grid, Card, CardMedia, Container, Fade,
+  Alert, Grid, Card, CardMedia, Container, Fade, useTheme
 } from '@mui/material';
 import GoogleIcon from '@mui/icons-material/Google';
 import TableRestaurantIcon from '@mui/icons-material/TableRestaurant';
 import { signInWithPopup, onAuthStateChanged } from 'firebase/auth';
 import { auth, googleProvider } from '../../firebase';
 import api from '../../services/api';
+import ThemeModeToggle from '../../components/ThemeModeToggle';
 
 const foodImages = [
   'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=500&q=80',
@@ -19,6 +20,7 @@ const foodImages = [
 
 const CustomerLogin = () => {
   const navigate = useNavigate();
+  const theme = useTheme();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [tableNumber, setTableNumber] = useState('');
@@ -87,7 +89,11 @@ const CustomerLogin = () => {
 
       navigate(`/customer/menu?table_number=${tableNumber}&slot_number=${slotNumber}&unique_id=${uniqueId}&user_id=${user_id}`);
     } catch (err) {
-      setError(err.response?.data?.detail || err.message || 'Sign-in failed. Please try again.');
+      let msg = err.response?.data?.detail || err.message || 'Sign-in failed. Please try again.';
+      if (err.code === 'auth/configuration-not-found' || err.code === 'auth/unauthorized-domain') {
+        msg = `Google sign-in is not enabled for this domain (${window.location.hostname}). Add it under Firebase Console → Authentication → Settings → Authorized domains.`;
+      }
+      setError(msg);
       await auth.signOut().catch(() => {});
     } finally {
       setLoading(false);
@@ -98,7 +104,7 @@ const CustomerLogin = () => {
     return (
       <Box sx={{
         minHeight: '100dvh', display: 'flex', alignItems: 'center',
-        justifyContent: 'center', bgcolor: '#000',
+        justifyContent: 'center', bgcolor: theme.palette.background.default,
       }}>
         <CircularProgress sx={{ color: '#FFA500' }} />
       </Box>
@@ -106,7 +112,7 @@ const CustomerLogin = () => {
   }
 
   return (
-    <Box sx={{ minHeight: '100dvh', bgcolor: '#000', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ minHeight: '100dvh', bgcolor: theme.palette.background.default, display: 'flex', flexDirection: 'column' }}>
       {/* Food image gallery strip */}
       <Grid container sx={{ height: { xs: 140, sm: 200 }, overflow: 'hidden' }}>
         {foodImages.map((src, i) => (
@@ -123,18 +129,21 @@ const CustomerLogin = () => {
         <Fade in timeout={500}>
           <Paper sx={{
             p: { xs: 3, sm: 4 }, width: '100%', maxWidth: 420,
-            bgcolor: 'rgba(18,18,18,0.97)',
+            bgcolor: theme.palette.mode === 'light' ? 'rgba(255,255,255,0.97)' : 'rgba(18,18,18,0.97)',
             border: '1px solid rgba(255,165,0,0.25)',
-            borderRadius: 3, textAlign: 'center',
+            borderRadius: 3, textAlign: 'center', position: 'relative',
           }}>
+            <Box sx={{ position: 'absolute', top: 8, right: 8 }}>
+              <ThemeModeToggle size={20} />
+            </Box>
             <TableRestaurantIcon sx={{ fontSize: 44, color: '#FFA500', mb: 1 }} />
-            <Typography variant="h5" fontWeight="bold" sx={{ color: '#fff', mb: 0.5 }}>
+            <Typography variant="h5" fontWeight="bold" sx={{ color: theme.palette.text.primary, mb: 0.5 }}>
               Welcome to Tabble
             </Typography>
-            <Typography variant="body2" sx={{ color: '#888', mb: 0.5 }}>
+            <Typography variant="body2" sx={{ color: theme.palette.text.secondary, mb: 0.5 }}>
               Table {tableNumber} · Seat {slotNumber}
             </Typography>
-            <Typography variant="body2" sx={{ color: '#666', mb: 3 }}>
+            <Typography variant="body2" sx={{ color: theme.palette.text.secondary, mb: 3 }}>
               Sign in with Google to browse the menu and place your order
             </Typography>
 
@@ -155,7 +164,7 @@ const CustomerLogin = () => {
               {loading ? 'Signing in...' : 'Continue with Google'}
             </Button>
 
-            <Typography variant="caption" sx={{ color: '#444', display: 'block', mt: 2 }}>
+            <Typography variant="caption" sx={{ color: theme.palette.text.secondary, display: 'block', mt: 2, opacity: 0.7 }}>
               Your name and email from Google will be used to personalise your experience
             </Typography>
           </Paper>

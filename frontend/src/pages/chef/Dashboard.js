@@ -15,7 +15,8 @@ import {
   Fab,
   Chip,
   CardActions,
-  Tooltip
+  Tooltip,
+  useTheme
 } from '@mui/material';
 import RestaurantIcon from '@mui/icons-material/Restaurant';
 import ListAltIcon from '@mui/icons-material/ListAlt';
@@ -30,6 +31,7 @@ import KitchenIcon from '@mui/icons-material/Kitchen';
 import { chefService, adminService } from '../../services/api';
 
 const ChefDashboard = () => {
+  const theme = useTheme();
   const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
   const [acceptedOrdersCount, setAcceptedOrdersCount] = useState(0);
   const [completedOrdersCount, setCompletedOrdersCount] = useState(0);
@@ -91,15 +93,15 @@ const ChefDashboard = () => {
   }, []);
 
   return (
-    <Box sx={{ backgroundColor: '#000000', minHeight: '100vh', color: '#FFFFFF', pb: 4 }}>
+    <Box sx={{ backgroundColor: theme.palette.background.default, minHeight: '100vh', color: theme.palette.text.primary, pb: 4 }}>
       {/* Header Section */}
       <Box mb={4}>
         <Box display="flex" justifyContent="space-between" alignItems="center" gap={2} mb={3}>
           <Box>
-            <Typography variant="h4" component="h1" fontWeight="bold" gutterBottom sx={{ color: '#FFFFFF', fontSize: { xs: '1.6rem', sm: '2.125rem' } }}>
+<Typography variant="h4" component="h1" fontWeight="bold" gutterBottom sx={{ color: theme.palette.text.primary, fontSize: { xs: '1.6rem', sm: '2.125rem' } }}>
               Kitchen Dashboard
             </Typography>
-            <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.7)', display: { xs: 'none', sm: 'block' } }}>
+            <Typography variant="body1" sx={{ color: theme.palette.text.secondary, display: { xs: 'none', sm: 'block' } }}>
               Monitor and manage kitchen operations in real-time
             </Typography>
           </Box>
@@ -132,21 +134,21 @@ const ChefDashboard = () => {
           borderRadius: 2,
           backgroundColor: 'rgba(255, 165, 0, 0.1)',
           border: '1px solid rgba(255, 165, 0, 0.3)',
-          color: '#FFFFFF',
+          color: theme.palette.text.primary,
           '& .MuiAlert-icon': {
             color: '#FFA500'
           }
         }}
       >
-        <Typography variant="subtitle1" fontWeight="medium" sx={{ color: '#FFFFFF' }}>🍳 Kitchen Dashboard</Typography>
-        <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.8)' }}>
+        <Typography variant="subtitle1" fontWeight="medium" sx={{ color: theme.palette.text.primary }}>🍳 Kitchen Dashboard</Typography>
+        <Typography variant="body2" sx={{ color: theme.palette.text.secondary }}>
           Monitor and manage your kitchen operations efficiently. Use the "Orders" tab to manage incoming orders.
         </Typography>
       </Alert>
 
       <Box mb={4}>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-          <Typography variant="h5" component="h2" fontWeight="bold" sx={{ color: '#FFFFFF' }}>
+          <Typography variant="h5" component="h2" fontWeight="bold" sx={{ color: theme.palette.text.primary }}>
             Kitchen Performance
           </Typography>
           <Chip
@@ -176,7 +178,7 @@ const ChefDashboard = () => {
               <Card
               sx={{
                 height: '100%',
-                backgroundColor: '#121212',
+                backgroundColor: theme.palette.background.paper,
                 borderLeft: '4px solid',
                 borderColor: 'warning.main',
                 transition: 'all 0.3s ease',
@@ -227,7 +229,7 @@ const ChefDashboard = () => {
               <Card
                 sx={{
                   height: '100%',
-                  backgroundColor: '#121212',
+                  backgroundColor: theme.palette.background.paper,
                   borderLeft: '4px solid',
                   borderColor: 'info.main',
                   transition: 'transform 0.2s',
@@ -267,7 +269,7 @@ const ChefDashboard = () => {
               <Card
                 sx={{
                   height: '100%',
-                  backgroundColor: '#121212',
+                  backgroundColor: theme.palette.background.paper,
                   borderLeft: '4px solid',
                   borderColor: 'success.main',
                   transition: 'transform 0.2s',
@@ -306,7 +308,7 @@ const ChefDashboard = () => {
               <Card
                 sx={{
                   height: '100%',
-                  backgroundColor: '#121212',
+                  backgroundColor: theme.palette.background.paper,
                   borderLeft: '4px solid',
                   borderColor: 'primary.main',
                   transition: 'transform 0.2s',

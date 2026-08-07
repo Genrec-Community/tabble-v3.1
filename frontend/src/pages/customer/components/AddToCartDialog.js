@@ -13,6 +13,7 @@ import {
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
+import { apiBaseUrl } from '../../../utils/apiBaseUrl';
 
 const AddToCartDialog = ({ 
   open, 
@@ -61,7 +62,7 @@ const AddToCartDialog = ({
           }}
         >
           <img
-            src={selectedDish.image_path ? `${process.env.REACT_APP_API_BASE_URL}${selectedDish.image_path}` : 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=600&q=80'}
+            src={selectedDish.image_path ? `${apiBaseUrl}${selectedDish.image_path}` : 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=600&q=80'}
             alt={selectedDish.name}
             loading="lazy"
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}

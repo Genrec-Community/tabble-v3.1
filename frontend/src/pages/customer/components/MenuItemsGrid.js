@@ -11,6 +11,7 @@ import {
 import RestaurantIcon from '@mui/icons-material/Restaurant';
 import LocalOfferIcon from '@mui/icons-material/LocalOffer';
 import AddIcon from '@mui/icons-material/Add';
+import { apiBaseUrl } from '../../../utils/apiBaseUrl';
 import {
   DishCard,
   CategoryBadge,
@@ -47,7 +48,7 @@ const MenuItemsGrid = ({
           }
         }}
       >
-        <Typography variant="h5" color="white" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center' }}>
+        <Typography variant="h5" color={theme.palette.text.primary} fontWeight="bold" sx={{ display: 'flex', alignItems: 'center' }}>
           <RestaurantIcon sx={{ mr: 1.5, color: theme.palette.primary.main }} />
           {currentCategory === 'All' ? 'All Items' : currentCategory}
         </Typography>
@@ -68,7 +69,7 @@ const MenuItemsGrid = ({
                   <Box sx={{ position: 'relative', width: '100%', paddingTop: '75%', overflow: 'hidden' }}>
                     <Box
                       component="img"
-                      src={dish.image_path ? `${process.env.REACT_APP_API_BASE_URL}${dish.image_path}` : 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=600&q=80'}
+                      src={dish.image_path ? `${apiBaseUrl}${dish.image_path}` : 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=600&q=80'}
                       alt={dish.name}
                       loading="lazy"
                       sx={{
@@ -166,8 +167,8 @@ const MenuItemsGrid = ({
                   {/* Content Section */}
                   <CardContent sx={{
                     p: { xs: 1.5, sm: 2 },
-                    backgroundColor: '#171715',
-                    color: 'white',
+                    backgroundColor: theme.palette.background.paper,
+                    color: theme.palette.text.primary,
                     display: 'flex',
                     flexDirection: 'column',
                     gap: 1.5,
@@ -178,7 +179,7 @@ const MenuItemsGrid = ({
                       variant="h6"
                       component="div"
                       fontWeight="bold"
-                      color="white"
+                      color={theme.palette.text.primary}
                       sx={{
                         fontSize: { xs: '1rem', sm: '1.125rem' },
                         lineHeight: 1.3,
@@ -197,7 +198,7 @@ const MenuItemsGrid = ({
                       <Typography
                         variant="body2"
                         sx={{
-                          color: 'rgba(255,255,255,0.65)',
+                          color: theme.palette.text.secondary,
                           lineHeight: 1.5,
                           fontSize: { xs: '0.8rem', sm: '0.875rem' },
                           display: '-webkit-box',
@@ -211,7 +212,7 @@ const MenuItemsGrid = ({
                       </Typography>
                     )}
 
-                    <Divider sx={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+                    <Divider sx={{ backgroundColor: theme.palette.divider }} />
 
                     {/* Price and Add Button */}
                     <Box display="flex" justifyContent="space-between" alignItems="center">
@@ -249,15 +250,15 @@ const MenuItemsGrid = ({
           {filteredDishes.length === 0 && !loading && (
             <Grid item xs={12}>
               <Box textAlign="center" py={8} sx={{
-                backgroundColor: 'rgba(0, 0, 0, 0.4)',
+                backgroundColor: theme.palette.background.paper,
                 borderRadius: '6px',
                 border: '1px solid rgba(255, 165, 0, 0.2)'
               }}>
                 <RestaurantIcon sx={{ fontSize: 80, color: 'rgba(255, 165, 0, 0.3)', mb: 3, opacity: 0.7 }} />
-                <Typography variant="h6" color="white" gutterBottom fontWeight="medium">
+                <Typography variant="h6" color={theme.palette.text.primary} gutterBottom fontWeight="medium">
                   No dishes available in this category
                 </Typography>
-                <Typography variant="body2" color="rgba(255,255,255,0.7)" sx={{ maxWidth: '400px', mx: 'auto' }}>
+                <Typography variant="body2" color={theme.palette.text.secondary} sx={{ maxWidth: '400px', mx: 'auto' }}>
                   Please check back later or try another category from our luxury menu
                 </Typography>
               </Box>

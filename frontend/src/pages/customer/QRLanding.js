@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Box, CircularProgress, Typography, Button, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
+import { Box, CircularProgress, Typography, Button, Dialog, DialogTitle, DialogContent, DialogActions, useTheme } from '@mui/material';
 import axios from 'axios';
 import { auth } from '../../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
+import { getApiBaseUrl } from '../../utils/apiBaseUrl';
 
-const getBaseUrl = () => process.env.REACT_APP_API_BASE_URL || 'http://localhost:8001';
+const getBaseUrl = getApiBaseUrl;
 
 const QRLanding = () => {
+  const theme = useTheme();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [error, setError] = useState('');
@@ -148,8 +150,8 @@ const QRLanding = () => {
         open={true}
         PaperProps={{
           sx: {
-            bgcolor: '#121212',
-            color: 'white',
+            bgcolor: theme.palette.background.paper,
+            color: theme.palette.text.primary,
             border: '1px solid rgba(255,165,0,0.3)'
           }
         }}
@@ -161,17 +163,17 @@ const QRLanding = () => {
           <Typography variant="body1" sx={{ mb: 2 }}>
             You have items in your cart from a previous table. What would you like to do?
           </Typography>
-          <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>
+          <Typography variant="body2" sx={{ color: theme.palette.text.secondary }}>
             • <strong>Continue with new table:</strong> Your cart will be cleared and you'll start fresh.
           </Typography>
-          <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', mt: 1 }}>
+          <Typography variant="body2" sx={{ color: theme.palette.text.secondary, mt: 1 }}>
             • <strong>Keep current cart:</strong> Return to your previous table to complete your order.
           </Typography>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
           <Button
             onClick={handleKeepOldCart}
-            sx={{ color: 'rgba(255,255,255,0.7)' }}
+            sx={{ color: theme.palette.text.secondary }}
           >
             Keep Current Cart
           </Button>
@@ -197,16 +199,16 @@ const QRLanding = () => {
       <Box sx={{
         minHeight: '100dvh', display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',
-        bgcolor: '#000', color: '#fff', p: 3, textAlign: 'center',
+        bgcolor: theme.palette.background.default, color: theme.palette.text.primary, p: 3, textAlign: 'center',
       }}>
         <Typography variant="h2" sx={{ mb: 1 }}>🪑</Typography>
         <Typography variant="h5" sx={{ color: '#FFA500', mb: 2 }}>
           This seat is occupied
         </Typography>
-        <Typography variant="body1" sx={{ color: '#ccc', mb: 1, maxWidth: 340 }}>
+        <Typography variant="body1" sx={{ color: theme.palette.text.secondary, mb: 1, maxWidth: 340 }}>
           Someone is already using this slot.
         </Typography>
-        <Typography variant="body2" sx={{ color: '#888', maxWidth: 340 }}>
+        <Typography variant="body2" sx={{ color: theme.palette.text.secondary, maxWidth: 340 }}>
           Please scan the QR code on the other side of the table, or ask your server for help.
         </Typography>
       </Box>
@@ -218,10 +220,10 @@ const QRLanding = () => {
       <Box sx={{
         minHeight: '100dvh', display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',
-        bgcolor: '#000', color: '#fff', p: 3, textAlign: 'center',
+        bgcolor: theme.palette.background.default, color: theme.palette.text.primary, p: 3, textAlign: 'center',
       }}>
         <Typography variant="h5" sx={{ color: '#FFA500', mb: 2 }}>Invalid QR Code</Typography>
-        <Typography variant="body1" sx={{ color: '#ccc', mb: 3, maxWidth: 360 }}>{error}</Typography>
+        <Typography variant="body1" sx={{ color: theme.palette.text.secondary, mb: 3, maxWidth: 360 }}>{error}</Typography>
         <Button variant="outlined" sx={{ borderColor: '#FFA500', color: '#FFA500' }}
           onClick={() => window.location.reload()}>
           Try Again
@@ -233,10 +235,10 @@ const QRLanding = () => {
   return (
     <Box sx={{
       minHeight: '100dvh', display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center', bgcolor: '#000', gap: 2,
+      alignItems: 'center', justifyContent: 'center', bgcolor: theme.palette.background.default, gap: 2,
     }}>
       <CircularProgress sx={{ color: '#FFA500' }} size={48} />
-      <Typography variant="body1" sx={{ color: '#ccc' }}>Loading your table...</Typography>
+      <Typography variant="body1" sx={{ color: theme.palette.text.secondary }}>Loading your table...</Typography>
     </Box>
   );
 };

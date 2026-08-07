@@ -10,6 +10,7 @@ import os
 from ..database import get_db, Table as TableModel, Order, get_session_db, get_hotel_id_from_request
 from ..models.table import Table, TableCreate, TableUpdate, TableStatus
 from ..middleware import get_session_id
+from ..utils.network import get_frontend_url
 
 router = APIRouter(
     prefix="/tables",
@@ -416,7 +417,7 @@ def generate_qr(table_id: int, request: Request, db: Session = Depends(get_sessi
         db.commit()
         db.refresh(db_table)
 
-    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
+    frontend_url = get_frontend_url()
     qr_url = f"{frontend_url}/order?t={db_table.qr_token}"
     png_bytes = _generate_qr_image(qr_url)
 
@@ -441,7 +442,7 @@ def get_qr_image(table_id: int, request: Request, db: Session = Depends(get_sess
     if not db_table.qr_token:
         raise HTTPException(status_code=400, detail="QR code not yet generated for this table")
 
-    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
+    frontend_url = get_frontend_url()
     qr_url = f"{frontend_url}/order?t={db_table.qr_token}"
     png_bytes = _generate_qr_image(qr_url)
 

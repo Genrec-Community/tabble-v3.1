@@ -10,7 +10,6 @@ import hashlib
 from datetime import datetime, timezone
 from ..utils.pdf_generator import generate_bill_pdf, generate_multi_order_bill_pdf
 from ..storage_adapter import get_storage_adapter
-from ..database_adapter import get_database_adapter
 
 from ..database import (
     get_db,

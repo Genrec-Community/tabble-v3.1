@@ -24,6 +24,7 @@ from .routers import (
     public,
 )
 from .middleware import SessionMiddleware
+from .utils.network import get_lan_ip
 
 # Create FastAPI app
 app = FastAPI(title="Tabble - Hotel Management App")
@@ -42,6 +43,12 @@ cors_origins = (
         "http://localhost:8000",
     ]
 )
+# Always allow the machine's LAN IP so phones on the same WiFi can reach the API in dev
+lan_ip = get_lan_ip()
+lan_origins = [f"http://{lan_ip}:3000", f"http://{lan_ip}:8001"]
+for origin in lan_origins:
+    if origin not in cors_origins:
+        cors_origins.append(origin)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,

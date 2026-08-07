@@ -14,11 +14,13 @@ import {
   FormControl,
   InputLabel,
   Select,
-  Paper
+  Paper,
+  useTheme
 } from '@mui/material';
 import { adminService } from '../services/api';
 
 const DatabaseSelector = ({ open, onSuccess, title = "Select Hotel", fullScreen = false }) => {
+  const theme = useTheme();
   const [hotels, setHotels] = useState([]);
   const [selectedHotel, setSelectedHotel] = useState('');
   const [password, setPassword] = useState('');
@@ -104,7 +106,7 @@ const DatabaseSelector = ({ open, onSuccess, title = "Select Hotel", fullScreen 
           p: 4,
           borderRadius: 2,
           border: '2px solid rgba(255, 165, 0, 0.3)',
-          backgroundColor: '#121212',
+          backgroundColor: theme.palette.background.paper,
           width: '100%',
           maxWidth: 500,
         }}
@@ -230,7 +232,7 @@ const DatabaseSelector = ({ open, onSuccess, title = "Select Hotel", fullScreen 
           borderRadius: 2,
           boxShadow: 3,
           border: '2px solid rgba(255, 165, 0, 0.3)', // Orange border around dialog
-          backgroundColor: '#121212', // Consistent dark background
+          backgroundColor: theme.palette.background.paper, // theme-aware surface
         }
       }}
     >
@@ -276,19 +278,19 @@ const DatabaseSelector = ({ open, onSuccess, title = "Select Hotel", fullScreen 
                 '& .MuiOutlinedInput-root': {
                   border: '2px solid rgba(255, 165, 0, 0.4)',
                   borderRadius: 1,
-                  backgroundColor: 'rgba(18, 18, 18, 0.8)',
-                  color: '#FFFFFF',
+                  backgroundColor: theme.palette.background.paper,
+                  color: theme.palette.text.primary,
                   '&:hover': {
                     borderColor: 'rgba(255, 165, 0, 0.6)',
-                    backgroundColor: 'rgba(18, 18, 18, 0.9)',
+                    backgroundColor: theme.palette.background.paper,
                   },
                   '&.Mui-focused': {
                     borderColor: '#FFA500',
                     boxShadow: '0 0 0 2px rgba(255, 165, 0, 0.2)',
-                    backgroundColor: 'rgba(18, 18, 18, 1)',
+                    backgroundColor: theme.palette.background.paper,
                   },
                   '& .MuiSelect-select': {
-                    color: '#FFFFFF !important',
+                    color: `${theme.palette.text.primary} !important`,
                     padding: '14px',
                   },
                   '& .MuiSelect-icon': {
@@ -296,7 +298,7 @@ const DatabaseSelector = ({ open, onSuccess, title = "Select Hotel", fullScreen 
                   },
                 },
                 '& .MuiInputLabel-root': {
-                  color: 'rgba(255, 255, 255, 0.7)',
+                  color: theme.palette.text.secondary,
                   '&.Mui-focused': {
                     color: '#FFA500',
                   },
@@ -310,9 +312,9 @@ const DatabaseSelector = ({ open, onSuccess, title = "Select Hotel", fullScreen 
                 onChange={(e) => setSelectedHotel(e.target.value)}
                 disabled={loading}
                 sx={{
-                  color: '#FFFFFF',
+                  color: theme.palette.text.primary,
                   '& .MuiSelect-select': {
-                    color: '#FFFFFF !important',
+                    color: `${theme.palette.text.primary} !important`,
                   },
                 }}
                 MenuProps={{
@@ -321,9 +323,9 @@ const DatabaseSelector = ({ open, onSuccess, title = "Select Hotel", fullScreen 
                       border: '2px solid rgba(255, 165, 0, 0.4)',
                       borderRadius: 1,
                       maxHeight: 200,
-                      backgroundColor: '#121212',
+                      backgroundColor: theme.palette.background.paper,
                       '& .MuiMenuItem-root': {
-                        color: '#FFFFFF',
+                        color: theme.palette.text.primary,
                         borderBottom: '1px solid rgba(255, 165, 0, 0.2)',
                         padding: '12px 16px',
                         '&:last-child': {
@@ -336,7 +338,7 @@ const DatabaseSelector = ({ open, onSuccess, title = "Select Hotel", fullScreen 
                         '&.Mui-selected': {
                           backgroundColor: 'rgba(255, 165, 0, 0.15)',
                           borderLeft: '4px solid #FFA500',
-                          color: '#FFFFFF',
+                          color: theme.palette.text.primary,
                           '&:hover': {
                             backgroundColor: 'rgba(255, 165, 0, 0.2)',
                           },
@@ -367,24 +369,24 @@ const DatabaseSelector = ({ open, onSuccess, title = "Select Hotel", fullScreen 
                 '& .MuiOutlinedInput-root': {
                   border: '2px solid rgba(255, 165, 0, 0.4)',
                   borderRadius: 1,
-                  backgroundColor: 'rgba(18, 18, 18, 0.8)',
-                  color: '#FFFFFF',
+                  backgroundColor: theme.palette.background.paper,
+                  color: theme.palette.text.primary,
                   '&:hover': {
                     borderColor: 'rgba(255, 165, 0, 0.6)',
-                    backgroundColor: 'rgba(18, 18, 18, 0.9)',
+                    backgroundColor: theme.palette.background.paper,
                   },
                   '&.Mui-focused': {
                     borderColor: '#FFA500',
                     boxShadow: '0 0 0 2px rgba(255, 165, 0, 0.2)',
-                    backgroundColor: 'rgba(18, 18, 18, 1)',
+                    backgroundColor: theme.palette.background.paper,
                   },
                   '& input': {
-                    color: '#FFFFFF',
+                    color: theme.palette.text.primary,
                     padding: '14px',
                   },
                 },
                 '& .MuiInputLabel-root': {
-                  color: 'rgba(255, 255, 255, 0.7)',
+                  color: theme.palette.text.secondary,
                   '&.Mui-focused': {
                     color: '#FFA500',
                   },

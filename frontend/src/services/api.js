@@ -1,15 +1,16 @@
 import axios from 'axios';
+import { getApiBaseUrl } from '../utils/apiBaseUrl';
 
 const getBaseUrl = () => {
-  const baseURL = process.env.REACT_APP_API_BASE_URL;
+  const configured = process.env.REACT_APP_API_BASE_URL;
   console.log('🔍 DEBUG: Environment check:', {
     NODE_ENV: process.env.NODE_ENV,
-    REACT_APP_API_BASE_URL: baseURL,
+    REACT_APP_API_BASE_URL: configured,
     isProduction: process.env.NODE_ENV === 'production',
     timestamp: new Date().toISOString()
   });
 
-  if (!baseURL) {
+  if (!configured) {
     const isProduction = process.env.NODE_ENV === 'production';
     if (isProduction) {
       console.error('❌ CRITICAL: REACT_APP_API_BASE_URL is required in production. Please set it in your Railway environment variables.');
@@ -28,9 +29,10 @@ const getBaseUrl = () => {
       throw new Error(`API_BASE_URL_MISSING: REACT_APP_API_BASE_URL must be configured for production deployment. Try setting it to one of: ${possibleUrls.join(', ')}`);
     } else {
       console.warn('⚠️ WARNING: REACT_APP_API_BASE_URL is not defined. Using default localhost URL for development.');
-      return 'http://localhost:8000';
     }
   }
+
+  const baseURL = getApiBaseUrl();
   console.log('✅ DEBUG: Using API base URL:', baseURL);
   return baseURL;
 };

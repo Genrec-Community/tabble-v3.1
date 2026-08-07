@@ -13,6 +13,7 @@ import {
 import LocalOfferIcon from '@mui/icons-material/LocalOffer';
 import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
+import { apiBaseUrl } from '../../../utils/apiBaseUrl';
 import { AddButton } from './MenuStyled';
 import AddIcon from '@mui/icons-material/Add';
 
@@ -246,7 +247,7 @@ const SpecialOffers = ({ offers, loading, handleOpenDialog, calculateDiscountedP
                     height: '100%',
                     objectFit: 'cover',
                   }}
-                  image={offer.image_path ? `${process.env.REACT_APP_API_BASE_URL}${offer.image_path}` : 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=600&q=80'}
+                  image={offer.image_path ? `${apiBaseUrl}${offer.image_path}` : 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=600&q=80'}
                   alt={offer.name}
                 />
 

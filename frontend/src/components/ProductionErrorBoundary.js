@@ -9,6 +9,7 @@ import {
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import HomeIcon from '@mui/icons-material/Home';
+import { useTheme } from '@mui/material/styles';
 import { reportError } from '../utils/errorHandler';
 
 class ProductionErrorBoundary extends React.Component {
@@ -80,7 +81,7 @@ class ProductionErrorBoundary extends React.Component {
             sx={{
               p: 4,
               textAlign: 'center',
-              backgroundColor: '#121212',
+              backgroundColor: this.props.theme.palette.background.paper,
               border: '1px solid rgba(255, 165, 0, 0.3)',
               borderRadius: '12px',
             }}
@@ -97,7 +98,7 @@ class ProductionErrorBoundary extends React.Component {
                 variant="h4"
                 component="h1"
                 gutterBottom
-                sx={{ color: '#FFFFFF', fontWeight: 'bold' }}
+                sx={{ color: this.props.theme.palette.text.primary, fontWeight: 'bold' }}
               >
                 Oops! Something went wrong
               </Typography>
@@ -111,7 +112,7 @@ class ProductionErrorBoundary extends React.Component {
               {process.env.NODE_ENV === 'production' && (
                 <Typography
                   variant="body2"
-                  sx={{ color: 'rgba(255, 255, 255, 0.7)', mb: 2 }}
+                  sx={{ color: this.props.theme.palette.text.secondary, mb: 2 }}
                 >
                   Error ID: {this.state.errorId}
                 </Typography>
@@ -140,7 +141,7 @@ class ProductionErrorBoundary extends React.Component {
                   variant="body2"
                   component="pre"
                   sx={{
-                    color: '#FFFFFF',
+                    color: this.props.theme.palette.text.primary,
                     fontSize: '0.8rem',
                     whiteSpace: 'pre-wrap',
                     wordBreak: 'break-word',
@@ -206,4 +207,10 @@ export const withProductionErrorBoundary = (Component, fallback) => {
   };
 };
 
-export default ProductionErrorBoundary;
+// Theme-aware wrapper (ProductionErrorBoundary is a class component, so inject theme as a prop)
+const ThemedProductionErrorBoundary = (props) => {
+  const theme = useTheme();
+  return <ProductionErrorBoundary {...props} theme={theme} />;
+};
+
+export default ThemedProductionErrorBoundary;

@@ -38,7 +38,7 @@ export const useMenuData = () => {
       {
         key: 'categories',
         operation: () => customerService.getCategories(),
-        transform: (data) => ['All', ...data]
+        transform: (data) => ['All', ...Array.from(new Set(data.filter(c => c && c !== 'All')))],
       },
       {
         key: 'dishes',
@@ -291,6 +291,24 @@ export const useCartManagement = () => {
     });
   }, []);
 
+  // Move an item from one index to another (used by drag-to-reorder in the cart)
+  const moveCartItem = useCallback((fromIndex, toIndex) => {
+    setCart(prev => {
+      if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= prev.length || toIndex >= prev.length) {
+        return prev;
+      }
+
+      const newCart = [...prev];
+      const [moved] = newCart.splice(fromIndex, 1);
+      newCart.splice(toIndex, 0, moved);
+
+      return newCart.map((item, idx) => ({
+        ...item,
+        position: idx + 1
+      }));
+    });
+  }, []);
+
   const clearCart = useCallback(() => {
     setCart([]);
     // Also clear from localStorage
@@ -312,6 +330,7 @@ export const useCartManagement = () => {
     addToCart,
     removeFromCart,
     reorderCart,
+    moveCartItem,
     clearCart,
     cartTotal,
     cartCount: cart.length
