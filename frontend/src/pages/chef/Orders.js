@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
-  Container,
-  Typography,
   Box,
+  Typography,
   Card,
   CardHeader,
   CardContent,
@@ -20,6 +18,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  TextField,
   CircularProgress,
   Alert,
   Snackbar,
@@ -36,14 +35,16 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
 import ThumbUpIcon from '@mui/icons-material/ThumbUp';
+import ThumbDownIcon from '@mui/icons-material/ThumbDown';
+import PersonIcon from '@mui/icons-material/Person';
+import LocalOfferIcon from '@mui/icons-material/LocalOffer';
 
 import RefreshIcon from '@mui/icons-material/Refresh';
 import TimerIcon from '@mui/icons-material/Timer';
-import { chefService, adminService } from '../../services/api';
+import { chefService } from '../../services/api';
 
 const ChefOrders = () => {
   const theme = useTheme();
-  const navigate = useNavigate();
   const [pendingOrders, setPendingOrders] = useState([]);
   const [acceptedOrders, setAcceptedOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -51,15 +52,17 @@ const ChefOrders = () => {
   const [confirmDialog, setConfirmDialog] = useState({
     open: false,
     orderId: null,
-    action: '' // 'accept' or 'complete'
+    itemId: null,
+    itemName: '',
+    action: '' // 'accept', 'acceptAll', 'rejectItem', 'complete'
   });
+  const [rejectReason, setRejectReason] = useState('');
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
     severity: 'success'
   });
   const [refreshing, setRefreshing] = useState(false);
-  const [databaseError, setDatabaseError] = useState(false);
 
   // Fetch all orders
   const fetchOrders = async () => {
@@ -99,11 +102,14 @@ const ChefOrders = () => {
     setActiveTab(newValue);
   };
 
-  // Open confirm dialog
-  const handleConfirmOpen = (orderId, action) => {
+  // Open confirm dialog for an action
+  const handleConfirmOpen = (orderId, action, itemId = null, itemName = '') => {
+    setRejectReason('');
     setConfirmDialog({
       open: true,
       orderId,
+      itemId,
+      itemName,
       action
     });
   };
@@ -116,34 +122,79 @@ const ChefOrders = () => {
     });
   };
 
-  // Accept an order
-  const handleAcceptOrder = async () => {
+  // Accept the whole order (every pending dish)
+  const handleAcceptAllOrder = async () => {
     try {
       await chefService.acceptOrder(confirmDialog.orderId);
 
-      // Close dialog
       handleConfirmClose();
 
-      // Show success message
       setSnackbar({
         open: true,
         message: 'Order accepted successfully!',
         severity: 'success'
       });
 
-      // Immediate refresh for real-time updates
       await fetchOrders();
     } catch (error) {
       console.error('Error accepting order:', error);
-
-      // Show error message
       setSnackbar({
         open: true,
         message: 'Failed to accept order',
         severity: 'error'
       });
+      handleConfirmClose();
+    }
+  };
 
-      // Close dialog
+  // Accept a single dish
+  const handleAcceptItem = async () => {
+    try {
+      await chefService.acceptOrderItem(confirmDialog.orderId, confirmDialog.itemId);
+
+      handleConfirmClose();
+
+      setSnackbar({
+        open: true,
+        message: `${confirmDialog.itemName} accepted`,
+        severity: 'success'
+      });
+
+      await fetchOrders();
+    } catch (error) {
+      console.error('Error accepting dish:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to accept dish',
+        severity: 'error'
+      });
+      handleConfirmClose();
+    }
+  };
+
+  // Reject a single dish (with optional reason)
+  const handleRejectItem = async () => {
+    try {
+      await chefService.rejectOrderItem(confirmDialog.orderId, confirmDialog.itemId, rejectReason.trim() || null);
+
+      handleConfirmClose();
+
+      setSnackbar({
+        open: true,
+        message: rejectReason.trim()
+          ? `${confirmDialog.itemName} rejected — ${rejectReason.trim()}`
+          : `${confirmDialog.itemName} rejected`,
+        severity: 'warning'
+      });
+
+      await fetchOrders();
+    } catch (error) {
+      console.error('Error rejecting dish:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to reject dish',
+        severity: 'error'
+      });
       handleConfirmClose();
     }
   };
@@ -153,29 +204,22 @@ const ChefOrders = () => {
     try {
       await chefService.completeOrder(confirmDialog.orderId);
 
-      // Close dialog
       handleConfirmClose();
 
-      // Show success message
       setSnackbar({
         open: true,
-        message: 'Order marked as completed!',
+        message: 'Order marked as delivered!',
         severity: 'success'
       });
 
-      // Immediate refresh for real-time updates
       await fetchOrders();
     } catch (error) {
       console.error('Error completing order:', error);
-
-      // Show error message
       setSnackbar({
         open: true,
-        message: 'Failed to complete order',
+        message: error.response?.data?.detail || 'Failed to complete order',
         severity: 'error'
       });
-
-      // Close dialog
       handleConfirmClose();
     }
   };
@@ -217,8 +261,6 @@ const ChefOrders = () => {
     }
   };
 
-  // Remove urgent order logic - treat all orders equally
-
   // Manual refresh
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -226,17 +268,131 @@ const ChefOrders = () => {
     setRefreshing(false);
   };
 
+  // Customer identity shown on each order card so the chef can track who ordered
+  const CustomerIdentity = ({ order }) => {
+    const parts = [];
+    if (order.person_name && order.person_name !== 'Guest') parts.push(order.person_name);
+    if (order.unique_id) parts.push(order.unique_id);
+    if (parts.length === 0) return null;
+    return (
+      <Box display="flex" alignItems="center" flexWrap="wrap" gap={0.5} mt={1}>
+        <PersonIcon fontSize="small" sx={{ opacity: 0.7 }} />
+        {parts.map((p, idx) => (
+          <Chip
+            key={idx}
+            label={p}
+            size="small"
+            color="default"
+            icon={<LocalOfferIcon />}
+            sx={{ fontWeight: 'bold', fontSize: '0.72rem', height: 22 }}
+          />
+        ))}
+      </Box>
+    );
+  };
+
+  // Per-dish status chip (accepted / rejected / pending)
+  const ItemStatusChip = ({ item }) => {
+    if (item.status === 'accepted') {
+      return <Chip label="Accepted" size="small" color="success" variant="outlined" sx={{ fontSize: '0.7rem', height: 20 }} />;
+    }
+    if (item.status === 'rejected') {
+      return <Chip label="Rejected" size="small" color="error" variant="outlined" sx={{ fontSize: '0.7rem', height: 20 }} />;
+    }
+    return <Chip label="Pending" size="small" color="warning" variant="outlined" sx={{ fontSize: '0.7rem', height: 20 }} />;
+  };
+
+  // Accept / reject buttons for a single pending dish
+  const ItemActionButtons = ({ order, item }) => (
+    <Box display="flex" gap={0.5}>
+      <Tooltip title={`Accept ${item.dish?.name || 'this dish'}`}>
+        <IconButton
+          size="small"
+          color="success"
+          sx={{ border: '1px solid rgba(77,170,87,0.5)' }}
+          onClick={() => handleConfirmOpen(order.id, 'acceptItem', item.id, item.dish?.name || 'Dish')}
+        >
+          <ThumbUpIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
+      <Tooltip title={`Reject ${item.dish?.name || 'this dish'}`}>
+        <IconButton
+          size="small"
+          color="error"
+          sx={{ border: '1px solid rgba(255,56,92,0.5)' }}
+          onClick={() => handleConfirmOpen(order.id, 'rejectItem', item.id, item.dish?.name || 'Dish')}
+        >
+          <ThumbDownIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
+    </Box>
+  );
+
+  // Shared dish list renderer: shows per-dish status and actions for pending dishes
+  const renderItems = (order) => (
+    <List disablePadding>
+      {order.items.map((item) => (
+        <ListItem
+          key={item.id}
+          disableGutters
+          sx={{
+            py: 1,
+            borderBottom: '1px dashed rgba(128,128,128,0.2)',
+            backgroundColor: item.status === 'rejected'
+              ? 'rgba(255,56,92,0.06)'
+              : item.status === 'accepted'
+                ? 'rgba(77,170,87,0.05)'
+                : 'transparent',
+          }}
+        >
+          <ListItemText
+            primary={
+              <Box display="flex" alignItems="center" gap={1}>
+                <Typography variant="body1" fontWeight="medium">
+                  {item.dish.name}
+                </Typography>
+                <ItemStatusChip item={item} />
+              </Box>
+            }
+            secondary={
+              <>
+                {item.remarks && (
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                    Note: {item.remarks}
+                  </Typography>
+                )}
+                {item.status === 'rejected' && item.rejection_reason && (
+                  <Typography variant="body2" color="error" sx={{ mt: 0.5, fontWeight: 'medium' }}>
+                    Reason: {item.rejection_reason}
+                  </Typography>
+                )}
+              </>
+            }
+          />
+          <Chip
+            label={`Qty: ${item.quantity}`}
+            size="small"
+            color="primary"
+            variant="outlined"
+            sx={{ mr: 1 }}
+          />
+          {item.status === 'pending' && <ItemActionButtons order={order} item={item} />}
+        </ListItem>
+      ))}
+    </List>
+  );
+
   return (
     <Box sx={{ backgroundColor: theme.palette.background.default, minHeight: '100vh', color: theme.palette.text.primary }}>
       {/* Header Section */}
       <Box mb={4}>
         <Box display="flex" justifyContent="space-between" alignItems="center" gap={2} mb={3}>
           <Box>
-<Typography variant="h4" component="h1" fontWeight="bold" gutterBottom sx={{ color: theme.palette.text.primary, fontSize: { xs: '1.6rem', sm: '2.125rem' } }}>
+            <Typography variant="h4" component="h1" fontWeight="bold" gutterBottom sx={{ color: theme.palette.text.primary, fontSize: { xs: '1.6rem', sm: '2.125rem' } }}>
               Kitchen Orders
             </Typography>
             <Typography variant="body1" sx={{ color: theme.palette.text.secondary, display: { xs: 'none', sm: 'block' } }}>
-              Manage incoming orders and track preparation progress
+              Accept or reject each dish — the customer is notified of every move
             </Typography>
           </Box>
           <Tooltip title="Refresh Orders">
@@ -333,7 +489,7 @@ const ChefOrders = () => {
               {pendingOrders
                 .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
                 .map((order) => {
-
+                  const pendingCount = order.items.filter(i => i.status === 'pending').length;
                   return (
                     <Grid item xs={12} lg={6} key={order.id}>
                       <Zoom in={true} style={{ transitionDelay: '100ms' }}>
@@ -352,7 +508,7 @@ const ChefOrders = () => {
                           <CardHeader
                             title={
                               <Box display="flex" alignItems="center" justifyContent="space-between">
-                                <Box display="flex" alignItems="center">
+                                <Box display="flex" alignItems="center" flexWrap="wrap" gap={1}>
                                   <Typography variant="h6" component="span" fontWeight="bold">
                                     Order #{order.id}
                                   </Typography>
@@ -360,45 +516,48 @@ const ChefOrders = () => {
                                     label={`Table ${order.table_number}`}
                                     color="primary"
                                     size="small"
-                                    sx={{ ml: 2 }}
                                   />
-                                </Box>
-                                <Box display="flex" alignItems="center" gap={1}>
                                   <Chip
-                                    label="Normal"
+                                    label={`Seat ${order.slot_number}`}
                                     color="default"
                                     size="small"
-                                    icon={<TimerIcon />}
-                                    sx={{ fontWeight: 'bold' }}
                                   />
                                 </Box>
+                                <Chip
+                                  label={`${pendingCount} dish${pendingCount !== 1 ? 'es' : ''} to decide`}
+                                  color="warning"
+                                  size="small"
+                                  icon={<TimerIcon />}
+                                  sx={{ fontWeight: 'bold' }}
+                                />
                               </Box>
                             }
                             subheader={
-                              <Box display="flex" alignItems="center" justifyContent="space-between" mt={1}>
+                              <Box mt={1}>
                                 <Box display="flex" alignItems="center">
                                   <AccessTimeIcon fontSize="small" sx={{ mr: 0.5, opacity: 0.7 }} />
                                   <Typography variant="body2" color="text.secondary">
                                     {getTimeElapsed(order.created_at)} ({formatDate(order.created_at)})
                                   </Typography>
                                 </Box>
+                                <CustomerIdentity order={order} />
                               </Box>
                             }
                             action={
-                              <Tooltip title="Accept this order">
+                              <Tooltip title="Accept every dish in this order">
                                 <Button
                                   variant="contained"
                                   color="primary"
                                   size="medium"
                                   startIcon={<ThumbUpIcon />}
-                                  onClick={() => handleConfirmOpen(order.id, 'accept')}
+                                  onClick={() => handleConfirmOpen(order.id, 'acceptAll')}
                                   sx={{
                                     mt: 1,
                                     borderRadius: 2,
                                     fontWeight: 'bold',
                                   }}
                                 >
-                                  Accept Order
+                                  Accept All
                                 </Button>
                               </Tooltip>
                             }
@@ -406,41 +565,9 @@ const ChefOrders = () => {
                           <Divider />
                           <CardContent>
                             <Typography variant="subtitle1" gutterBottom fontWeight="medium">
-                              Order Items
+                              Order Items — accept or reject each dish
                             </Typography>
-                            <List disablePadding>
-                              {order.items.map((item) => (
-                                <ListItem
-                                  key={item.id}
-                                  disableGutters
-                                  sx={{
-                                    py: 1,
-                                    borderBottom: '1px dashed rgba(0, 0, 0, 0.1)'
-                                  }}
-                                >
-                                  <ListItemText
-                                    primary={
-                                      <Typography variant="body1" fontWeight="medium">
-                                        {item.dish.name}
-                                      </Typography>
-                                    }
-                                    secondary={
-                                      item.remarks && (
-                                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                                          Note: {item.remarks}
-                                        </Typography>
-                                      )
-                                    }
-                                  />
-                                  <Chip
-                                    label={`Qty: ${item.quantity}`}
-                                    size="small"
-                                    color="primary"
-                                    variant="outlined"
-                                  />
-                                </ListItem>
-                              ))}
-                            </List>
+                            {renderItems(order)}
                           </CardContent>
                         </Card>
                       </Zoom>
@@ -469,105 +596,90 @@ const ChefOrders = () => {
             </Alert>
           ) : (
             <Grid container spacing={3}>
-              {acceptedOrders.map((order) => (
-                <Grid item xs={12} key={order.id}>
-                  <Zoom in={true} style={{ transitionDelay: '100ms' }}>
-                    <Card
-                      sx={{
-                        backgroundColor: theme.palette.background.paper,
-                        borderLeft: '4px solid',
-                        borderColor: 'info.main',
-                        '&:hover': {
-                          transform: 'translateY(-4px)',
-                          boxShadow: '0 8px 24px rgba(33, 150, 243, 0.2)',
-                        },
-                        transition: 'all 0.3s ease',
-                      }}
-                    >
-                      <CardHeader
-                        title={
-                          <Box display="flex" alignItems="center">
-                            <Typography variant="h6" component="span">
-                              Order #{order.id}
-                            </Typography>
-                            <Chip
-                              label={`Table ${order.table_number}`}
-                              color="primary"
-                              size="small"
-                              sx={{ ml: 2 }}
-                            />
-                            <Chip
-                              label="Accepted"
-                              color="info"
-                              size="small"
-                              sx={{ ml: 1 }}
-                            />
-                          </Box>
-                        }
-                        subheader={
-                          <Box display="flex" alignItems="center" mt={0.5}>
-                            <AccessTimeIcon fontSize="small" sx={{ mr: 0.5, opacity: 0.7 }} />
-                            <Typography variant="body2" color="text.secondary">
-                              {getTimeElapsed(order.created_at)} ({formatDate(order.created_at)})
-                            </Typography>
-                          </Box>
-                        }
-                        action={
-                          <Button
-                            variant="contained"
-                            color="success"
-                            size="small"
-                            startIcon={<CheckCircleIcon />}
-                            onClick={() => handleConfirmOpen(order.id, 'complete')}
-                            sx={{ mt: 1 }}
-                          >
-                            Complete
-                          </Button>
-                        }
-                      />
-                      <Divider />
-                      <CardContent>
-                        <Typography variant="subtitle1" gutterBottom fontWeight="medium">
-                          Order Items
-                        </Typography>
-                        <List disablePadding>
-                          {order.items.map((item) => (
-                            <ListItem
-                              key={item.id}
-                              disableGutters
-                              sx={{
-                                py: 1,
-                                borderBottom: '1px dashed rgba(0, 0, 0, 0.1)'
-                              }}
-                            >
-                              <ListItemText
-                                primary={
-                                  <Typography variant="body1" fontWeight="medium">
-                                    {item.dish.name}
-                                  </Typography>
-                                }
-                                secondary={
-                                  item.remarks && (
-                                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                                      Note: {item.remarks}
-                                    </Typography>
-                                  )
-                                }
+              {acceptedOrders.map((order) => {
+                const hasPendingItems = order.items.some(i => i.status === 'pending');
+                return (
+                  <Grid item xs={12} key={order.id}>
+                    <Zoom in={true} style={{ transitionDelay: '100ms' }}>
+                      <Card
+                        sx={{
+                          backgroundColor: theme.palette.background.paper,
+                          borderLeft: '4px solid',
+                          borderColor: 'info.main',
+                          '&:hover': {
+                            transform: 'translateY(-4px)',
+                            boxShadow: '0 8px 24px rgba(33, 150, 243, 0.2)',
+                          },
+                          transition: 'all 0.3s ease',
+                        }}
+                      >
+                        <CardHeader
+                          title={
+                            <Box display="flex" alignItems="center" flexWrap="wrap" gap={1}>
+                              <Typography variant="h6" component="span">
+                                Order #{order.id}
+                              </Typography>
+                              <Chip
+                                label={`Table ${order.table_number}`}
+                                color="primary"
+                                size="small"
                               />
                               <Chip
-                                label={`Qty: ${item.quantity}`}
+                                label={`Seat ${order.slot_number}`}
+                                color="default"
                                 size="small"
-                                color="primary"
-                                variant="outlined"
                               />
-                            </ListItem>
-                          ))}
-                        </List>
-                      </CardContent>
-                    </Card>
-                  </Zoom>
-                </Grid>
-              ))}
+                              <Chip
+                                label="Accepted"
+                                color="info"
+                                size="small"
+                              />
+                            </Box>
+                          }
+                          subheader={
+                            <Box mt={1}>
+                              <Box display="flex" alignItems="center">
+                                <AccessTimeIcon fontSize="small" sx={{ mr: 0.5, opacity: 0.7 }} />
+                                <Typography variant="body2" color="text.secondary">
+                                  {getTimeElapsed(order.created_at)} ({formatDate(order.created_at)})
+                                </Typography>
+                              </Box>
+                              <CustomerIdentity order={order} />
+                            </Box>
+                          }
+                          action={
+                            <Button
+                              variant="contained"
+                              color="success"
+                              size="small"
+                              startIcon={<CheckCircleIcon />}
+                              onClick={() => handleConfirmOpen(order.id, 'complete')}
+                              disabled={hasPendingItems}
+                              sx={{ mt: 1 }}
+                            >
+                              Delivered
+                            </Button>
+                          }
+                        />
+                        {hasPendingItems && (
+                          <LinearProgress color="warning" />
+                        )}
+                        <Divider />
+                        <CardContent>
+                          <Typography variant="subtitle1" gutterBottom fontWeight="medium">
+                            Order Items {hasPendingItems && (
+                              <Box component="span" color="warning.main" fontWeight="bold">
+                                — decide the remaining dishes to deliver
+                              </Box>
+                            )}
+                          </Typography>
+                          {renderItems(order)}
+                        </CardContent>
+                      </Card>
+                    </Zoom>
+                  </Grid>
+                );
+              })}
             </Grid>
           )}
         </Box>
@@ -584,34 +696,65 @@ const ChefOrders = () => {
           }
         }}
       >
-        <DialogTitle>Confirm Action</DialogTitle>
+        <DialogTitle>
+          {confirmDialog.action === 'acceptAll' ? 'Accept Order' :
+           confirmDialog.action === 'acceptItem' ? 'Accept Dish' :
+           confirmDialog.action === 'rejectItem' ? 'Reject Dish' :
+           'Mark as Delivered'}
+        </DialogTitle>
         <DialogContent>
-          <Typography>
-            {confirmDialog.action === 'accept'
-              ? `Are you sure you want to accept Order #${confirmDialog.orderId}?`
-              : `Are you sure you want to mark Order #${confirmDialog.orderId} as completed?`
-            }
-          </Typography>
+          {confirmDialog.action === 'acceptAll' && (
+            <Typography>
+              Are you sure you want to accept Order #{confirmDialog.orderId}? Every dish will be marked as accepted and the customer will be notified.
+            </Typography>
+          )}
+          {confirmDialog.action === 'acceptItem' && (
+            <Typography>
+              Accept <strong>{confirmDialog.itemName}</strong> from Order #{confirmDialog.orderId}? The customer will be notified.
+            </Typography>
+          )}
+          {confirmDialog.action === 'rejectItem' && (
+            <>
+              <Typography sx={{ mb: 2 }}>
+                Reject <strong>{confirmDialog.itemName}</strong> from Order #{confirmDialog.orderId}? The customer will be notified immediately.
+              </Typography>
+              <TextField
+                label="Rejection reason (optional)"
+                fullWidth
+                multiline
+                rows={2}
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="e.g. Ingredient not available today"
+              />
+            </>
+          )}
+          {confirmDialog.action === 'complete' && (
+            <Typography>
+              Are you sure you want to mark Order #{confirmDialog.orderId} as delivered? The customer will be notified and can request the bill.
+            </Typography>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={handleConfirmClose}>Cancel</Button>
-          {confirmDialog.action === 'accept' ? (
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={handleAcceptOrder}
-              startIcon={<ThumbUpIcon />}
-            >
+          {confirmDialog.action === 'acceptAll' && (
+            <Button variant="contained" color="primary" onClick={handleAcceptAllOrder} startIcon={<ThumbUpIcon />}>
+              Yes, Accept All
+            </Button>
+          )}
+          {confirmDialog.action === 'acceptItem' && (
+            <Button variant="contained" color="success" onClick={handleAcceptItem} startIcon={<ThumbUpIcon />}>
               Yes, Accept
             </Button>
-          ) : (
-            <Button
-              variant="contained"
-              color="success"
-              onClick={handleCompleteOrder}
-              startIcon={<DoneAllIcon />}
-            >
-              Yes, Complete
+          )}
+          {confirmDialog.action === 'rejectItem' && (
+            <Button variant="contained" color="error" onClick={handleRejectItem} startIcon={<ThumbDownIcon />}>
+              Yes, Reject
+            </Button>
+          )}
+          {confirmDialog.action === 'complete' && (
+            <Button variant="contained" color="success" onClick={handleCompleteOrder} startIcon={<DoneAllIcon />}>
+              Yes, Delivered
             </Button>
           )}
         </DialogActions>

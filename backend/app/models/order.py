@@ -18,6 +18,8 @@ class OrderItem(OrderItemBase):
     id: int
     order_id: int
     created_at: datetime
+    status: Optional[str] = None  # pending, accepted, rejected
+    rejection_reason: Optional[str] = None
     dish: Optional[Dish] = None
 
     # Add dish_name property to ensure it's always available

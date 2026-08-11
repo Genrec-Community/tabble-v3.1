@@ -32,6 +32,7 @@ import TableRestaurantIcon from '@mui/icons-material/TableRestaurant';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import QrCode2Icon from '@mui/icons-material/QrCode2';
 import DownloadIcon from '@mui/icons-material/Download';
+import LockOpenIcon from '@mui/icons-material/LockOpen';
 import api, { adminService } from '../../services/api';
 import AdminPageHeader from '../../components/AdminPageHeader';
 
@@ -104,10 +105,22 @@ const TableManagement = () => {
   const [qrImageUrl, setQrImageUrl] = useState('');
   const [qrLoading, setQrLoading] = useState(false);
 
+  // Free-slot state
+  const [freeDialogOpen, setFreeDialogOpen] = useState(false);
+  const [slotToFree, setSlotToFree] = useState(null);
+
   // Fetch tables on component mount
   useEffect(() => {
     fetchTables();
     fetchTableStatus();
+
+    // Auto-refresh so occupancy (red → green) updates live
+    const interval = setInterval(() => {
+      fetchTables();
+      fetchTableStatus();
+    }, 20000);
+
+    return () => clearInterval(interval);
   }, []);
 
   // Fetch tables from API
@@ -443,6 +456,38 @@ const TableManagement = () => {
     setQrTable(null);
   };
 
+  // Open free-slot confirm dialog
+  const handleOpenFreeDialog = (slot) => {
+    setSlotToFree(slot);
+    setFreeDialogOpen(true);
+  };
+
+  const handleCloseFreeDialog = () => {
+    setFreeDialogOpen(false);
+    setSlotToFree(null);
+  };
+
+  // Admin override — free a specific slot (QR side) of an occupied table
+  const handleFreeSlot = async () => {
+    try {
+      await adminService.setTableFreeByNumber(slotToFree.table_number, slotToFree.slot_number);
+      setSnackbar({
+        open: true,
+        message: `Table ${slotToFree.table_number} — Seat ${slotToFree.slot_number} is now free`,
+        severity: 'success'
+      });
+      fetchTables();
+      fetchTableStatus();
+      handleCloseFreeDialog();
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: error.response?.data?.detail || 'Failed to free the table slot',
+        severity: 'error'
+      });
+    }
+  };
+
   return (
     <Container>
       <AdminPageHeader
@@ -544,8 +589,8 @@ const TableManagement = () => {
           <Alert severity="info" sx={{ mb: 2 }}>
             <Typography variant="body2">
               <strong>Table Status:</strong> Green tables are free and available for seating. Red tables are currently occupied.
-              Tables are automatically marked as occupied when a customer enters the menu page with that table number, and
-              automatically marked as free when payment is completed.
+              Tables are marked as occupied when a customer scans the QR and enters the menu, and are automatically freed
+              when the bill is marked as paid. You can also free an occupied seat manually with the unlock button.
             </Typography>
           </Alert>
         </Box>
@@ -627,6 +672,17 @@ const TableManagement = () => {
                                 size="small"
                                 sx={{ height: 20, fontSize: '0.65rem' }}
                               />
+                              {slot.is_occupied && (
+                                <Tooltip title="Free this seat (admin override)">
+                                  <IconButton
+                                    size="small"
+                                    sx={{ color: '#4DAA57', p: 0.5 }}
+                                    onClick={() => handleOpenFreeDialog(slot)}
+                                  >
+                                    <LockOpenIcon sx={{ fontSize: 16 }} />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
                               <Tooltip title={slot.qr_token ? 'View QR' : 'Generate QR'}>
                                 <IconButton
                                   size="small"
@@ -867,6 +923,45 @@ const TableManagement = () => {
             color="error"
           >
             Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Free Slot Confirmation Dialog */}
+      <Dialog
+        open={freeDialogOpen}
+        onClose={handleCloseFreeDialog}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{
+          sx: { borderRadius: '16px' }
+        }}
+      >
+        <DialogTitle>
+          <Typography variant="h6" component="div" fontWeight="bold" color="success.main">
+            Free Table Slot
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body1">
+            Free Table {slotToFree?.table_number} — Seat {slotToFree?.slot_number}?
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+            The seat will be marked as available and customers can scan its QR again. Use this only when the customer has
+            left without settling the bill.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={handleCloseFreeDialog} variant="outlined">
+            Cancel
+          </Button>
+          <Button
+            onClick={handleFreeSlot}
+            variant="contained"
+            color="success"
+            startIcon={<LockOpenIcon />}
+          >
+            Free Seat
           </Button>
         </DialogActions>
       </Dialog>

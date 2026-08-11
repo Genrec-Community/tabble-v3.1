@@ -145,6 +145,9 @@ export const useOrderManagement = (userId, tableNumber) => {
       const tableUnpaidOrders = orders.filter(order =>
         order.status !== 'paid' &&
         order.status !== 'cancelled' &&
+        order.status !== 'merged' &&
+        order.status !== 'rejected' &&
+        order.status !== 'payment_requested' &&
         order.table_number === parseInt(tableNumber)
       );
 

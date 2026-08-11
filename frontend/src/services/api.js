@@ -272,10 +272,22 @@ export const customerService = {
     }
   },
 
-  // Set a table as occupied by table number
-  setTableOccupiedByNumber: async (tableNumber) => {
+  // Set a table as free by table number and slot
+  setTableFreeByNumber: async (tableNumber, slotNumber = 1) => {
     try {
-      const response = await api.put(`/tables/number/${tableNumber}/occupy`);
+      const response = await api.put(`/tables/number/${tableNumber}/free?slot_number=${slotNumber}`);
+      return response.data;
+    } catch (error) {
+
+      // Don't throw error, just log it
+      return null;
+    }
+  },
+
+  // Set a table as occupied by table number (slot-scoped — two QRs per table)
+  setTableOccupiedByNumber: async (tableNumber, slotNumber = 1) => {
+    try {
+      const response = await api.put(`/tables/number/${tableNumber}/occupy?slot_number=${slotNumber}`);
       return response.data;
     } catch (error) {
 
@@ -338,36 +350,6 @@ export const customerService = {
       throw error;
     }
   },
-
-  // Send OTP for phone authentication
-  sendOtp: async (phoneData) => {
-    try {
-      const response = await api.post('/customer/api/phone-auth', phoneData);
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
-  },
-
-  // Verify OTP for phone authentication
-  verifyOtp: async (otpData) => {
-    try {
-      const response = await api.post('/customer/api/verify-otp', otpData);
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
-  },
-
-  // Register new phone user
-  registerPhoneUser: async (userData) => {
-    try {
-      const response = await api.post('/customer/api/register-phone-user', userData);
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
-  },
 };
 
 // Chef API services
@@ -394,10 +376,32 @@ export const chefService = {
     }
   },
 
-  // Accept an order
+  // Accept an order (accepts every pending dish in it)
   acceptOrder: async (orderId) => {
     try {
       const response = await api.put(`/chef/orders/${orderId}/accept`);
+      return response.data;
+    } catch (error) {
+
+      throw error;
+    }
+  },
+
+  // Accept a single dish of an order
+  acceptOrderItem: async (orderId, itemId) => {
+    try {
+      const response = await api.put(`/chef/orders/${orderId}/items/${itemId}/accept`);
+      return response.data;
+    } catch (error) {
+
+      throw error;
+    }
+  },
+
+  // Reject a single dish of an order (with an optional reason shown to the customer)
+  rejectOrderItem: async (orderId, itemId, reason = null) => {
+    try {
+      const response = await api.put(`/chef/orders/${orderId}/items/${itemId}/reject`, { reason });
       return response.data;
     } catch (error) {
 

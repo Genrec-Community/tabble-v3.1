@@ -298,6 +298,22 @@ const OrderHistoryDialog = ({
                                             border: '1px solid rgba(255, 165, 0, 0.2)'
                                           }}
                                         />
+                                        {item.status === 'accepted' && (
+                                          <Chip
+                                            label="Preparing"
+                                            size="small"
+                                            color="info"
+                                            sx={{ ml: 1, height: '20px', fontSize: '0.7rem' }}
+                                          />
+                                        )}
+                                        {item.status === 'rejected' && (
+                                          <Chip
+                                            label={item.rejection_reason ? `Rejected: ${item.rejection_reason}` : 'Rejected'}
+                                            size="small"
+                                            color="error"
+                                            sx={{ ml: 1, height: '20px', fontSize: '0.7rem' }}
+                                          />
+                                        )}
                                       </Box>
                                       <Typography variant="body2" color={theme.palette.text.secondary}>
                                         Qty: {item.quantity}

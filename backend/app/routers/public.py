@@ -41,6 +41,17 @@ def scan_qr_token(qr_token: str):
         if not hotel:
             raise HTTPException(status_code=404, detail="Hotel not found")
 
+        # Stale-session recovery: a slot marked occupied but with no linked order
+        # means the previous customer left the page before ordering. Free it so
+        # the next customer isn't blocked by an abandoned session.
+        if table.is_occupied and table.current_order_id is None:
+            from datetime import datetime, timezone
+
+            table.is_occupied = False
+            table.current_order_id = None
+            table.updated_at = datetime.now(timezone.utc)
+            db.commit()
+
         return {
             "hotel_name": hotel.hotel_name,
             "table_number": table.table_number,

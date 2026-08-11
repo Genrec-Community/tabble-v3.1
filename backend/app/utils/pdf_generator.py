@@ -181,14 +181,16 @@ def generate_multi_order_bill_pdf(orders: List, settings):
     subtotal_amount = 0
     total_loyalty_discount = 0
     total_selection_discount = 0
-    grand_total = 0
 
     for order in orders:
         order_data = []
 
         for item in order.items:
+            if item.status == "rejected":
+                continue  # rejected dishes were not served — excluded from the bill
+
             dish_name = item.dish.name if item.dish else "Unknown Dish"
-            price = item.dish.price if item.dish else 0
+            price = item.price if item.price is not None else (item.dish.price if item.dish else 0)
             quantity = item.quantity
             total = price * quantity
             subtotal_amount += total
@@ -207,13 +209,6 @@ def generate_multi_order_bill_pdf(orders: List, settings):
         if hasattr(order, 'selection_offer_discount_amount') and order.selection_offer_discount_amount:
             total_selection_discount += order.selection_offer_discount_amount
 
-        # Use stored total_amount if available, otherwise calculate from subtotal
-        if hasattr(order, 'total_amount') and order.total_amount is not None:
-            grand_total += order.total_amount
-        else:
-            # Fallback to original calculation if no stored total
-            grand_total += subtotal_amount
-
         # Create the table for this order's items
         if order_data:
             items_table = Table(order_data, colWidths=[doc.width*0.4, doc.width*0.15, doc.width*0.2, doc.width*0.25])
@@ -230,16 +225,16 @@ def generate_multi_order_bill_pdf(orders: List, settings):
 
     # Add totals section with discounts
     totals_data = [
-        [f"Total Qty: {total_items}", f"Sub Total", f"${subtotal_amount:.2f}"],
+        [f"Total Qty: {total_items}", f"Sub Total", f"₹{subtotal_amount:.2f}"],
     ]
 
     # Add loyalty discount if applicable
     if total_loyalty_discount > 0:
-        totals_data.append(["", f"Loyalty Discount", f"-${total_loyalty_discount:.2f}"])
+        totals_data.append(["", f"Loyalty Discount", f"-₹{total_loyalty_discount:.2f}"])
 
     # Add selection offer discount if applicable
     if total_selection_discount > 0:
-        totals_data.append(["", f"Offer Discount", f"-${total_selection_discount:.2f}"])
+        totals_data.append(["", f"Offer Discount", f"-₹{total_selection_discount:.2f}"])
 
     # Calculate amount after discounts
     amount_after_discounts = subtotal_amount - total_loyalty_discount - total_selection_discount
@@ -251,8 +246,8 @@ def generate_multi_order_bill_pdf(orders: List, settings):
 
     # Add tax lines
     totals_data.extend([
-        ["", f"CGST (5%)", f"${cgst:.2f}"],
-        ["", f"SGST (5%)", f"${sgst:.2f}"],
+        ["", f"CGST (5%)", f"₹{cgst:.2f}"],
+        ["", f"SGST (5%)", f"₹{sgst:.2f}"],
     ])
 
     # Calculate final total including tax
@@ -270,7 +265,7 @@ def generate_multi_order_bill_pdf(orders: List, settings):
 
     # Add grand total with emphasis
     elements.append(Paragraph("_" * 50, styles['HotelAddress']))
-    elements.append(Paragraph(f"Grand Total    ${final_total:.2f}", styles['Total']))
+    elements.append(Paragraph(f"Grand Total    ₹{final_total:.2f}", styles['Total']))
     elements.append(Paragraph("_" * 50, styles['HotelAddress']))
 
     # Add license info and thank you message

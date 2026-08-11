@@ -34,7 +34,10 @@ const CustomerLogin = () => {
     const savedSlot = localStorage.getItem('slotNumber') || '1';
 
     if (!selectedDatabase || (!qrToken) || !savedTable) {
-      navigate('/');
+      // No QR session — keep the customer inside the ordering app instead of
+      // bouncing them to the marketing homepage.
+      setError('No table session found. Please scan the QR code on your table.');
+      setChecking(false);
       return;
     }
 
@@ -53,7 +56,7 @@ const CustomerLogin = () => {
           });
           const { user_id } = res.data;
           localStorage.setItem('customerId', String(user_id));
-          navigate(`/customer/menu?table_number=${savedTable}&slot_number=${savedSlot}&user_id=${user_id}`);
+          navigate(`/customer/home?table_number=${savedTable}&slot_number=${savedSlot}&user_id=${user_id}`);
         } catch {
           // Token invalid or hotel changed — let them sign in again
           setChecking(false);
@@ -87,7 +90,7 @@ const CustomerLogin = () => {
       const uniqueId = Math.random().toString(36).substring(2, 10).toUpperCase();
       localStorage.setItem('customerUniqueId', uniqueId);
 
-      navigate(`/customer/menu?table_number=${tableNumber}&slot_number=${slotNumber}&unique_id=${uniqueId}&user_id=${user_id}`);
+      navigate(`/customer/home?table_number=${tableNumber}&slot_number=${slotNumber}&unique_id=${uniqueId}&user_id=${user_id}`);
     } catch (err) {
       let msg = err.response?.data?.detail || err.message || 'Sign-in failed. Please try again.';
       if (err.code === 'auth/configuration-not-found' || err.code === 'auth/unauthorized-domain') {

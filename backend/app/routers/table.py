@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import uuid
 import io
 import os
@@ -25,6 +25,93 @@ def _max_tables_per_hotel() -> int:
         return max(1, int(os.getenv("POC_MAX_TABLES_PER_HOTEL", "1")))
     except ValueError:
         return 1
+
+
+def _heartbeat_ttl_seconds() -> int:
+    """How long an occupied slot may go without a heartbeat before it is
+    considered abandoned. The customer app sends a heartbeat every ~20s, so
+    a browser closed without ordering frees the slot within this window."""
+    try:
+        return max(30, int(os.getenv("SLOT_HEARTBEAT_TTL_SECONDS", "120")))
+    except ValueError:
+        return 120
+
+
+def _coerce_utc(value):
+    """SQLite returns naive datetimes even though we store tz-aware ones."""
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value
+
+
+def _slot_has_unpaid_orders(db: Session, hotel_id: int, table_number: int, slot_number: int) -> bool:
+    """True when any order on this slot is still unpaid / active.
+    ``merged`` orders are consolidated into the surviving bill order, so they
+    never keep a slot occupied."""
+    return (
+        db.query(Order)
+        .filter(
+            Order.hotel_id == hotel_id,
+            Order.table_number == table_number,
+            Order.slot_number == slot_number,
+            Order.status.notin_(["paid", "cancelled", "merged"]),
+        )
+        .first()
+        is not None
+    )
+
+
+def _is_slot_stale(db: Session, hotel_id: int, table_number: int, slot_number: int) -> bool:
+    """A slot is stale when its heartbeat has gone quiet AND no order on the
+    slot is still unpaid — i.e. the customer left the browser before ordering.
+    Slots with live orders are never considered stale (they stay occupied
+    until payment)."""
+    if _slot_has_unpaid_orders(db, hotel_id, table_number, slot_number):
+        return False
+    slot = (
+        db.query(TableModel)
+        .filter(
+            TableModel.hotel_id == hotel_id,
+            TableModel.table_number == table_number,
+            TableModel.slot_number == slot_number,
+        )
+        .first()
+    )
+    if slot is None or slot.updated_at is None:
+        return False
+    last_seen = _coerce_utc(slot.updated_at)
+    return (datetime.now(timezone.utc) - last_seen).total_seconds() >= _heartbeat_ttl_seconds()
+
+
+def _reclaim_stale_slots(db: Session, hotel_id: int) -> list:
+    """Free every occupied slot whose customer stopped heartbeating and left
+    no unpaid order behind (browser closed before ordering). Runs lazily on
+    reads/writes so no background job is needed — the admin table view and the
+    next scan/occupy both self-heal abandoned sessions."""
+    slots = db.query(TableModel).filter(
+        TableModel.hotel_id == hotel_id,
+        TableModel.is_occupied == True,
+    ).all()
+
+    freed = []
+    for slot in slots:
+        if slot.updated_at is None:
+            continue
+        last_seen = _coerce_utc(slot.updated_at)
+        if (datetime.now(timezone.utc) - last_seen).total_seconds() < _heartbeat_ttl_seconds():
+            continue
+        if _slot_has_unpaid_orders(db, hotel_id, slot.table_number, slot.slot_number):
+            continue
+        slot.is_occupied = False
+        slot.current_order_id = None
+        slot.updated_at = datetime.now(timezone.utc)
+        freed.append(slot)
+
+    if freed:
+        db.commit()
+    return freed
 
 
 def _ensure_table_capacity(db: Session, hotel_id: int, requested_tables: int) -> None:
@@ -57,6 +144,9 @@ def get_all_tables(request: Request, db: Session = Depends(get_session_database)
     hotel_id = get_hotel_id_from_request(request)
     if not hotel_id:
         raise HTTPException(status_code=400, detail="No hotel context set")
+
+    # Self-heal abandoned sessions (browser closed before ordering) on read
+    _reclaim_stale_slots(db, hotel_id)
 
     return db.query(TableModel).filter(TableModel.hotel_id == hotel_id).order_by(TableModel.table_number).all()
 
@@ -120,6 +210,7 @@ def create_table(table: TableCreate, request: Request, db: Session = Depends(get
             table_number=table.table_number,
             slot_number=slot,
             is_occupied=False,
+            qr_token=str(uuid.uuid4()),
             created_at=datetime.now(timezone.utc),
             updated_at=datetime.now(timezone.utc),
         )
@@ -212,6 +303,9 @@ def get_table_status(request: Request, db: Session = Depends(get_session_databas
     hotel_id = get_hotel_id_from_request(request)
     if not hotel_id:
         raise HTTPException(status_code=400, detail="No hotel context set")
+
+    # Self-heal abandoned sessions so the admin dashboard counts are fresh too
+    _reclaim_stale_slots(db, hotel_id)
 
     from sqlalchemy import func, distinct
     total_tables = db.query(func.count(distinct(TableModel.table_number))).filter(
@@ -312,6 +406,13 @@ def set_table_occupied_by_number(table_number: int, request: Request, slot_numbe
     if not db_table:
         raise HTTPException(status_code=404, detail="Table slot not found")
 
+    # A slot whose customer has gone quiet is a stale session (browser closed
+    # before ordering). Reclaim it so the next customer can scan in without
+    # waiting for manual cleanup. Slots with live unpaid orders are never
+    # reclaimed — they stay occupied until payment.
+    if db_table.is_occupied and not _is_slot_stale(db, hotel_id, table_number, slot_number):
+        raise HTTPException(status_code=400, detail="Table is already occupied")
+
     db_table.is_occupied = True
     db_table.updated_at = datetime.now(timezone.utc)
     db.commit()
@@ -342,7 +443,30 @@ def set_table_free_by_number(table_number: int, request: Request, slot_number: i
     return db_table
 
 
-# Create multiple tables at once (each table gets 2 slots)
+# Customer heartbeat — proves the browsing customer is still on the page.
+@router.put("/number/{table_number}/heartbeat", response_model=Table)
+def heartbeat_table_slot(table_number: int, request: Request, slot_number: int = 1, db: Session = Depends(get_session_database)):
+    """Keep the slot alive while the customer is browsing the menu. Only
+    touches the timestamp — it never occupies a free slot and never frees
+    one. When the heartbeats stop (browser closed without ordering) the slot
+    becomes stale and is reclaimed automatically."""
+    hotel_id = get_hotel_id_from_request(request)
+    if not hotel_id:
+        raise HTTPException(status_code=400, detail="No hotel context set")
+
+    db_table = db.query(TableModel).filter(
+        TableModel.table_number == table_number,
+        TableModel.slot_number == slot_number,
+        TableModel.hotel_id == hotel_id
+    ).first()
+    if not db_table:
+        raise HTTPException(status_code=404, detail="Table slot not found")
+
+    if db_table.is_occupied:
+        db_table.updated_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(db_table)
+    return db_table
 @router.post("/batch", response_model=List[Table])
 def create_tables_batch(num_tables: int, request: Request, db: Session = Depends(get_session_database)):
     hotel_id = get_hotel_id_from_request(request)
@@ -369,6 +493,7 @@ def create_tables_batch(num_tables: int, request: Request, db: Session = Depends
                 table_number=i,
                 slot_number=slot,
                 is_occupied=False,
+                qr_token=str(uuid.uuid4()),
                 created_at=datetime.now(timezone.utc),
                 updated_at=datetime.now(timezone.utc),
             )

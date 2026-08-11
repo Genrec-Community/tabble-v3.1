@@ -14,21 +14,6 @@ class PersonLogin(PersonBase):
     password: str
     table_number: int
 
-class PhoneAuthRequest(BaseModel):
-    phone_number: str
-    table_number: int
-
-class PhoneVerifyRequest(BaseModel):
-    phone_number: str
-    verification_code: str
-    token: str
-    table_number: int
-
-class UsernameRequest(BaseModel):
-    phone_number: str
-    username: str
-    table_number: int
-
 class Person(PersonBase):
     id: int
     visit_count: int

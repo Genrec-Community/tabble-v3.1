@@ -518,18 +518,49 @@ def get_order_stats(request: Request, db: Session = Depends(get_session_database
     }
 
 
-# Mark order as paid
+# Mark order as paid (hotel admin — after generating the bill).
+# Computes totals if missing, increments the customer's visit count (once),
+# and frees the table slot when no other order is still active on it.
 @router.put("/orders/{order_id}/paid")
 def mark_order_paid(
     order_id: int, request: Request, db: Session = Depends(get_session_database)
 ):
-    db_order = db.query(Order).filter(Order.id == order_id).first()
+    hotel_id = get_hotel_id_from_request(request)
+
+    db_order = db.query(Order).filter(
+        Order.hotel_id == hotel_id,
+        Order.id == order_id,
+    ).first()
     if db_order is None:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    # Allow marking as paid from any status
+    if db_order.status == "paid":
+        return {"message": "Order is already paid"}
+
+    if db_order.status not in ("completed", "payment_requested"):
+        raise HTTPException(
+            status_code=400,
+            detail="Only completed orders or orders waiting for the bill can be marked as paid",
+        )
+
+    # Make sure totals are stored so the bill is consistent
+    from ..services.order_utils import compute_order_totals, free_slot_if_no_unpaid_orders
+
+    if db_order.total_amount is None:
+        compute_order_totals(db, db_order)
+
     db_order.status = "paid"
     db_order.updated_at = datetime.now(timezone.utc)
+
+    # Increment visit count on payment — only counts completed payments
+    if db_order.person_id:
+        person = db.query(Person).filter(Person.id == db_order.person_id).first()
+        if person:
+            person.visit_count += 1
+            person.last_visit = datetime.now(timezone.utc)
+
+    # Free the slot (table_number + slot_number) when the bill is settled
+    free_slot_if_no_unpaid_orders(db, db_order)
 
     db.commit()
 
@@ -541,8 +572,14 @@ def mark_order_paid(
 def generate_bill(
     order_id: int, request: Request, db: Session = Depends(get_session_database)
 ):
-    # Get order with all details
-    db_order = db.query(Order).filter(Order.id == order_id).first()
+    # Get hotel ID from request
+    hotel_id = get_hotel_id_from_request(request)
+
+    # Get order with all details (scoped to this hotel)
+    db_order = db.query(Order).filter(
+        Order.hotel_id == hotel_id,
+        Order.id == order_id,
+    ).first()
     if db_order is None:
         raise HTTPException(status_code=404, detail="Order not found")
 
@@ -558,9 +595,6 @@ def generate_bill(
             dish = db.query(Dish).filter(Dish.id == item.dish_id).first()
             if dish:
                 item.dish = dish
-
-    # Get hotel ID from request
-    hotel_id = get_hotel_id_from_request(request)
 
     # Get hotel settings for this specific hotel
     settings = db.query(Settings).filter(Settings.hotel_id == hotel_id).first()
@@ -600,9 +634,15 @@ def generate_multi_bill(
 
     orders = []
 
-    # Get all orders with details
+    # Get hotel ID from request
+    hotel_id = get_hotel_id_from_request(request)
+
+    # Get all orders with details (scoped to this hotel)
     for order_id in order_ids:
-        db_order = db.query(Order).filter(Order.id == order_id).first()
+        db_order = db.query(Order).filter(
+            Order.hotel_id == hotel_id,
+            Order.id == order_id,
+        ).first()
         if db_order is None:
             raise HTTPException(status_code=404, detail=f"Order {order_id} not found")
 
@@ -620,9 +660,6 @@ def generate_multi_bill(
                     item.dish = dish
 
         orders.append(db_order)
-
-    # Get hotel ID from request
-    hotel_id = get_hotel_id_from_request(request)
 
     # Get hotel settings for this specific hotel
     settings = db.query(Settings).filter(Settings.hotel_id == hotel_id).first()
@@ -663,9 +700,16 @@ def merge_orders(
     request: Request,
     db: Session = Depends(get_session_database),
 ):
-    # Get both orders
-    source_order = db.query(Order).filter(Order.id == source_order_id).first()
-    target_order = db.query(Order).filter(Order.id == target_order_id).first()
+    # Get both orders (scoped to this hotel)
+    hotel_id = get_hotel_id_from_request(request)
+    source_order = db.query(Order).filter(
+        Order.hotel_id == hotel_id,
+        Order.id == source_order_id,
+    ).first()
+    target_order = db.query(Order).filter(
+        Order.hotel_id == hotel_id,
+        Order.id == target_order_id,
+    ).first()
 
     if not source_order:
         raise HTTPException(
@@ -713,15 +757,20 @@ def merge_orders(
     }
 
 
-# Get completed orders for billing (paid orders)
+# Get orders for billing: completed (delivered, walk-in pay at counter),
+# payment_requested (customer pressed "Get Bill"), and already paid (re-print)
 @router.get("/orders/completed-for-billing", response_model=List[OrderModel])
 def get_completed_orders_for_billing(
     request: Request, db: Session = Depends(get_session_database)
 ):
-    # Get paid orders ordered by most recent first
+    hotel_id = get_hotel_id_from_request(request)
+
     orders = (
         db.query(Order)
-        .filter(Order.status == "paid")
+        .filter(
+            Order.hotel_id == hotel_id,
+            Order.status.in_(["completed", "payment_requested", "paid"]),
+        )
         .order_by(Order.created_at.desc())
         .all()
     )

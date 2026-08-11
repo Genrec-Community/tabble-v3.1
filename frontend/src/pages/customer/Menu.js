@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import moment from 'moment-timezone';
 import {
-  Container,
   Grid,
   Paper,
   Typography,
@@ -19,30 +18,28 @@ import {
   IconButton,
   Divider,
   Badge,
+  Chip,
   List,
   ListItem,
   ListItemText,
-  AppBar,
-  Toolbar,
   CircularProgress,
-  Tabs,
-  Tab
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import RemoveIcon from '@mui/icons-material/Remove';
 import AddIcon from '@mui/icons-material/Add';
-import HistoryIcon from '@mui/icons-material/History';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import PaymentIcon from '@mui/icons-material/Payment';
-import HomeIcon from '@mui/icons-material/Home';
+import SearchIcon from '@mui/icons-material/Search';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import RestaurantIcon from '@mui/icons-material/Restaurant';
+import CloseIcon from '@mui/icons-material/Close';
 import FeedbackDialog from '../../components/FeedbackDialog';
 import { customerService } from '../../services/api';
-import OrderHistoryDialog from './components/OrderHistoryDialog';
 import CartDialog from './components/CartDialog';
 import ProductionErrorBoundary from '../../components/ProductionErrorBoundary';
 import { handleApiError, showUserFriendlyError } from '../../utils/errorHandler';
 import { usePerformanceMonitor } from '../../hooks/usePerformanceMonitor';
+import { useSlotHeartbeat } from '../../hooks/useSlotHeartbeat';
 import {
   useMenuData,
   useOrderManagement,
@@ -51,10 +48,8 @@ import {
 } from '../../hooks/useMenuOptimized';
 
 // Import components
-import HeroBanner from './components/HeroBanner';
 import SpecialOffers from './components/SpecialOffers';
 import TodaySpecials from './components/TodaySpecials';
-import MenuCategories from './components/MenuCategories';
 
 import MenuItemsGrid from './components/MenuItemsGrid';
 import { apiBaseUrl } from '../../utils/apiBaseUrl';
@@ -138,8 +133,8 @@ const CustomerMenu = () => {
   const [quantity, setQuantity] = useState(1);
   const [remarks, setRemarks] = useState('');
   const [cartDialogOpen, setCartDialogOpen] = useState(false);
-  const [orderHistoryOpen, setOrderHistoryOpen] = useState(false);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [feedbackDialogOpen, setFeedbackDialogOpen] = useState(false);
   const [lastPaidOrderId, setLastPaidOrderId] = useState(null);
   const [databaseName, setDatabaseName] = useState('');
@@ -148,6 +143,129 @@ const CustomerMenu = () => {
     message: '',
     severity: 'success'
   });
+
+  // ── Live order status tracking (per-move notifications) ──────────────────
+  // Remembers the last seen status of every order so we can notify the user
+  // the moment the chef accepts / rejects a dish or delivers / bills an order.
+  const lastSeenStatuses = useRef({}); // orderId -> { status, items: {itemId: status} }
+  const [notifQueue, setNotifQueue] = useState([]); // queued popups
+  const [currentNotif, setCurrentNotif] = useState(null); // the popup being shown
+  const [rejectionDialog, setRejectionDialog] = useState(null); // { orderId, dishes: [{name, reason}] }
+  const paidCleanupDone = useRef(false);
+  const [paidNotifiedOrders, setPaidNotifiedOrders] = useState([]);
+
+  // Push the next queued notification (one at a time)
+  useEffect(() => {
+    if (currentNotif) return;
+    if (notifQueue.length === 0) return;
+    const [next, ...rest] = notifQueue;
+    setCurrentNotif(next);
+    setNotifQueue(rest);
+  }, [notifQueue, currentNotif]);
+
+  const handleNotifClose = useCallback(() => {
+    setCurrentNotif(null);
+  }, []);
+
+  // Detect status changes on every order poll and notify the user of each move
+  useEffect(() => {
+    const myOrders = userOrders.filter(o => o.table_number === parseInt(tableNumber));
+    if (myOrders.length === 0) return;
+
+    const seen = { ...lastSeenStatuses.current };
+    const events = [];
+    let rejectedDishes = [];
+    let paidOrders = [];
+
+    myOrders.forEach((order) => {
+      const itemMap = {};
+      order.items.forEach(i => { itemMap[i.id] = i.status; });
+      const prev = seen[order.id];
+      seen[order.id] = { status: order.status, items: itemMap };
+
+      if (!prev) return; // first sight — don't spam the user with old state
+
+      // Per-dish moves
+      order.items.forEach((item) => {
+        const before = prev.items[item.id];
+        if (before && before !== item.status) {
+          if (item.status === 'accepted') {
+            events.push({ message: `"${item.dish?.name || 'Dish'}" accepted by the kitchen`, severity: 'success' });
+          } else if (item.status === 'rejected') {
+            rejectedDishes.push({ name: item.dish?.name || 'Dish', reason: item.rejection_reason });
+          }
+        }
+      });
+
+      // Order-level moves
+      if (prev.status !== order.status) {
+        if (order.status === 'rejected' && rejectedDishes.length === 0) {
+          rejectedDishes = order.items.map(i => ({ name: i.dish?.name || 'Dish', reason: i.rejection_reason }));
+        } else if (order.status === 'accepted') {
+          events.push({ message: `Order #${order.id} accepted — the kitchen is preparing it`, severity: 'success' });
+        } else if (order.status === 'completed') {
+          events.push({ message: `Order #${order.id} delivered — you can request the bill`, severity: 'success' });
+        } else if (order.status === 'payment_requested') {
+          events.push({ message: `Bill requested for Order #${order.id} — please pay at the counter`, severity: 'info' });
+        } else if (order.status === 'paid') {
+          paidOrders.push(order.id);
+        } else if (order.status === 'cancelled') {
+          events.push({ message: `Order #${order.id} cancelled`, severity: 'warning' });
+        }
+      }
+    });
+
+    lastSeenStatuses.current = seen;
+
+    if (rejectedDishes.length > 0) {
+      setRejectionDialog((prev) => ({
+        dishes: [...(prev ? prev.dishes : []), ...rejectedDishes],
+      }));
+    }
+    if (events.length > 0) {
+      setNotifQueue(q => [...q, ...events]);
+    }
+    if (paidOrders.length > 0) {
+      setPaidNotifiedOrders(prev => [...prev, ...paidOrders]);
+      setLastPaidOrderId(paidOrders[0]);
+    }
+  }, [userOrders, tableNumber]);
+
+  // When the admin marks the bill paid: notify, clear the session and wrap up the visit
+  useEffect(() => {
+    if (paidNotifiedOrders.length === 0 || paidCleanupDone.current) return;
+    paidCleanupDone.current = true;
+
+    setNotifQueue(q => [...q, ...paidNotifiedOrders.map(id => ({
+      message: `Order #${id} paid — thank you for dining with us!`,
+      severity: 'success',
+    }))]);
+
+    setSnackbar({ open: true, message: 'Bill settled — have a great day!', severity: 'success' });
+
+    const finishVisit = async () => {
+      try {
+        const { auth } = await import('../../firebase');
+        await auth.signOut();
+      } catch { /* firebase may not be available */ }
+      localStorage.removeItem('customerQrToken');
+      localStorage.removeItem('customerId');
+      localStorage.removeItem('customerDisplayName');
+      localStorage.removeItem('tableNumber');
+      localStorage.removeItem('slotNumber');
+      localStorage.removeItem('customerSelectedDatabase');
+      localStorage.removeItem('customerUniqueId');
+    };
+
+    finishVisit().then(() => {
+      setTimeout(() => {
+        setFeedbackDialogOpen(true);
+      }, 2500);
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 9000);
+    });
+  }, [paidNotifiedOrders]);
 
   // Memoized category colors
   const categoryColors = useMemo(() => ({
@@ -190,8 +308,17 @@ const CustomerMenu = () => {
       });
     }
 
+    // Apply search query
+    const query = searchQuery.trim().toLowerCase();
+    if (query) {
+      filtered = filtered.filter(dish =>
+        dish.name?.toLowerCase().includes(query) ||
+        (dish.description || '').toLowerCase().includes(query)
+      );
+    }
+
     return filtered;
-  }, [enhancedDishes, currentCategory, vegetarianFilter]);
+  }, [enhancedDishes, currentCategory, vegetarianFilter, searchQuery]);
 
   // Update filtered dishes when memoized value changes
   useEffect(() => {
@@ -232,6 +359,18 @@ const CustomerMenu = () => {
     };
     markTableAsOccupied();
   }, [tableNumber, slotNumber]);
+
+  // Heartbeat + auto-release — proves this customer is still browsing, so
+  // the backend can free the slot when the browser is closed. The slot stays
+  // occupied only while an unpaid order exists (releaseGuard).
+  const hasUnsettledOrder = useCallback(() => {
+    return (userOrders || []).some(order =>
+      order.table_number === parseInt(tableNumber) &&
+      !['paid', 'cancelled', 'merged'].includes(order.status)
+    );
+  }, [userOrders, tableNumber]);
+
+  useSlotHeartbeat(tableNumber, slotNumber, { releaseGuard: hasUnsettledOrder });
 
   // Optimized category change handler
   const handleCategoryChange = useCallback((_, newValue) => {
@@ -320,7 +459,7 @@ const CustomerMenu = () => {
     }
   }, [cart, tableNumber, uniqueId, userId, markOrderPlaced, clearCart, fetchOrders]);
 
-  // Optimized payment request handler
+  // Optimized bill request handler
   const handleRequestPayment = useCallback(async () => {
     try {
       await fetchOrders(); // Refresh orders first
@@ -333,7 +472,7 @@ const CustomerMenu = () => {
       if (completedOrders.length === 0) {
         setSnackbar({
           open: true,
-          message: 'No completed orders found for payment. Orders must be completed by the chef before payment.',
+          message: 'No delivered orders yet. Orders must be delivered by the chef before you can request the bill.',
           severity: 'warning'
         });
         return;
@@ -341,8 +480,10 @@ const CustomerMenu = () => {
 
       // Calculate total for discount calculation
       const totalOrderAmount = completedOrders.reduce((total, order) => {
-        return total + (order.items ? order.items.reduce((sum, item) =>
-          sum + (item.dish?.price || 0) * item.quantity, 0) : 0);
+        return total + (order.items ? order.items.reduce((sum, item) => {
+          if (item.status === 'rejected') return sum;
+          return sum + (item.price ?? item.dish?.price ?? 0) * item.quantity;
+        }, 0) : 0);
       }, 0);
 
       // Fetch discounts
@@ -350,7 +491,7 @@ const CustomerMenu = () => {
 
       setPaymentDialogOpen(true);
     } catch (error) {
-      setSnackbar(showUserFriendlyError(error, 'loading payment details'));
+      setSnackbar(showUserFriendlyError(error, 'loading bill details'));
     }
   }, [fetchOrders, userOrders, tableNumber, fetchDiscounts]);
 
@@ -359,7 +500,8 @@ const CustomerMenu = () => {
     setPaymentDialogOpen(false);
   }, []);
 
-  // Optimized complete payment handler
+  // Request the bill for all delivered orders — the counter staff then
+  // generates the bill and marks it paid (which frees the table).
   const handleCompletePayment = useCallback(async () => {
     try {
       const completedOrders = userOrders.filter(order =>
@@ -367,52 +509,39 @@ const CustomerMenu = () => {
         order.table_number === parseInt(tableNumber)
       );
 
-      const firstOrderId = completedOrders.length > 0 ? completedOrders[0].id : null;
       let successCount = 0;
       let errorCount = 0;
 
-      // Process payments sequentially
+      // Process bill requests sequentially
       for (const order of completedOrders) {
         try {
           await customerService.requestPayment(order.id);
           successCount++;
         } catch (error) {
-          handleApiError(error, `processing payment for order ${order.id}`);
+          handleApiError(error, `requesting the bill for order ${order.id}`);
           errorCount++;
         }
       }
 
-      setLastPaidOrderId(firstOrderId);
       setPaymentDialogOpen(false);
 
       // Show appropriate message
       if (errorCount === 0) {
-        // Payment successful - clear cart and session
-        clearCart();
-
-        // Clear cart from localStorage explicitly
-        const qrToken = localStorage.getItem('customerQrToken');
-        if (qrToken) {
-          localStorage.removeItem(`customerCart_${qrToken}`);
-        }
-        localStorage.setItem('customerOrderStatus', 'completed');
-        localStorage.setItem('lastOrderCompletedAt', new Date().toISOString());
-
         setSnackbar({
           open: true,
-          message: 'Payment completed successfully! The bill will arrive at your table soon.',
+          message: 'Bill requested! Please pay at the counter — the staff will confirm your payment.',
           severity: 'success'
         });
       } else if (successCount > 0) {
         setSnackbar({
           open: true,
-          message: `${successCount} orders paid successfully. ${errorCount} orders failed. Please try again for failed orders.`,
+          message: `Bill requested for ${successCount} order${successCount !== 1 ? 's' : ''}. ${errorCount} could not be requested.`,
           severity: 'warning'
         });
       } else {
         setSnackbar({
           open: true,
-          message: 'Error processing payment. Please try again.',
+          message: 'Error requesting the bill. Please try again.',
           severity: 'error'
         });
         return;
@@ -420,28 +549,8 @@ const CustomerMenu = () => {
 
       // Refresh orders
       await fetchOrders();
-
-      // Show feedback dialog after successful payment
-      if (successCount > 0) {
-        setTimeout(() => {
-          setFeedbackDialogOpen(true);
-        }, 1000);
-
-        // Clear customer session — payment is the end of the visit
-        try {
-          const { auth } = await import('../../firebase');
-          await auth.signOut();
-        } catch { /* firebase may not be available */ }
-        localStorage.removeItem('customerQrToken');
-        localStorage.removeItem('customerId');
-        localStorage.removeItem('customerDisplayName');
-        localStorage.removeItem('tableNumber');
-        localStorage.removeItem('slotNumber');
-        localStorage.removeItem('customerSelectedDatabase');
-        localStorage.removeItem('tableIsOccupied');
-      }
     } catch (error) {
-      setSnackbar(showUserFriendlyError(error, 'processing payment'));
+      setSnackbar(showUserFriendlyError(error, 'requesting the bill'));
     }
   }, [userOrders, tableNumber, fetchOrders]);
 
@@ -467,20 +576,11 @@ const CustomerMenu = () => {
     setCartDialogOpen(false);
   }, []);
 
-  const handleOpenOrderHistory = useCallback(async () => {
-    setOrderHistoryOpen(true);
-    await fetchOrders();
-  }, [fetchOrders]);
-
-  const handleCloseOrderHistory = useCallback(() => {
-    setOrderHistoryOpen(false);
-  }, []);
-
   const handleBackToHome = useCallback(() => {
-    window.location.href = '/';
-  }, []);
+    navigate(`/customer/home?table_number=${tableNumber}&slot_number=${slotNumber}&unique_id=${uniqueId || ''}&user_id=${userId}`);
+  }, [navigate, tableNumber, slotNumber, uniqueId, userId]);
 
-  // Memoized utility functions
+  // Optimized utility functions
   const formatDate = useCallback((dateString) => {
     return moment(dateString).tz('Asia/Kolkata').format('MMM D, YYYY h:mm A');
   }, []);
@@ -489,6 +589,7 @@ const CustomerMenu = () => {
     const statusColors = {
       'pending': 'warning',
       'accepted': 'info',
+      'rejected': 'error',
       'completed': 'success',
       'payment_requested': 'info',
       'paid': 'success',
@@ -501,341 +602,452 @@ const CustomerMenu = () => {
     const statusLabels = {
       'pending': 'Waiting',
       'accepted': 'Preparing',
+      'rejected': 'Rejected',
       'completed': 'Ready',
-      'payment_requested': 'Payment Requested',
+      'payment_requested': 'Bill Requested',
       'paid': 'Paid',
       'cancelled': 'Cancelled'
     };
     return statusLabels[status] || status;
   }, []);
 
+  // The order currently being worked on at this table (for the live status banner)
+  const activeTableOrder = useMemo(() => {
+    const active = userOrders.find(o =>
+      o.table_number === parseInt(tableNumber) &&
+      ['pending', 'accepted', 'payment_requested'].includes(o.status)
+    );
+    return active || null;
+  }, [userOrders, tableNumber]);
+
+  const hasCompletedForBill = userOrders.some(o =>
+    o.status === 'completed' && o.table_number === parseInt(tableNumber)
+  );
+  const hasPaymentRequested = userOrders.some(o =>
+    o.status === 'payment_requested' && o.table_number === parseInt(tableNumber)
+  );
+
   return (
     <ProductionErrorBoundary>
-      <Container maxWidth="lg" sx={{ px: { xs: 0, sm: 2 }, position: 'relative', pb: 2 }}>
-      {/* Back to Home Button - Only show if user hasn't placed any order in current session */}
-      {!hasPlacedOrderInSession && (
+      <Box sx={{
+        minHeight: '100dvh',
+        backgroundColor: theme.palette.background.default,
+        position: 'relative',
+        pb: 2,
+      }}>
+      {/* Sticky Header — title + search + cart (mobile app frame) */}
+      <Box
+        sx={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 1000,
+          backgroundColor: theme.palette.background.paper,
+          pt: 'calc(env(safe-area-inset-top, 0px) + 12px)',
+          px: { xs: 2, sm: 3 },
+          pb: 0.5,
+        }}
+      >
+        <Box display="flex" alignItems="center" justifyContent="space-between" gap={1} sx={{ mb: 1 }}>
+          <Box display="flex" alignItems="center" gap={0.5} minWidth={0}>
+            <IconButton onClick={handleBackToHome} aria-label="Home" sx={{ color: theme.palette.text.primary, p: 0.5 }}>
+              <ArrowBackIcon />
+            </IconButton>
+            <Typography variant="h6" fontWeight="bold" noWrap sx={{ color: theme.palette.text.primary }}>
+              {databaseName || 'Menu'}
+            </Typography>
+          </Box>
+          {/* Cart button — square icon container, rounded corners */}
+          <IconButton
+            onClick={handleOpenCartDialog}
+            aria-label="Cart"
+            sx={{
+              backgroundColor: theme.palette.mode === 'light' ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.09)',
+              borderRadius: '12px',
+              width: 44,
+              height: 44,
+              '&:hover': { backgroundColor: 'rgba(255,165,0,0.15)' },
+            }}
+          >
+            <Badge badgeContent={cartCount} color="error" sx={{ '& .MuiBadge-badge': { fontWeight: 'bold' } }}>
+              <ShoppingCartIcon sx={{ color: theme.palette.text.primary }} />
+            </Badge>
+          </IconButton>
+        </Box>
+        {/* Search bar — wide thin strip, magnifier left, subtle divider below */}
+        <TextField
+          fullWidth
+          variant="standard"
+          placeholder="Search dishes..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          InputProps={{
+            startAdornment: <SearchIcon sx={{ color: theme.palette.text.secondary, mr: 1, fontSize: 20 }} />,
+            sx: { fontSize: '0.95rem', pb: 1, color: theme.palette.text.primary },
+          }}
+          sx={{
+            '& .MuiInput-underline:before': {
+              borderBottomColor: theme.palette.mode === 'light' ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.15)',
+            },
+            '& .MuiInput-underline:hover:not(.Mui-disabled):before': {
+              borderBottomColor: 'rgba(255,165,0,0.4)',
+            },
+            '& .MuiInput-underline:after': { borderBottomColor: '#FFA500' },
+          }}
+        />
+      </Box>
+
+      {/* Live Order Status Banner — keeps the user updated on every move */}
+      {activeTableOrder && (
+        <Paper
+          elevation={3}
+          sx={{
+            mt: 2,
+            mx: { xs: 2, sm: 3 },
+            p: 2,
+            borderRadius: '16px',
+            backgroundColor: theme.palette.background.paper,
+            border: '1px solid rgba(255, 165, 0, 0.3)',
+          }}
+        >
+          <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1}>
+            <Box>
+              <Typography variant="subtitle1" fontWeight="bold" color={theme.palette.text.primary}>
+                Order #{activeTableOrder.id}
+                <Chip
+                  label={getStatusLabel(activeTableOrder.status)}
+                  color={getStatusColor(activeTableOrder.status)}
+                  size="small"
+                  sx={{ ml: 1, fontWeight: 'bold' }}
+                />
+              </Typography>
+              <Typography variant="body2" sx={{ color: theme.palette.text.secondary }}>
+                {activeTableOrder.status === 'payment_requested'
+                  ? 'Bill requested — please pay at the counter'
+                  : 'The kitchen is updating you live on every dish'}
+              </Typography>
+            </Box>
+            <Box display="flex" flexWrap="wrap" gap={0.5} justifyContent="flex-end">
+              {activeTableOrder.items.map((item) => (
+                <Chip
+                  key={item.id}
+                  size="small"
+                  label={item.dish?.name || 'Dish'}
+                  color={item.status === 'rejected' ? 'error' : item.status === 'accepted' ? 'success' : 'warning'}
+                  variant={item.status === 'pending' ? 'outlined' : 'filled'}
+                />
+              ))}
+            </Box>
+          </Box>
+        </Paper>
+      )}
+
+      {/* Main Content Sheet — asymmetric: top-left corner rounded, top-right straight */}
+      <Box sx={{ mt: 2, px: { xs: 0, sm: 2 } }}>
+        <Paper
+          elevation={0}
+          sx={{
+            borderRadius: '28px 0 0 0',
+            backgroundColor: theme.palette.background.paper,
+            minHeight: '70vh',
+            px: { xs: 2, sm: 3 },
+            pt: 2.5,
+            pb: 10,
+            borderTop: '1px solid rgba(255,165,0,0.12)',
+          }}
+        >
+          {/* Category Selector — horizontal text list, active is bold */}
+          <Box
+            sx={{
+              display: 'flex',
+              gap: 2,
+              overflowX: 'auto',
+              pb: 1,
+              mb: 1.5,
+              '&::-webkit-scrollbar': { display: 'none' },
+            }}
+          >
+            {['All', ...categories.filter(c => c !== 'All')].map(cat => (
+              <Typography
+                key={cat}
+                onClick={() => handleCategoryChange(null, cat)}
+                sx={{
+                  whiteSpace: 'nowrap',
+                  cursor: 'pointer',
+                  fontSize: '0.95rem',
+                  fontWeight: currentCategory === cat ? 700 : 500,
+                  color: currentCategory === cat ? '#FFA500' : theme.palette.text.secondary,
+                  transition: 'color 0.15s ease',
+                }}
+              >
+                {cat}
+              </Typography>
+            ))}
+          </Box>
+
+          {/* Vegetarian filter pills */}
+          <Box sx={{ display: 'flex', gap: 1, mb: 2, overflowX: 'auto', '&::-webkit-scrollbar': { display: 'none' } }}>
+            {['All', 'Vegetarian', 'Non-Vegetarian'].map(v => (
+              <Chip
+                key={v}
+                label={v}
+                size="small"
+                clickable
+                onClick={() => handleVegetarianFilterChange(null, v)}
+                sx={{
+                  borderRadius: '999px',
+                  flexShrink: 0,
+                  backgroundColor: vegetarianFilter === v ? '#FFA500' : 'transparent',
+                  color: vegetarianFilter === v ? '#000' : theme.palette.text.secondary,
+                  fontWeight: vegetarianFilter === v ? 700 : 500,
+                  border: '1px solid rgba(255,165,0,0.4)',
+                }}
+              />
+            ))}
+          </Box>
+
+          {/* Special Offers Section */}
+          <SpecialOffers
+            offers={offers}
+            loading={loading.offers}
+            handleOpenDialog={handleOpenDialog}
+            calculateDiscountedPrice={calculateDiscountedPrice}
+          />
+
+          {/* Today's Special Section */}
+          <TodaySpecials
+            specials={specials}
+            loading={loading.specials}
+            handleOpenDialog={handleOpenDialog}
+          />
+
+          {/* Regular Menu Items */}
+          <MenuItemsGrid
+            filteredDishes={filteredDishes}
+            currentCategory={currentCategory}
+            loading={loading.dishes}
+            handleOpenDialog={handleOpenDialog}
+            categoryColors={categoryColors}
+            theme={theme}
+            showPrices={showPrices}
+          />
+        </Paper>
+      </Box>
+
+      {/* Floating Get Bill bar — appears once orders are delivered */}
+      {(hasCompletedForBill || hasPaymentRequested) && (
         <Box
           sx={{
             position: 'fixed',
-            top: { xs: 'calc(12px + var(--safe-area-top, 0px))', sm: 20 },
-            left: { xs: 'calc(12px + var(--safe-area-left, 0px))', sm: 20 },
+            bottom: 0,
+            left: 0,
+            right: 0,
             zIndex: 1000,
+            p: 1.5,
+            backgroundColor: theme.palette.mode === 'light'
+              ? 'rgba(255,255,255,0.96)'
+              : 'rgba(23,23,21,0.96)',
+            borderTop: `1px solid ${theme.palette.mode === 'light' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'}`,
+            backdropFilter: 'blur(16px)',
+            paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)',
           }}
         >
           <Button
             variant="contained"
-            startIcon={<ArrowBackIcon />}
-            onClick={handleBackToHome}
+            fullWidth
+            startIcon={<PaymentIcon />}
+            onClick={handleRequestPayment}
+            disabled={!hasCompletedForBill}
             sx={{
-              backgroundColor: theme.palette.mode === 'light' ? 'rgba(255,255,255,0.9)' : 'rgba(0, 0, 0, 0.8)',
-              color: theme.palette.mode === 'light' ? '#1A1A1A' : 'white',
-              border: `2px solid ${theme.palette.mode === 'light' ? 'rgba(255, 165, 0, 0.6)' : 'rgba(255, 165, 0, 0.5)'}`,
-              borderRadius: '12px',
-              px: { xs: 1.25, sm: 2 },
-              py: 0.8,
+              py: 1.25,
+              borderRadius: '14px',
               fontWeight: 'bold',
-              fontSize: '0.9rem',
-              backdropFilter: 'blur(10px)',
-              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
-              transition: 'all 0.3s ease',
-              '&:hover': {
-                backgroundColor: 'rgba(255, 165, 0, 0.1)',
-                borderColor: '#FFA500',
-                color: theme.palette.mode === 'light' ? '#1A1A1A' : 'white',
-                transform: 'translateY(-2px)',
-                boxShadow: '0 12px 40px rgba(255, 165, 0, 0.2)',
+              fontSize: '0.95rem',
+              backgroundColor: '#4DAA57',
+              color: '#FFFFFF',
+              boxShadow: '0 4px 10px rgba(0, 0, 0, 0.3)',
+              '&:hover': { backgroundColor: '#3D8A47' },
+              '&.Mui-disabled': {
+                backgroundColor: 'rgba(77, 170, 87, 0.4)',
+                color: 'rgba(255, 255, 255, 0.7)',
               },
-              '&:active': {
-                transform: 'translateY(0px)',
-              }
             }}
           >
-            <HomeIcon sx={{ mr: 0.5, fontSize: '1.1rem', color: theme.palette.mode === 'light' ? '#1A1A1A' : 'white' }} />
-            Home
+            {hasCompletedForBill ? 'Get Bill' : 'Bill Requested'}
           </Button>
         </Box>
       )}
 
-      {/* Hero Banner */}
-      <HeroBanner tableNumber={tableNumber} uniqueId={uniqueId} databaseName={databaseName} />
+      {/* Bottom spacer when the bill bar is visible */}
+      {(hasCompletedForBill || hasPaymentRequested) && (
+        <Box sx={{ height: 'calc(88px + env(safe-area-inset-bottom, 0px))' }} />
+      )}
 
-      {/* Special Offers Section */}
-      <SpecialOffers
-        offers={offers}
-        loading={loading.offers}
-        handleOpenDialog={handleOpenDialog}
-        calculateDiscountedPrice={calculateDiscountedPrice}
-      />
-
-      {/* Today's Special Section */}
-      <TodaySpecials
-        specials={specials}
-        loading={loading.specials}
-        handleOpenDialog={handleOpenDialog}
-      />
-
-      <Grid container spacing={4}>
-        {/* Menu */}
-        <Grid item xs={12}>
-          <Paper
-            elevation={3}
-            sx={{
-              p: { xs: 2, sm: 3 },
-              mb: 6,
-              borderRadius: { xs: '24px 24px 0 0', sm: '20px' },
-              backgroundColor: theme.palette.background.paper,
-              color: theme.palette.text.primary,
-              border: '1px solid rgba(255,255,255,0.08)',
-              position: 'relative',
-              boxShadow: '0 12px 30px rgba(0,0,0,0.18)',
-            }}
-          >
-            <Typography variant="h4" component="h2" fontWeight="bold" gutterBottom
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                color: theme.palette.text.primary,
-                mb: 2.5,
-                fontSize: { xs: '1.3rem', sm: '1.75rem', md: '2.125rem' },
-                '&:after': {
-                  content: '""',
-                  display: 'block',
-                  height: '1px',
-                  flexGrow: 1,
-                  backgroundColor: 'rgba(255, 165, 0, 0.3)',
-                  ml: 2
-                }
-              }}
-            >
-              Our <Box component="span" sx={{ color: '#FFA500', ml: 1 }}>Menu</Box>
-            </Typography>
-
-            {/* Vegetarian Filter */}
-            <Box sx={{ mb: 2.5, display: 'flex', justifyContent: 'flex-start', overflowX: 'auto' }}>
-              <Tabs
-                value={vegetarianFilter}
-                onChange={handleVegetarianFilterChange}
-                variant="standard"
-                sx={{
-                  '& .MuiTabs-indicator': { display: 'none' },
-                  '& .MuiTab-root': {
-                    color: theme.palette.text.secondary, border: '1px solid rgba(255,255,255,0.1)', borderRadius: '999px', mr: 1,
-                    fontWeight: 'medium',
-                    minWidth: 'auto',
-                    px: 2,
-                    '&.Mui-selected': {
-                      color: '#171715', backgroundColor: '#F7B538',
-                    },
-                  },
-                }}
-              >
-                <Tab
-                  label="All"
-                  value="All"
-                  icon={<Box sx={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: '#FFA500' }} />}
-                  iconPosition="start"
-                />
-                <Tab
-                  label="Vegetarian"
-                  value="Vegetarian"
-                  icon={<Box sx={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: '#4CAF50' }} />}
-                  iconPosition="start"
-                />
-                <Tab
-                  label="Non-Vegetarian"
-                  value="Non-Vegetarian"
-                  icon={<Box sx={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: '#F44336' }} />}
-                  iconPosition="start"
-                />
-              </Tabs>
-            </Box>
-
-            {/* Category Tabs */}
-            <MenuCategories
-              categories={categories}
-              currentCategory={currentCategory}
-              handleCategoryChange={handleCategoryChange}
-              loading={loading.categories}
-            />
-
-            {/* Regular Menu Items */}
-            <MenuItemsGrid
-              filteredDishes={filteredDishes}
-              currentCategory={currentCategory}
-              loading={loading.dishes}
-              handleOpenDialog={handleOpenDialog}
-              categoryColors={categoryColors}
-              theme={theme}
-              showPrices={showPrices}
-            />
-          </Paper>
-        </Grid>
-      </Grid>
-
-      {/* Add to Cart Dialog */}
+      {/* Add to Cart Dialog — clean mobile bottom sheet */}
       <Dialog
         open={openDialog}
         onClose={handleCloseDialog}
-        maxWidth="xs"
+        maxWidth="sm"
         fullWidth
+        sx={{ '& .MuiDialog-paper': { m: 0 } }}
         PaperProps={{
           sx: {
-            borderRadius: '6px',
+            borderRadius: '26px 26px 0 0',
             backgroundColor: theme.palette.background.paper,
             color: theme.palette.text.primary,
-            border: '1px solid rgba(255, 165, 0, 0.3)',
-            boxShadow: '0 15px 40px rgba(0, 0, 0, 0.4)',
-            position: 'relative',
-            '&::after': {
-              content: '""',
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '4px',
-              backgroundColor: '#FFA500',
-            }
+            boxShadow: '0 -12px 40px rgba(0, 0, 0, 0.35)',
+            maxHeight: { xs: '92dvh', sm: '85dvh' },
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
           }
         }}
       >
-        <DialogTitle sx={{ pb: 1, borderBottom: '1px solid rgba(255, 165, 0, 0.2)' }}>
-          <Box display="flex" alignItems="center" gap={1}>
-            {/* Vegetarian/Non-Vegetarian Indicator */}
-            <Box
-              sx={{
-                width: 14,
-                height: 14,
-                borderRadius: '50%',
-                backgroundColor: selectedDish?.is_vegetarian === 1 ? '#4CAF50' : '#F44336',
-                flexShrink: 0
-              }}
-            />
-            <Typography variant="h6" fontWeight="bold" color={theme.palette.text.primary}>{selectedDish?.name}</Typography>
-          </Box>
-        </DialogTitle>
-        <DialogContent dividers sx={{ borderColor: 'rgba(255, 165, 0, 0.2)' }}>
-          {selectedDish && (
-            <>
+        {selectedDish && (
+          <>
+            {/* Media — full-bleed, clipped to the sheet's rounded top corners */}
+            <Box sx={{ position: 'relative', width: '100%', height: { xs: 220, sm: 280 }, flexShrink: 0 }}>
+              <img
+                src={selectedDish.image_path ? `${apiBaseUrl}${selectedDish.image_path}` : 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80'}
+                alt={selectedDish.name}
+                loading="lazy"
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+              {/* soft bottom gradient for legibility of the badge */}
+              <Box sx={{
+                position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+                background: 'linear-gradient(to top, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0) 40%)',
+              }} />
+              {/* Vegetarian/Non-Vegetarian Indicator */}
               <Box
                 sx={{
-                  height: { xs: 160, sm: 200 },
-                  borderRadius: '12px',
-                  overflow: 'hidden',
-                  mb: 3,
-                  position: 'relative'
+                  position: 'absolute', top: 14, left: 14,
+                  width: 24, height: 24, borderRadius: '8px',
+                  backgroundColor: 'rgba(255,255,255,0.95)',
+                  border: '2px solid',
+                  borderColor: selectedDish.is_vegetarian === 1 ? '#4CAF50' : '#F44336',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  zIndex: 2,
                 }}
               >
-                <img
-                  src={selectedDish.image_path ? `${apiBaseUrl}${selectedDish.image_path}` : 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=600&q=80'}
-                  alt={selectedDish.name}
-                  loading="lazy"
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                />
-                <Box
-                  sx={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    height: '100%',
-                    background: 'linear-gradient(to top, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0) 50%)',
-                  }}
-                />
-                <Box
-                  sx={{
-                    position: 'absolute',
-                    bottom: 0,
-                    left: 0,
-                    width: '100%',
-                    p: 2,
-                    color: 'white'
-                  }}
-                >
-                  {showPrices && (
-                    selectedDish.is_offer === 1 ? (
-                      <Box>
-                        <Typography variant="body2" color="text.secondary" sx={{ textDecoration: 'line-through' }}>
-                          ₹{selectedDish.price.toFixed(2)}
-                        </Typography>
-                        <Typography variant="h6" fontWeight="bold" color="error.main">
-                          ₹{calculateDiscountedPrice(selectedDish.price, selectedDish.discount)}
-                        </Typography>
-                      </Box>
-                    ) : (
-                      <Typography variant="h6" fontWeight="bold">₹{selectedDish.price.toFixed(2)}</Typography>
-                    )
+                <Box sx={{
+                  width: 9, height: 9, borderRadius: '50%',
+                  backgroundColor: selectedDish.is_vegetarian === 1 ? '#4CAF50' : '#F44336',
+                }} />
+              </Box>
+              {/* Close */}
+              <IconButton
+                onClick={handleCloseDialog}
+                aria-label="Close"
+                sx={{
+                  position: 'absolute', top: 10, right: 10, zIndex: 2,
+                  backgroundColor: 'rgba(0,0,0,0.45)',
+                  backdropFilter: 'blur(6px)',
+                  color: '#FFF',
+                  width: 36, height: 36,
+                  '&:hover': { backgroundColor: 'rgba(0,0,0,0.65)' },
+                }}
+              >
+                <CloseIcon sx={{ fontSize: 20 }} />
+              </IconButton>
+            </Box>
+
+            {/* Details */}
+            <Box sx={{ p: { xs: 2.5, sm: 3 }, pb: 0, overflowY: 'auto', flex: 1 }}>
+              {/* Title + price */}
+              <Box display="flex" alignItems="flex-start" justifyContent="space-between" gap={2}>
+                <Typography variant="h5" fontWeight="bold" sx={{ color: theme.palette.text.primary, fontSize: { xs: '1.25rem', sm: '1.5rem' }, lineHeight: 1.25 }}>
+                  {selectedDish.name}
+                </Typography>
+              </Box>
+              {showPrices && (
+                <Box display="flex" alignItems="baseline" gap={1} mt={0.75}>
+                  {selectedDish.is_offer === 1 ? (
+                    <>
+                      <Typography variant="body1" fontWeight="bold" color="#FFA500" sx={{ fontSize: { xs: '1.2rem', sm: '1.35rem' } }}>
+                        ₹{calculateDiscountedPrice(selectedDish.price, selectedDish.discount)}
+                      </Typography>
+                      <Typography variant="body2" sx={{ color: theme.palette.text.disabled, textDecoration: 'line-through' }}>
+                        ₹{selectedDish.price.toFixed(2)}
+                      </Typography>
+                      <Chip
+                        label={`${selectedDish.discount}% OFF`}
+                        size="small"
+                        sx={{ height: 20, fontSize: '0.65rem', fontWeight: 800, backgroundColor: 'rgba(255,56,92,0.12)', color: '#FF385C', border: '1px solid rgba(255,56,92,0.3)' }}
+                      />
+                    </>
+                  ) : (
+                    <Typography variant="body1" fontWeight="bold" color="#FFA500" sx={{ fontSize: { xs: '1.2rem', sm: '1.35rem' } }}>
+                      ₹{selectedDish.price.toFixed(2)}
+                    </Typography>
                   )}
                 </Box>
-              </Box>
+              )}
 
-              <Typography variant="subtitle1" gutterBottom fontWeight="bold" color={theme.palette.text.primary}>
-                Description
-              </Typography>
-              <Typography variant="body2" sx={{ color: theme.palette.text.secondary }} paragraph>
+              <Typography variant="body2" sx={{ color: theme.palette.text.secondary, mt: 1.5, lineHeight: 1.6 }}>
                 {selectedDish.description || 'A delicious dish prepared with quality ingredients.'}
               </Typography>
 
-              <Divider sx={{ my: 2, backgroundColor: 'rgba(255, 165, 0, 0.2)' }} />
+              <Divider sx={{ my: 2, borderColor: theme.palette.divider }} />
 
-              <Typography variant="subtitle1" gutterBottom fontWeight="bold" color={theme.palette.text.primary}>
-                Quantity
-              </Typography>
-              <Box
-                display="flex"
-                alignItems="center"
-                sx={{
-                  border: '1px solid',
-                  borderColor: 'rgba(255, 165, 0, 0.3)',
-                  borderRadius: '4px',
-                  width: 'fit-content',
-                  px: 1,
-                  backgroundColor: theme.palette.background.paper
-                }}
-              >
-                <IconButton
-                  size="medium"
-                  onClick={decrementQuantity}
+              {/* Quantity */}
+              <Box display="flex" alignItems="center" justifyContent="space-between">
+                <Typography variant="subtitle1" fontWeight="bold" sx={{ color: theme.palette.text.primary }}>
+                  Quantity
+                </Typography>
+                <Box
+                  display="flex"
+                  alignItems="center"
                   sx={{
-                    color: quantity === 1 ? theme.palette.text.disabled : '#FFA500',
-                    minWidth: 44,
-                    minHeight: 44,
-                    '&:hover': {
-                      backgroundColor: quantity === 1 ? 'transparent' : 'rgba(255,165,0,0.1)'
-                    }
+                    border: '1px solid rgba(255,165,0,0.35)',
+                    borderRadius: '999px',
+                    backgroundColor: theme.palette.background.default,
+                    overflow: 'hidden',
                   }}
-                  disabled={quantity === 1}
                 >
-                  <RemoveIcon />
-                </IconButton>
-                <TextField
-                  variant="standard"
-                  value={quantity}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value);
-                    if (!isNaN(val) && val > 0) {
-                      setQuantity(val);
-                    }
-                  }}
-                  inputProps={{ inputMode: 'numeric', pattern: '[0-9]*' }}
-                  InputProps={{
-                    disableUnderline: true,
-                    inputProps: {
-                      style: { textAlign: 'center', width: '40px', fontWeight: 'bold', color: theme.palette.text.primary }
-                    }
-                  }}
-                />
-                <IconButton size="medium" onClick={incrementQuantity} sx={{ color: '#FFA500', minWidth: 44, minHeight: 44 }}>
-                  <AddIcon />
-                </IconButton>
+                  <IconButton
+                    size="small"
+                    onClick={decrementQuantity}
+                    disabled={quantity === 1}
+                    sx={{
+                      color: quantity === 1 ? theme.palette.text.disabled : '#FFA500',
+                      width: 42, height: 42,
+                      borderRadius: 0,
+                      '&:hover': { backgroundColor: quantity === 1 ? 'transparent' : 'rgba(255,165,0,0.1)' },
+                    }}
+                  >
+                    <RemoveIcon sx={{ fontSize: 20 }} />
+                  </IconButton>
+                  <TextField
+                    variant="standard"
+                    value={quantity}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value);
+                      if (!isNaN(val) && val > 0) {
+                        setQuantity(val);
+                      }
+                    }}
+                    inputProps={{ inputMode: 'numeric', pattern: '[0-9]*' }}
+                    InputProps={{
+                      disableUnderline: true,
+                      inputProps: {
+                        style: { textAlign: 'center', width: '36px', fontWeight: 'bold', color: theme.palette.text.primary }
+                      }
+                    }}
+                  />
+                  <IconButton size="small" onClick={incrementQuantity} sx={{ color: '#FFA500', width: 42, height: 42, borderRadius: 0 }}>
+                    <AddIcon sx={{ fontSize: 20 }} />
+                  </IconButton>
+                </Box>
               </Box>
 
-              <Box mt={3}>
-                <Typography variant="subtitle1" gutterBottom fontWeight="bold" color={theme.palette.text.primary}>
-                  Special Instructions (Optional)
+              {/* Special Instructions */}
+              <Box mt={2.5} mb={2.5}>
+                <Typography variant="subtitle1" gutterBottom fontWeight="bold" sx={{ color: theme.palette.text.primary }}>
+                  Special Instructions <Typography component="span" variant="caption" sx={{ color: theme.palette.text.disabled, fontWeight: 500 }}>(Optional)</Typography>
                 </Typography>
                 <TextField
                   multiline
-                  rows={3}
+                  rows={2}
                   fullWidth
                   variant="outlined"
                   placeholder="E.g., No onions, extra spicy, etc."
@@ -843,71 +1055,72 @@ const CustomerMenu = () => {
                   onChange={(e) => setRemarks(e.target.value)}
                   sx={{
                     '& .MuiOutlinedInput-root': {
-                      borderRadius: '4px',
-                      backgroundColor: theme.palette.background.paper,
-                      borderColor: 'rgba(255, 165, 0, 0.3)',
+                      borderRadius: '14px',
+                      backgroundColor: theme.palette.background.default,
                       color: theme.palette.text.primary,
                       '&:hover .MuiOutlinedInput-notchedOutline': {
-                        borderColor: 'rgba(255, 165, 0, 0.5)',
+                        borderColor: 'rgba(255,165,0,0.5)',
                       },
                       '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
                         borderColor: '#FFA500',
                       },
                       '& .MuiOutlinedInput-notchedOutline': {
-                        borderColor: 'rgba(255, 165, 0, 0.3)',
+                        borderColor: 'rgba(255,165,0,0.3)',
                       },
                     },
-                    '& .MuiInputBase-input': {
-                      color: theme.palette.text.primary,
-                    },
-                    '& .MuiFormLabel-root': {
-                      color: theme.palette.text.secondary,
-                    },
-                    '& .MuiFormLabel-root.Mui-focused': {
-                      color: '#FFA500',
-                    },
-                  }}
-                  InputProps={{
-                    style: { color: theme.palette.text.primary }
+                    '& .MuiInputBase-input': { color: theme.palette.text.primary },
                   }}
                 />
               </Box>
-            </>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ px: 3, py: 3, backgroundColor: theme.palette.background.paper, borderTop: '1px solid rgba(255, 165, 0, 0.2)' }}>
-          <Button
-            onClick={handleCloseDialog}
-            variant="outlined"
-            sx={{
-              borderColor: 'rgba(255, 165, 0, 0.5)',
-              color: '#FFA500',
-              borderRadius: '4px',
-              '&:hover': {
-                borderColor: '#FFA500',
-                backgroundColor: 'rgba(255, 165, 0, 0.08)'
-              }
-            }}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={handleAddToCart}
-            sx={{
-              px: 3,
-              borderRadius: '4px',
-              boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
-              backgroundColor: '#FFA500',
-              '&:hover': {
-                backgroundColor: '#E69500',
-              }
-            }}
-          >
-            Add to Cart {quantity > 1 && `(${quantity})`}
-          </Button>
-        </DialogActions>
+            </Box>
+
+            {/* Sticky action bar — price + add button */}
+            <Box
+              sx={{
+                p: { xs: 2, sm: 2.5 },
+                borderTop: '1px solid',
+                borderColor: theme.palette.divider,
+                backgroundColor: theme.palette.background.paper,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.5,
+                flexShrink: 0,
+                paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))',
+              }}
+            >
+              {showPrices && (
+                <Box sx={{ minWidth: 84 }}>
+                  <Typography variant="caption" sx={{ color: theme.palette.text.secondary, display: 'block', fontWeight: 600 }}>
+                    Total
+                  </Typography>
+                  <Typography variant="h6" fontWeight="800" color="#FFA500" noWrap sx={{ lineHeight: 1.2 }}>
+                    ₹{(parseFloat(selectedDish.is_offer === 1
+                      ? calculateDiscountedPrice(selectedDish.price, selectedDish.discount)
+                      : selectedDish.price.toFixed(2)
+                    ) * quantity).toFixed(2)}
+                  </Typography>
+                </Box>
+              )}
+              <Button
+                variant="contained"
+                fullWidth
+                onClick={handleAddToCart}
+                sx={{
+                  py: 1.4,
+                  borderRadius: '16px',
+                  backgroundColor: '#FFA500',
+                  color: '#1A1408',
+                  fontWeight: 800,
+                  fontSize: '0.95rem',
+                  boxShadow: '0 6px 18px rgba(255,165,0,0.35)',
+                  '&:hover': { backgroundColor: '#FFB800' },
+                }}
+              >
+                Add to Cart {quantity > 1 ? `· ${quantity} items` : ''}
+              </Button>
+            </Box>
+          </>
+        )}
       </Dialog>
 
       {/* Order Confirmation Dialog */}
@@ -928,162 +1141,45 @@ const CustomerMenu = () => {
         calculateDiscountedPrice={calculateDiscountedPrice}
       />
 
-      {/* Order History Dialog */}
-      <OrderHistoryDialog
-        open={orderHistoryOpen}
-        onClose={handleCloseOrderHistory}
-        userOrders={userOrders}
-        loadingOrders={false}
-        formatDate={formatDate}
-        getStatusLabel={getStatusLabel}
-        getStatusColor={getStatusColor}
-        refreshOrders={fetchOrders}
-      />
-
-      {/* Bottom App Bar — mobile-first layout */}
-      <AppBar
-        position="fixed"
-        sx={{
-          top: 'auto', bottom: 0,
-          backgroundColor: theme.palette.mode === 'light'
-            ? 'rgba(255,255,255,0.96)'
-            : 'rgba(23,23,21,0.96)',
-          borderTop: `1px solid ${theme.palette.mode === 'light' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'}`,
-          boxShadow: '0 -8px 28px rgba(0,0,0,0.32)',
-          backdropFilter: 'blur(16px)',
-          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-        }}
-      >
-        <Toolbar
-          sx={{
-            display: 'flex',
-            flexWrap: 'nowrap',
-            gap: 1,
-            py: 1,
-            px: { xs: 1, sm: 2 },
-            justifyContent: 'space-between',
-            minHeight: { xs: 64, sm: 68 },
-          }}
-        >
-          {/* Orders history button */}
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<HistoryIcon />}
-            onClick={handleOpenOrderHistory}
-            sx={{
-              borderColor: theme.palette.mode === 'light' ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.18)',
-              color: theme.palette.mode === 'light' ? '#1A1A1A' : 'rgba(255,255,255,0.86)',
-              borderRadius: '12px',
-              '&:hover': { borderColor: '#FFA500', bgcolor: 'rgba(255,165,0,0.1)' },
-              minWidth: 0, px: { xs: 1.25, sm: 2 },
-              fontSize: { xs: '0.75rem', sm: '0.875rem' },
-            }}
-          >
-            Orders
-          </Button>
-
-          {/* Cart button */}
-          <Button
-            variant="contained"
-            size="small"
-            startIcon={
-              <Badge badgeContent={cartCount} color="error"
-                sx={{ '& .MuiBadge-badge': { bgcolor: '#000', color: '#FFA500', border: '1px solid #FFA500', fontWeight: 'bold' } }}>
-                <ShoppingCartIcon />
-              </Badge>
-            }
-            onClick={handleOpenCartDialog}
-            sx={{
-              bgcolor: '#F7B538', color: '#1A1408', fontWeight: 700, borderRadius: '12px',
-              px: { xs: 1.5, sm: 3 },
-              fontSize: { xs: '0.75rem', sm: '0.875rem' },
-              '&:hover': { bgcolor: '#E69500' },
-            }}
-          >
-            Cart{cartCount > 0 ? ` (${cartCount})` : ''}
-          </Button>
-
-          {/* Payment button — only when orders are completed */}
-          {userOrders && userOrders.some(order =>
-            order.status === 'completed' &&
-            order.table_number === parseInt(tableNumber)
-          ) && (
-            <Button
-              variant="contained"
-              startIcon={<PaymentIcon />}
-              onClick={handleRequestPayment}
-              sx={{
-                ml: 0,
-                py: { xs: 0.75, sm: 1.2 },
-                px: { xs: 1.25, sm: 3 },
-                borderRadius: '12px',
-                fontWeight: 'bold',
-                fontSize: { xs: '0.75rem', sm: '0.875rem' },
-                backgroundColor: '#4DAA57',
-                color: '#FFFFFF',
-                border: '2px solid #4DAA57',
-                boxShadow: '0 4px 10px rgba(0, 0, 0, 0.3)',
-                position: 'relative',
-                overflow: 'hidden',
-                '&::after': {
-                  content: '""',
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  height: '100%',
-                  background: 'linear-gradient(rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0))',
-                  opacity: 0.5
-                },
-                '&:hover': {
-                  backgroundColor: '#3D8A47',
-                  boxShadow: '0 6px 15px rgba(0, 0, 0, 0.4)',
-                },
-              }}
-            >
-              Payment
-            </Button>
-          )}
-        </Toolbar>
-      </AppBar>
-
-      {/* Add padding at the bottom to account for the bottom bar + safe area */}
-      <Box sx={{ height: { xs: 'calc(92px + env(safe-area-inset-bottom, 0px))', sm: 88 } }} />
-
       {/* Payment Dialog */}
       <Dialog
         open={paymentDialogOpen}
         onClose={handleClosePaymentDialog}
         maxWidth="sm"
         fullWidth
+        sx={{ '& .MuiDialog-paper': { m: 0 } }}
         PaperProps={{
           sx: {
-            borderRadius: '16px',
+            borderRadius: '26px 26px 0 0',
             backgroundColor: theme.palette.background.paper,
             color: theme.palette.text.primary,
-            border: '1px solid rgba(255, 165, 0, 0.3)',
+            boxShadow: '0 -12px 40px rgba(0, 0, 0, 0.35)',
+            maxHeight: { xs: '92dvh', sm: '85dvh' },
           }
         }}
       >
-        <DialogTitle sx={{ borderBottom: '1px solid rgba(255, 165, 0, 0.2)' }}>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', py: 2 }}>
           <Box display="flex" alignItems="center">
-            <PaymentIcon sx={{ mr: 2, color: '#FFA500' }} />
+            <PaymentIcon sx={{ mr: 1.5, color: '#FFA500' }} />
             <Typography variant="h5" component="h2" fontWeight="bold" color={theme.palette.text.primary}>
-              Payment Details
+              Bill Details
             </Typography>
           </Box>
+          <IconButton onClick={handleClosePaymentDialog} size="small" sx={{ color: theme.palette.text.secondary }}>
+            <CloseIcon />
+          </IconButton>
         </DialogTitle>
-        <DialogContent dividers sx={{ borderColor: 'rgba(255, 165, 0, 0.2)' }}>
+        <DialogContent dividers sx={{ borderColor: theme.palette.divider }}>
           {unpaidOrders.length > 0 ? (
             <Box>
               <Paper
                 elevation={0}
                 sx={{
-                  p: 3,
+                  p: 2.5,
                   mb: 3,
-                  borderRadius: '12px',
-                  border: '1px solid rgba(255, 165, 0, 0.2)',
+                  borderRadius: '18px',
+                  border: '1px solid',
+                  borderColor: theme.palette.divider,
                   backgroundColor: theme.palette.background.default,
                   color: theme.palette.text.primary
                 }}
@@ -1096,7 +1192,7 @@ const CustomerMenu = () => {
                     Table #{unpaidOrders[0].table_number}
                   </Typography>
                   <Typography variant="subtitle2" sx={{ color: theme.palette.text.secondary }}>
-                    {unpaidOrders.length} Completed {unpaidOrders.length === 1 ? 'Order' : 'Orders'} Ready for Payment
+                    {unpaidOrders.length} Delivered {unpaidOrders.length === 1 ? 'Order' : 'Orders'} Ready for the Bill
                   </Typography>
                 </Box>
 
@@ -1116,10 +1212,13 @@ const CustomerMenu = () => {
                                 <Box display="flex" justifyContent="space-between">
                                   <Typography variant="body2" color={theme.palette.text.primary}>
                                     {item.dish?.name || "Unknown Dish"} x{item.quantity}
+                                    {item.status === 'rejected' && (
+                                      <Chip label="not served" size="small" color="error" sx={{ ml: 1, height: 18, fontSize: '0.65rem' }} />
+                                    )}
                                   </Typography>
-                                  {showPrices && (
+                                  {showPrices && item.status !== 'rejected' && (
                                     <Typography variant="body2" fontWeight="medium" color="#FFA500">
-                                      ₹{((item.dish?.price || 0) * item.quantity).toFixed(2)}
+                                      ₹{((item.price ?? item.dish?.price ?? 0) * item.quantity).toFixed(2)}
                                     </Typography>
                                   )}
                                 </Box>
@@ -1141,7 +1240,10 @@ const CustomerMenu = () => {
                         Order Subtotal:
                       </Typography>
                       <Typography variant="body1" fontWeight="bold" color="#FFA500">
-                        ₹{(order.items ? order.items.reduce((sum, item) => sum + (item.dish?.price || 0) * item.quantity, 0) : 0).toFixed(2)}
+                        ₹{(order.items ? order.items.reduce((sum, item) => {
+                          if (item.status === 'rejected') return sum;
+                          return sum + (item.price ?? item.dish?.price ?? 0) * item.quantity;
+                        }, 0) : 0).toFixed(2)}
                       </Typography>
                     </Box>
                     )}{/* end showPrices subtotal */}
@@ -1149,9 +1251,9 @@ const CustomerMenu = () => {
                   </Box>
                 ))}
 
-                <Divider sx={{ my: 2, backgroundColor: 'rgba(255, 165, 0, 0.2)' }} />
+                <Divider sx={{ my: 2, borderColor: theme.palette.divider }} />
 
-                <Box sx={{ mt: 2, backgroundColor: 'rgba(0, 0, 0, 0.3)', p: 2, borderRadius: '8px', border: '1px dashed rgba(255, 165, 0, 0.3)' }}>
+                <Box sx={{ mt: 2, backgroundColor: theme.palette.background.paper, p: 2, borderRadius: '14px' }}>
                   <Typography variant="subtitle2" color="#FFA500" sx={{ fontWeight: 'bold', mb: 1 }}>
                     Applied Discounts:
                   </Typography>
@@ -1183,7 +1285,10 @@ const CustomerMenu = () => {
                 {(() => {
                   // Calculate subtotal across all unpaid orders
                   const subtotal = unpaidOrders.reduce((total, order) => {
-                    return total + (order.items ? order.items.reduce((sum, item) => sum + (item.dish?.price || 0) * item.quantity, 0) : 0);
+                    return total + (order.items ? order.items.reduce((sum, item) => {
+                      if (item.status === 'rejected') return sum;
+                      return sum + (item.price ?? item.dish?.price ?? 0) * item.quantity;
+                    }, 0) : 0);
                   }, 0);
 
                   // Calculate loyalty discount
@@ -1195,7 +1300,7 @@ const CustomerMenu = () => {
                   const finalTotal = (subtotal - loyaltyDiscountAmount - discounts.selectionOffer.discount_amount);
 
                   return (
-                    <Box sx={{ mt: 2, p: 2, backgroundColor: '#4DAA57', borderRadius: '8px' }}>
+                    <Box sx={{ mt: 2, p: 2, backgroundColor: '#4DAA57', borderRadius: '14px' }}>
                       <Box display="flex" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
                         <Typography variant="subtitle1" color="#000000">Subtotal</Typography>
                         <Typography variant="subtitle1" color="#000000">
@@ -1236,31 +1341,35 @@ const CustomerMenu = () => {
 
               <Box sx={{ textAlign: 'center', mb: 2 }}>
                 <Typography variant="body2" sx={{ color: theme.palette.text.secondary }} paragraph>
-                  Please proceed to the counter to complete your payment or click the button below to mark as paid.
+                  Press the button below to request your bill. The counter staff will generate the bill and confirm your payment.
                 </Typography>
               </Box>
             </Box>
           ) : (
             <Box textAlign="center" py={4}>
               <Typography variant="h6" color={theme.palette.text.primary} gutterBottom>
-                No completed orders found for payment
+                No delivered orders found
               </Typography>
               <Typography variant="body2" sx={{ color: theme.palette.text.secondary }}>
-                Orders must be completed by the chef before they can be paid. Please wait for your orders to be ready.
+                Orders must be delivered by the chef before you can request the bill. Please wait for your food to arrive.
               </Typography>
             </Box>
           )}
         </DialogContent>
-        <DialogActions sx={{ p: 3, borderTop: '1px solid rgba(255, 165, 0, 0.2)' }}>
+        <DialogActions sx={{ p: 2.5, borderTop: '1px solid', borderColor: theme.palette.divider }}>
           <Button
             onClick={handleClosePaymentDialog}
             variant="outlined"
             sx={{
-              borderColor: 'rgba(255, 165, 0, 0.5)',
+              borderRadius: '14px',
+              py: 1.2,
+              px: 3,
+              borderColor: theme.palette.divider,
               color: theme.palette.text.primary,
+              fontWeight: 'bold',
               '&:hover': {
-                borderColor: 'rgba(255, 165, 0, 0.8)',
-                backgroundColor: 'rgba(255, 165, 0, 0.1)'
+                borderColor: '#FFA500',
+                backgroundColor: 'rgba(255, 165, 0, 0.08)'
               }
             }}
           >
@@ -1271,22 +1380,23 @@ const CustomerMenu = () => {
             onClick={handleCompletePayment}
             disabled={unpaidOrders.length === 0}
             sx={{
-              py: 1.5,
+              py: 1.3,
               px: 4,
-              fontWeight: 'bold',
+              fontWeight: 800,
+              borderRadius: '14px',
               backgroundColor: '#FFA500',
-              color: '#000000',
-              borderRadius: 0,
+              color: '#1A1408',
+              boxShadow: '0 6px 18px rgba(255, 165, 0, 0.35)',
               '&:hover': {
-                backgroundColor: '#E69500',
+                backgroundColor: '#FFB800',
               },
               '&.Mui-disabled': {
-                backgroundColor: 'rgba(255, 165, 0, 0.3)',
-                color: 'rgba(0, 0, 0, 0.5)'
+                backgroundColor: 'rgba(255, 165, 0, 0.25)',
+                color: 'rgba(26, 20, 8, 0.4)'
               }
             }}
           >
-            Complete Payment
+            Request Bill
           </Button>
         </DialogActions>
       </Dialog>
@@ -1298,6 +1408,98 @@ const CustomerMenu = () => {
         orderId={lastPaidOrderId}
         personId={userId ? parseInt(userId) : null}
       />
+
+      {/* Rejected dishes popup — notifies the user of every rejection */}
+      <Dialog
+        open={!!rejectionDialog}
+        onClose={() => setRejectionDialog(null)}
+        maxWidth="xs"
+        fullWidth
+        sx={{ '& .MuiDialog-paper': { m: 0 } }}
+        PaperProps={{
+          sx: {
+            borderRadius: '26px 26px 0 0',
+            backgroundColor: theme.palette.background.paper,
+            color: theme.palette.text.primary,
+            boxShadow: '0 -12px 40px rgba(0, 0, 0, 0.35)',
+          }
+        }}
+      >
+        <DialogTitle sx={{ color: '#FF385C', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'space-between', py: 2 }}>
+          Dish{rejectionDialog?.dishes?.length > 1 ? 'es' : ''} Not Available
+          <IconButton onClick={() => setRejectionDialog(null)} size="small" sx={{ color: theme.palette.text.secondary }}>
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers sx={{ borderColor: theme.palette.divider }}>
+          <Typography variant="body1" gutterBottom>
+            The kitchen could not prepare the following:
+          </Typography>
+          <Box mt={1}>
+            {rejectionDialog?.dishes?.map((d, idx) => (
+              <Box key={idx} sx={{
+                p: 1.5,
+                mb: 1,
+                borderRadius: '12px',
+                backgroundColor: 'rgba(255, 56, 92, 0.06)',
+                border: '1px solid rgba(255, 56, 92, 0.2)',
+              }}>
+                <Typography variant="body1" fontWeight="bold">
+                  {d.name}
+                </Typography>
+                {d.reason && (
+                  <Typography variant="body2" sx={{ color: theme.palette.text.secondary }}>
+                    Reason: {d.reason}
+                  </Typography>
+                )}
+              </Box>
+            ))}
+          </Box>
+          <Typography variant="body2" sx={{ color: theme.palette.text.secondary, mt: 1 }}>
+            You can add a different dish from the menu, or order the same dish again.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))' }}>
+          <Button
+            onClick={() => setRejectionDialog(null)}
+            variant="contained"
+            fullWidth
+            sx={{
+              py: 1.3,
+              borderRadius: '14px',
+              bgcolor: '#FFA500',
+              color: '#1A1408',
+              fontWeight: 800,
+              boxShadow: '0 6px 18px rgba(255, 165, 0, 0.35)',
+              '&:hover': { bgcolor: '#FFB800' }
+            }}
+          >
+            Got it
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Live move notifications (accepted / delivered / bill status) */}
+      <Snackbar
+        key={currentNotif ? `${currentNotif.message}-${currentNotif.severity}` : 'notif'}
+        open={!!currentNotif}
+        autoHideDuration={5000}
+        onClose={handleNotifClose}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={handleNotifClose}
+          severity={currentNotif?.severity || 'info'}
+          variant="filled"
+          sx={{
+            width: '100%',
+            borderRadius: '50px',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+          }}
+        >
+          {currentNotif?.message}
+        </Alert>
+      </Snackbar>
 
       <Snackbar
         open={snackbar.open}
@@ -1318,7 +1520,7 @@ const CustomerMenu = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
-      </Container>
+      </Box>
     </ProductionErrorBoundary>
   );
 };

@@ -75,7 +75,7 @@ Known quirk: `/backitup` is declared twice in `App.js` (once in a layout wrapper
 ## Auth
 - **Admin**: hotel name + password (via `/admin/...` with `x-hotel-name`/`x-hotel-password` headers; the `AuthWrapper` restores the session from localStorage: `selectedHotel`/`hotelPassword` — the legacy `selectedDatabase`/`databasePassword` aliases still write too).
 - **Chef**: username/password via `POST /chef/auth/login` (localStorage keys `chefId`, `chefUsername`, `chefHotelName`).
-- **Customer**: Firebase Google **popup** sign-in (either the phone or manual demo login) → `/customer/api/auth/google`; phone OTP also supported (`POST /customer/api/phone-auth`; demo OTP is `11111`).
+- **Customer**: Firebase Google **popup** sign-in (either the phone or manual demo login) → `/customer/api/auth/google`.
 
 ## Known issues / dead code
 - Often-cited dead code (never imported): `services/optimizedApi.js`, `hooks/useApi.js`, `hooks/useOrderSync.js`, `hooks/useOptimizedPolling.js`, `components/PerformanceDashboard.js`, `pages/customer/components/PaymentDialog.js`, `OrderConfirmationDialog.js`.

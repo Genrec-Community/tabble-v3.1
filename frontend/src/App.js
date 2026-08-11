@@ -116,6 +116,8 @@ const ChefOrders = lazy(() => lazyLoadWithRetry(() => import('./pages/chef/Order
 const ChefLogin = lazy(() => lazyLoadWithRetry(() => import('./pages/chef/Login')));
 const CustomerLogin = lazy(() => lazyLoadWithRetry(() => import('./pages/customer/Login')));
 const CustomerMenu = lazy(() => lazyLoadWithRetry(() => import('./pages/customer/Menu')));
+const CustomerHome = lazy(() => lazyLoadWithRetry(() => import('./pages/customer/Home')));
+const CustomerHistory = lazy(() => lazyLoadWithRetry(() => import('./pages/customer/History')));
 const QRLanding = lazy(() => lazyLoadWithRetry(() => import('./pages/customer/QRLanding')));
 const AdminLogin = lazy(() => lazyLoadWithRetry(() => import('./pages/admin/Login')));
 const AdminDashboard = lazy(() => lazyLoadWithRetry(() => import('./pages/admin/Dashboard')));
@@ -255,12 +257,13 @@ function App() {
                       <Route path="/chef/orders" element={<ErrorBoundary><ChefOrders /></ErrorBoundary>} />
                     </Route>
 
-                    {/* Customer Routes — no auth wrapper */}
-                    <Route element={<Layout />}>
-                      <Route path="/customer" element={<ErrorBoundary><CustomerLogin /></ErrorBoundary>} />
-                      <Route path="/customer/menu" element={<ErrorBoundary><CustomerMenu /></ErrorBoundary>} />
-                      <Route path="/customer/demo-entry" element={<ErrorBoundary><CustomerMenu /></ErrorBoundary>} />
-                    </Route>
+                    {/* Customer Routes — standalone mobile app (no site chrome,
+                        no homepage chrome). Login -> Home -> Menu -> History. */}
+                    <Route path="/customer" element={<ErrorBoundary><CustomerLogin /></ErrorBoundary>} />
+                    <Route path="/customer/home" element={<ErrorBoundary><CustomerHome /></ErrorBoundary>} />
+                    <Route path="/customer/history" element={<ErrorBoundary><CustomerHistory /></ErrorBoundary>} />
+                    <Route path="/customer/menu" element={<ErrorBoundary><CustomerMenu /></ErrorBoundary>} />
+                    <Route path="/customer/demo-entry" element={<ErrorBoundary><CustomerMenu /></ErrorBoundary>} />
 
                     {/* Admin Layout Routes — AuthWrapper only here */}
                     <Route element={<AuthWrapper><AdminLayout /></AuthWrapper>}>

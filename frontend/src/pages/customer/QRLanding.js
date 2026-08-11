@@ -41,9 +41,9 @@ const QRLanding = () => {
             const existingCustomerId = localStorage.getItem('customerId');
 
             if (firebaseUser && existingCustomerId) {
-              // Resume existing session - go directly to menu
+              // Resume existing session - go directly to home
               navigate(
-                `/customer/menu?table_number=${table_number}&slot_number=${slot_number}&unique_id=${localStorage.getItem('customerUniqueId') || 'RESUME'}&user_id=${existingCustomerId}`
+                `/customer/home?table_number=${table_number}&slot_number=${slot_number}&unique_id=${localStorage.getItem('customerUniqueId') || 'RESUME'}&user_id=${existingCustomerId}`
               );
             } else {
               // Need to authenticate first
@@ -138,7 +138,7 @@ const QRLanding = () => {
     setShowCartConflict(false);
 
     if (tableNumber && slotNumber && customerId) {
-      navigate(`/customer/menu?table_number=${tableNumber}&slot_number=${slotNumber}&unique_id=${uniqueId || 'RESUME'}&user_id=${customerId}`);
+      navigate(`/customer/home?table_number=${tableNumber}&slot_number=${slotNumber}&unique_id=${uniqueId || 'RESUME'}&user_id=${customerId}`);
     } else {
       navigate('/customer');
     }

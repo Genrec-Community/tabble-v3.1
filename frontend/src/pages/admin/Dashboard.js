@@ -248,7 +248,12 @@ const AdminDashboard = () => {
       case 'payment_requested':
         color = 'info';
         icon = <ReceiptIcon fontSize="small" />;
-        label = 'Payment Requested';
+        label = 'Bill Requested';
+        break;
+      case 'rejected':
+        color = 'error';
+        icon = <PendingIcon fontSize="small" />;
+        label = 'Rejected';
         break;
       case 'paid':
         color = 'secondary';
@@ -281,10 +286,11 @@ const AdminDashboard = () => {
       return parseFloat(order.total_amount).toFixed(2);
     }
 
-    // Fallback to calculating from items (original prices)
+    // Fallback to calculating from items (stored price snapshot, excluding rejected dishes)
     if (!order.items) return 0;
     return order.items.reduce((total, item) => {
-      return total + (item.dish.price * item.quantity);
+      if (item.status === 'rejected') return total;
+      return total + ((item.price ?? item.dish?.price ?? 0) * item.quantity);
     }, 0).toFixed(2);
   };
 
@@ -292,7 +298,8 @@ const AdminDashboard = () => {
   const calculateOrderSubtotal = (order) => {
     if (!order || !order.items) return 0;
     return order.items.reduce((total, item) => {
-      return total + (item.dish.price * item.quantity);
+      if (item.status === 'rejected') return total;
+      return total + ((item.price ?? item.dish?.price ?? 0) * item.quantity);
     }, 0).toFixed(2);
   };
 
@@ -977,11 +984,35 @@ const AdminDashboard = () => {
                   </TableHead>
                   <TableBody>
                     {selectedOrder.items.map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell>{item.dish.name}</TableCell>
+                      <TableRow
+                        key={item.id}
+                        sx={item.status === 'rejected' ? { backgroundColor: 'rgba(255,56,92,0.06)' } : undefined}
+                      >
+                        <TableCell>
+                          {item.dish.name}
+                          {item.status === 'rejected' && (
+                            <Chip
+                              size="small"
+                              color="error"
+                              label={item.rejection_reason ? `Rejected: ${item.rejection_reason}` : 'Rejected'}
+                              sx={{ ml: 1, height: 18, fontSize: '0.65rem' }}
+                            />
+                          )}
+                          {item.status === 'accepted' && (
+                            <Chip
+                              size="small"
+                              color="success"
+                              label="Accepted"
+                              variant="outlined"
+                              sx={{ ml: 1, height: 18, fontSize: '0.65rem' }}
+                            />
+                          )}
+                        </TableCell>
                         <TableCell align="center">{item.quantity}</TableCell>
-                        <TableCell align="right">₹{item.dish.price.toFixed(2)}</TableCell>
-                        <TableCell align="right">₹{(item.dish.price * item.quantity).toFixed(2)}</TableCell>
+                        <TableCell align="right">₹{(item.price ?? item.dish.price).toFixed(2)}</TableCell>
+                        <TableCell align="right">
+                          {item.status === 'rejected' ? '—' : `₹${((item.price ?? item.dish.price) * item.quantity).toFixed(2)}`}
+                        </TableCell>
                         <TableCell>{item.remarks || '-'}</TableCell>
                       </TableRow>
                     ))}
@@ -1002,7 +1033,7 @@ const AdminDashboard = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseOrderDetails}>Close</Button>
-          {selectedOrder && (selectedOrder.status === 'completed' || selectedOrder.status === 'paid') && (
+          {selectedOrder && ['completed', 'payment_requested', 'paid'].includes(selectedOrder.status) && (
             <Button
               variant="outlined"
               color="success"
@@ -1012,7 +1043,7 @@ const AdminDashboard = () => {
               Generate Bill
             </Button>
           )}
-          {selectedOrder && selectedOrder.status === 'payment_requested' && (
+          {selectedOrder && ['payment_requested', 'completed'].includes(selectedOrder.status) && (
             <Button
               variant="contained"
               color="success"

@@ -12,11 +12,7 @@ from ..models.user import (
     PersonCreate,
     PersonLogin,
     Person as PersonModel,
-    PhoneAuthRequest,
-    PhoneVerifyRequest,
-    UsernameRequest
 )
-from ..services import otp_service
 from ..middleware import get_session_id
 from ..firebase_config import verify_firebase_token
 
@@ -345,7 +341,9 @@ def get_person_orders(person_id: int, request: Request, db: Session = Depends(ge
     return orders
 
 
-# Request payment for order
+# Request the bill for an order (customer presses "Get Bill").
+# This only marks the order as payment_requested — the hotel generates the
+# bill PDF and marks it paid from the admin dashboard.
 @router.put("/api/orders/{order_id}/payment")
 def request_payment(order_id: int, request: Request, db: Session = Depends(get_session_database)):
     hotel_id = get_hotel_id_from_request(request)
@@ -363,111 +361,39 @@ def request_payment(order_id: int, request: Request, db: Session = Depends(get_s
         if db_order.status == "paid":
             return {"message": "Order is already paid"}
 
+        # An order that was consolidated into the session's single bill — the
+        # request already succeeded via its merged sibling. Idempotent no-op.
+        if db_order.status == "merged":
+            return {"message": "Bill requested successfully", "order_id": order_id}
+
         # Check if order is completed (ready for payment)
         if db_order.status != "completed":
             raise HTTPException(
                 status_code=400,
-                detail="Order must be completed before payment can be processed"
+                detail="Order must be completed before the bill can be requested"
             )
 
-        # Calculate order totals and apply discounts
-        from ..database import LoyaltyProgram, SelectionOffer, Person
+        # Combine every delivered-but-unpaid order on the same slot into a
+        # single bill, so ordering multiple times before paying produces ONE
+        # bill for the user (admin sees one row, one PDF, one mark-as-paid).
+        from ..services.order_utils import merge_orders_for_bill
 
-        # Calculate subtotal from order items
-        subtotal = 0
-        for item in db_order.items:
-            if item.dish:
-                subtotal += item.dish.price * item.quantity
+        merged = merge_orders_for_bill(db, hotel_id, db_order.table_number, db_order.slot_number)
+        if merged is not None and merged.id != db_order.id:
+            db_order = merged  # the requested order was absorbed into the bill
 
-        # Initialize discount amounts
-        loyalty_discount_amount = 0
-        loyalty_discount_percentage = 0
-        selection_offer_discount_amount = 0
+        # Compute and store the totals now so the bill is stable
+        from ..services.order_utils import compute_order_totals
 
-        # Apply loyalty discount if customer is registered
-        if db_order.person_id:
-            person = db.query(Person).filter(Person.id == db_order.person_id).first()
-            if person:
-                # Get applicable loyalty discount
-                loyalty_tier = (
-                    db.query(LoyaltyProgram)
-                    .filter(
-                        LoyaltyProgram.hotel_id == hotel_id,
-                        LoyaltyProgram.visit_count == person.visit_count,
-                        LoyaltyProgram.is_active == True,
-                    )
-                    .first()
-                )
-
-                if loyalty_tier:
-                    loyalty_discount_percentage = loyalty_tier.discount_percentage
-                    loyalty_discount_amount = subtotal * (loyalty_discount_percentage / 100)
-
-        # Apply selection offer discount
-        selection_offer = (
-            db.query(SelectionOffer)
-            .filter(
-                SelectionOffer.hotel_id == hotel_id,
-                SelectionOffer.min_amount <= subtotal,
-                SelectionOffer.is_active == True,
-            )
-            .order_by(SelectionOffer.min_amount.desc())
-            .first()
-        )
-
-        if selection_offer:
-            selection_offer_discount_amount = selection_offer.discount_amount
-
-        # Calculate final total after discounts
-        final_total = subtotal - loyalty_discount_amount - selection_offer_discount_amount
-
-        # Ensure final total is not negative
-        final_total = max(0, final_total)
-
-        # Update order with calculated amounts
-        db_order.status = "paid"
-        db_order.subtotal_amount = subtotal
-        db_order.loyalty_discount_amount = loyalty_discount_amount
-        db_order.loyalty_discount_percentage = loyalty_discount_percentage
-        db_order.selection_offer_discount_amount = selection_offer_discount_amount
-        db_order.total_amount = final_total
+        compute_order_totals(db, db_order)
+        db_order.status = "payment_requested"
         db_order.updated_at = datetime.now(timezone.utc)
-
-        # Increment visit count on payment — anti-fraud: only counts completed payments
-        if db_order.person_id:
-            person = db.query(Person).filter(Person.id == db_order.person_id).first()
-            if person:
-                person.visit_count += 1
-                person.last_visit = datetime.now(timezone.utc)
-
-        # Free the specific slot (table_number + slot_number) when payment is made
-        from ..database import Table
-
-        unpaid_slot_orders = db.query(Order).filter(
-            Order.hotel_id == hotel_id,
-            Order.table_number == db_order.table_number,
-            Order.slot_number == db_order.slot_number,
-            Order.status != "paid",
-            Order.status != "cancelled",
-            Order.id != order_id,
-        ).count()
-
-        if unpaid_slot_orders == 0:
-            db_slot = db.query(Table).filter(
-                Table.hotel_id == hotel_id,
-                Table.table_number == db_order.table_number,
-                Table.slot_number == db_order.slot_number,
-            ).first()
-            if db_slot:
-                db_slot.is_occupied = False
-                db_slot.current_order_id = None
-                db_slot.updated_at = datetime.now(timezone.utc)
 
         # Commit the transaction
         db.commit()
         db.refresh(db_order)
 
-        return {"message": "Payment completed successfully", "order_id": order_id}
+        return {"message": "Bill requested successfully", "order_id": db_order.id}
 
     except HTTPException:
         # Re-raise HTTP exceptions
@@ -507,10 +433,14 @@ def cancel_order(order_id: int, request: Request, db: Session = Depends(get_sess
     db_order.status = "cancelled"
     db_order.updated_at = current_time
 
-    # Mark the table as free if this was the current order
+    # Mark the table as free if this was the current order (scoped to hotel + slot)
     from ..database import Table
 
-    db_table = db.query(Table).filter(Table.table_number == db_order.table_number).first()
+    db_table = db.query(Table).filter(
+        Table.hotel_id == hotel_id,
+        Table.table_number == db_order.table_number,
+        Table.slot_number == db_order.slot_number,
+    ).first()
     if db_table and db_table.current_order_id == db_order.id:
         db_table.is_occupied = False
         db_table.current_order_id = None
@@ -584,164 +514,3 @@ def google_auth(payload: GoogleAuthRequest, request: Request, db: Session = Depe
         "is_new_user": is_new_user,
     }
     return person
-
-
-# Phone authentication endpoints
-@router.post("/api/phone-auth", response_model=Dict[str, Any])
-async def phone_auth(auth_request: PhoneAuthRequest, request: Request, db: Session = Depends(get_session_database)):
-    """
-    Initiate phone authentication by sending OTP
-    """
-    try:
-        hotel_id = get_hotel_id_from_request(request)
-        if not hotel_id:
-            raise HTTPException(status_code=400, detail="No hotel context set")
-
-        # Send OTP via our new service
-        token = await otp_service.send_otp(
-            db=db,
-            phone_number=auth_request.phone_number,
-            hotel_id=hotel_id
-        )
-
-        print(f"Phone auth initiated for: {auth_request.phone_number}, table: {auth_request.table_number}")
-
-        return {
-            "success": True,
-            "message": "Verification code sent successfully",
-            "token": token
-        }
-    except HTTPException as e:
-        print(f"HTTP Exception in phone_auth: {e.detail}")
-        raise e
-    except Exception as e:
-        print(f"Exception in phone_auth: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to send verification code: {str(e)}"
-        )
-
-
-@router.post("/api/verify-otp", response_model=Dict[str, Any])
-def verify_otp(verify_request: PhoneVerifyRequest, request: Request, db: Session = Depends(get_session_database)):
-    """
-    Verify OTP and authenticate user
-    """
-    try:
-        print(f"Verifying OTP for phone: {verify_request.phone_number}")
-
-        # Verify OTP via our new service
-        otp_service.verify_otp(
-            db=db,
-            token=verify_request.token,
-            otp=verify_request.verification_code,
-            phone_number=verify_request.phone_number
-        )
-
-        # If verify_otp succeeds, proceed with the original logic.
-        # Check if user exists in database for this hotel
-        hotel_id = get_hotel_id_from_request(request)
-        user = db.query(Person).filter(
-            Person.hotel_id == hotel_id,
-            Person.phone_number == verify_request.phone_number
-        ).first()
-
-        if user:
-            print(f"Existing user found: {user.username}")
-            # Existing user - update last visit time (visit count updated only when order is placed)
-            user.last_visit = datetime.now(timezone.utc)
-            db.commit()
-            db.refresh(user)
-
-            return {
-                "success": True,
-                "message": "Authentication successful",
-                "user_exists": True,
-                "user_id": user.id,
-                "username": user.username
-            }
-        else:
-            print(f"New user with phone: {verify_request.phone_number}")
-            # New user - return flag to collect username
-            return {
-                "success": True,
-                "message": "Authentication successful, but user not found",
-                "user_exists": False
-            }
-
-    except HTTPException as e:
-        print(f"HTTP Exception in verify_otp: {e.detail}")
-        raise e
-    except Exception as e:
-        print(f"Exception in verify_otp: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to verify OTP: {str(e)}"
-        )
-
-
-@router.post("/api/register-phone-user", response_model=Dict[str, Any])
-def register_phone_user(user_request: UsernameRequest, request: Request, db: Session = Depends(get_session_database)):
-    """
-    Register a new user after phone authentication
-    """
-    try:
-        hotel_id = get_hotel_id_from_request(request)
-        print(f"Registering new user with phone: {user_request.phone_number}, username: {user_request.username}")
-
-        # Check if username already exists for this hotel
-        existing_user = db.query(Person).filter(
-            Person.hotel_id == hotel_id,
-            Person.username == user_request.username
-        ).first()
-        if existing_user:
-            print(f"Username already exists: {user_request.username}")
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Username already exists"
-            )
-
-        # Check if phone number already exists for this hotel
-        phone_user = db.query(Person).filter(
-            Person.hotel_id == hotel_id,
-            Person.phone_number == user_request.phone_number
-        ).first()
-        if phone_user:
-            print(f"Phone number already registered: {user_request.phone_number}")
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Phone number already registered"
-            )
-
-        # Create new user (visit count will be incremented when first order is placed)
-        new_user = Person(
-            hotel_id=hotel_id,
-            username=user_request.username,
-            password="",  # No password needed for phone auth
-            phone_number=user_request.phone_number,
-            visit_count=0,
-            last_visit=datetime.now(timezone.utc)
-        )
-
-        db.add(new_user)
-        db.commit()
-        db.refresh(new_user)
-
-        print(f"User registered successfully: {new_user.id}, {new_user.username}")
-
-        return {
-            "success": True,
-            "message": "User registered successfully",
-            "user_id": new_user.id,
-            "username": new_user.username
-        }
-
-    except HTTPException as e:
-        print(f"HTTP Exception in register_phone_user: {e.detail}")
-        raise e
-    except Exception as e:
-        print(f"Exception in register_phone_user: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to register user: {str(e)}"
-        )

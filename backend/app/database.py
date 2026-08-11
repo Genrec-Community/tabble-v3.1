@@ -1,5 +1,6 @@
 from sqlalchemy import (
     create_engine,
+    event,
     Column,
     Integer,
     String,
@@ -29,6 +30,26 @@ HOTELS_CSV_PATH = BASE_DIR / "hotels.csv"
 
 def sqlite_url(path: Path) -> str:
     return f"sqlite:///{path.as_posix()}"
+
+
+def _enable_wal_and_busy_timeout(dbapi_connection, connection_record):
+    """Per-connection SQLite pragmas so concurrent requests never fail with
+    'database is locked'. WAL lets readers run while a writer commits, and
+    busy_timeout makes writers wait for each other instead of erroring."""
+    cursor = dbapi_connection.cursor()
+    try:
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA busy_timeout=15000")
+        cursor.execute("PRAGMA synchronous=NORMAL")
+    finally:
+        cursor.close()
+
+
+def _create_sqlite_engine(database_url: str):
+    """Create an SQLite engine with the concurrency pragmas attached."""
+    eng = create_engine(database_url, connect_args={"check_same_thread": False})
+    event.listen(eng, "connect", _enable_wal_and_busy_timeout)
+    return eng
 
 # Base declarative class
 Base = declarative_base()
@@ -134,7 +155,7 @@ class DatabaseManager:
     def _create_connection(self, hotel_id: Optional[int] = None) -> dict:
         """Create a new database connection to unified database"""
         database_url = sqlite_url(DATABASE_PATH)
-        engine = create_engine(database_url, connect_args={"check_same_thread": False})
+        engine = _create_sqlite_engine(database_url)
         session_factory = sessionmaker(autocommit=False, autoflush=False, bind=engine)
         session_local = scoped_session(session_factory)
 
@@ -241,7 +262,7 @@ db_manager = DatabaseManager()
 # Global variables for database connection (unified database)
 CURRENT_DATABASE = "Tabble.db"
 DATABASE_URL = sqlite_url(DATABASE_PATH)  # Using the unified database
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+engine = _create_sqlite_engine(DATABASE_URL)
 session_factory = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 SessionLocal = scoped_session(session_factory)
 
@@ -277,7 +298,6 @@ class Hotel(Base):
     feedback = relationship("Feedback", back_populates="hotel")
     loyalty_tiers = relationship("LoyaltyProgram", back_populates="hotel")
     selection_offers = relationship("SelectionOffer", back_populates="hotel")
-    otp_requests = relationship("OtpRequest", back_populates="hotel")
     chef_accounts = relationship("ChefAccount", back_populates="hotel")
 
 
@@ -322,7 +342,7 @@ class Order(Base):
     slot_number = Column(Integer, default=1)  # 1 or 2 — which slot of the table
     unique_id = Column(String, index=True)
     person_id = Column(Integer, ForeignKey("persons.id"), nullable=True)
-    status = Column(String, default="pending")  # pending, accepted, completed, paid
+    status = Column(String, default="pending")  # pending, accepted, rejected, completed, payment_requested, paid, cancelled
     total_amount = Column(Float, nullable=True)  # Final amount paid after all discounts
     subtotal_amount = Column(Float, nullable=True)  # Original amount before discounts
     loyalty_discount_amount = Column(Float, default=0)  # Loyalty discount applied
@@ -384,6 +404,8 @@ class OrderItem(Base):
     quantity = Column(Integer, default=1)
     price = Column(Float, nullable=True)  # Price at time of order
     remarks = Column(Text, nullable=True)
+    status = Column(String, default="pending")  # per-dish: pending, accepted, rejected
+    rejection_reason = Column(String, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     # Relationships
@@ -505,21 +527,6 @@ class Settings(Base):
     hotel = relationship("Hotel", back_populates="settings")
 
 
-class OtpRequest(Base):
-    __tablename__ = "otp_requests"
-
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    hotel_id = Column(Integer, ForeignKey("hotels.id"), nullable=False, index=True)
-    phone_number = Column(String, nullable=False, index=True)
-    otp_code = Column(String, nullable=False)
-    created_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc), index=True
-    )
-    verified = Column(Boolean, default=False)
-
-    hotel = relationship("Hotel", back_populates="otp_requests")
-
-
 class ChefAccount(Base):
     __tablename__ = "chef_accounts"
 
@@ -554,7 +561,7 @@ def switch_database(database_name):
 
         # Dispose of the old engine and create a new one
         engine.dispose()
-        engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+        engine = _create_sqlite_engine(DATABASE_URL)
 
         # Create a new session factory and scoped session
         session_factory = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -580,6 +587,8 @@ def create_tables():
         "ALTER TABLE tables ADD COLUMN qr_token VARCHAR UNIQUE",
         "ALTER TABLE tables ADD COLUMN slot_number INTEGER DEFAULT 1",
         "ALTER TABLE orders ADD COLUMN slot_number INTEGER DEFAULT 1",
+        "ALTER TABLE order_items ADD COLUMN status VARCHAR DEFAULT 'pending'",
+        "ALTER TABLE order_items ADD COLUMN rejection_reason VARCHAR",
         "ALTER TABLE persons ADD COLUMN google_uid VARCHAR",
         "ALTER TABLE persons ADD COLUMN email VARCHAR",
         "ALTER TABLE persons ADD COLUMN display_name VARCHAR",
