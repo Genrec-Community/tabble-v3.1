@@ -246,11 +246,8 @@ const DatabaseSelector = ({ open, onSuccess, title = "Select Hotel", fullScreen 
       </DialogTitle>
 
       <DialogContent sx={{
-        pt: 2,
-        border: '1px solid rgba(255, 165, 0, 0.15)',
-        borderRadius: 1,
-        m: 2,
-        backgroundColor: 'rgba(255, 165, 0, 0.02)'
+        px: 3,
+        py: 2
       }}>
         {fetchingHotels ? (
           <Box display="flex" justifyContent="center" my={3}>
@@ -401,8 +398,8 @@ const DatabaseSelector = ({ open, onSuccess, title = "Select Hotel", fullScreen 
       <DialogActions sx={{
         px: 3,
         pb: 3,
+        pt: 1,
         borderTop: '1px solid rgba(255, 165, 0, 0.2)',
-        backgroundColor: 'rgba(255, 165, 0, 0.02)',
       }}>
         <Button
           onClick={handleConnect}

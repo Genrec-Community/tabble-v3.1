@@ -45,6 +45,7 @@ const API_BASE_URL = apiBaseUrl;
 
 const SuperAdmin = () => {
   const theme = useTheme();
+  const divider = theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)';
   const [authenticated, setAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState('');
@@ -435,16 +436,16 @@ const SuperAdmin = () => {
         fullWidth
         PaperProps={{ sx: { backgroundColor: theme.palette.background.paper, color: theme.palette.text.primary } }}
       >
-        <DialogTitle sx={{ fontWeight: 700, borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+        <DialogTitle sx={{ fontWeight: 700, borderBottom: `1px solid ${divider}`, py: 1.5 }}>
           Add New Hotel
         </DialogTitle>
-        <DialogContent sx={{ pt: 3 }}>
+        <DialogContent sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
           <TextField
             fullWidth
             label="Hotel Name"
             value={hotelForm.name}
             onChange={(e) => setHotelForm({ ...hotelForm, name: e.target.value })}
-            sx={{ mb: 2, ...textFieldStyles(theme) }}
+            sx={textFieldStyles(theme)}
           />
           <TextField
             fullWidth
@@ -453,7 +454,7 @@ const SuperAdmin = () => {
             onChange={(e) => setHotelForm({ ...hotelForm, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
             error={hotelForm.phone.length > 0 && hotelForm.phone.length !== 10}
             helperText={hotelForm.phone.length > 0 && hotelForm.phone.length !== 10 ? 'Enter a valid 10-digit mobile number' : ''}
-            sx={{ mb: 2, ...textFieldStyles(theme) }}
+            sx={textFieldStyles(theme)}
           />
           <TextField
             fullWidth
@@ -461,14 +462,14 @@ const SuperAdmin = () => {
             label="Password"
             value={hotelForm.password}
             onChange={(e) => setHotelForm({ ...hotelForm, password: e.target.value })}
-            sx={{ mb: 2, ...textFieldStyles(theme) }}
+            sx={textFieldStyles(theme)}
           />
           <TextField
             fullWidth
             label="Email (Optional)"
             value={hotelForm.email}
             onChange={(e) => setHotelForm({ ...hotelForm, email: e.target.value })}
-            sx={{ mb: 2, ...textFieldStyles(theme) }}
+            sx={textFieldStyles(theme)}
           />
           <TextField
             fullWidth
@@ -480,8 +481,8 @@ const SuperAdmin = () => {
             sx={textFieldStyles(theme)}
           />
         </DialogContent>
-        <DialogActions sx={{ p: 2, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-          <Button onClick={() => { setOpenAddDialog(false); resetForm(); }} sx={{ color: 'rgba(255,255,255,0.7)' }}>
+        <DialogActions sx={{ p: 2, pt: 1.5, borderTop: `1px solid ${divider}` }}>
+          <Button onClick={() => { setOpenAddDialog(false); resetForm(); }} sx={{ color: theme.palette.text.secondary }}>
             Cancel
           </Button>
           <Button
@@ -508,16 +509,16 @@ const SuperAdmin = () => {
         fullWidth
         PaperProps={{ sx: { backgroundColor: theme.palette.background.paper, color: theme.palette.text.primary } }}
       >
-        <DialogTitle sx={{ fontWeight: 700, borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+        <DialogTitle sx={{ fontWeight: 700, borderBottom: `1px solid ${divider}`, py: 1.5 }}>
           Edit Hotel
         </DialogTitle>
-        <DialogContent sx={{ pt: 3 }}>
+        <DialogContent sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
           <TextField
             fullWidth
             label="Hotel Name"
             value={hotelForm.name}
             onChange={(e) => setHotelForm({ ...hotelForm, name: e.target.value })}
-            sx={{ mb: 2, ...textFieldStyles(theme) }}
+            sx={textFieldStyles(theme)}
           />
           <TextField
             fullWidth
@@ -526,7 +527,7 @@ const SuperAdmin = () => {
             onChange={(e) => setHotelForm({ ...hotelForm, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
             error={hotelForm.phone.length > 0 && hotelForm.phone.length !== 10}
             helperText={hotelForm.phone.length > 0 && hotelForm.phone.length !== 10 ? 'Enter a valid 10-digit mobile number' : ''}
-            sx={{ mb: 2, ...textFieldStyles(theme) }}
+            sx={textFieldStyles(theme)}
           />
           <TextField
             fullWidth
@@ -534,7 +535,7 @@ const SuperAdmin = () => {
             label="New Password (Leave empty to keep current)"
             value={hotelForm.password}
             onChange={(e) => setHotelForm({ ...hotelForm, password: e.target.value })}
-            sx={{ mb: 2, ...textFieldStyles(theme) }}
+            sx={textFieldStyles(theme)}
             helperText="Only fill this if you want to change the password"
           />
           <TextField
@@ -542,7 +543,7 @@ const SuperAdmin = () => {
             label="Email"
             value={hotelForm.email}
             onChange={(e) => setHotelForm({ ...hotelForm, email: e.target.value })}
-            sx={{ mb: 2, ...textFieldStyles(theme) }}
+            sx={textFieldStyles(theme)}
           />
           <TextField
             fullWidth
@@ -554,8 +555,8 @@ const SuperAdmin = () => {
             sx={textFieldStyles(theme)}
           />
         </DialogContent>
-        <DialogActions sx={{ p: 2, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-          <Button onClick={() => { setOpenEditDialog(false); resetForm(); }} sx={{ color: 'rgba(255,255,255,0.7)' }}>
+        <DialogActions sx={{ p: 2, pt: 1.5, borderTop: `1px solid ${divider}` }}>
+          <Button onClick={() => { setOpenEditDialog(false); resetForm(); }} sx={{ color: theme.palette.text.secondary }}>
             Cancel
           </Button>
           <Button
@@ -582,7 +583,7 @@ const SuperAdmin = () => {
         fullWidth
         PaperProps={{ sx: { backgroundColor: theme.palette.background.paper, color: theme.palette.text.primary } }}
       >
-        <DialogTitle sx={{ fontWeight: 700, borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+        <DialogTitle sx={{ fontWeight: 700, borderBottom: `1px solid ${divider}`, py: 1.5 }}>
           Hotel Statistics - {selectedHotel?.name}
         </DialogTitle>
         <DialogContent sx={{ pt: 3 }}>
@@ -645,8 +646,8 @@ const SuperAdmin = () => {
             </Box>
           )}
         </DialogContent>
-        <DialogActions sx={{ p: 2, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-          <Button onClick={() => { setOpenStatsDialog(false); setSelectedHotel(null); }} sx={{ color: 'rgba(255,255,255,0.7)' }}>
+        <DialogActions sx={{ p: 2, pt: 1.5, borderTop: `1px solid ${divider}` }}>
+          <Button onClick={() => { setOpenStatsDialog(false); setSelectedHotel(null); }} sx={{ color: theme.palette.text.secondary }}>
             Close
           </Button>
         </DialogActions>

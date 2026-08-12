@@ -5,8 +5,7 @@ import {
   Grid,
   CardContent,
   Divider,
-  CircularProgress,
-  Zoom
+  CircularProgress
 } from '@mui/material';
 import RestaurantIcon from '@mui/icons-material/Restaurant';
 import LocalOfferIcon from '@mui/icons-material/LocalOffer';
@@ -65,8 +64,7 @@ const MenuItemsGrid = ({
         <Grid container spacing={{ xs: 1.5, sm: 2.5, md: 3 }}>
           {displayDishes.map((dish) => (
             <Grid item xs={6} sm={4} md={3} key={dish.id}>
-              <Zoom in={true} style={{ transitionDelay: '100ms' }}>
-                <DishCard
+              <DishCard
                   onClick={() => handleOpenDialog(dish)}
                   sx={{
                     borderRadius: '20px',
@@ -278,7 +276,6 @@ const MenuItemsGrid = ({
                     </Box>
                   </CardContent>
                 </DishCard>
-              </Zoom>
             </Grid>
           ))}
 

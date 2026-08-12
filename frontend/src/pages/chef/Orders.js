@@ -23,7 +23,6 @@ import {
   Alert,
   Snackbar,
   Badge,
-  Zoom,
   Paper,
   LinearProgress,
   Tooltip,
@@ -492,8 +491,7 @@ const ChefOrders = () => {
                   const pendingCount = order.items.filter(i => i.status === 'pending').length;
                   return (
                     <Grid item xs={12} lg={6} key={order.id}>
-                      <Zoom in={true} style={{ transitionDelay: '100ms' }}>
-                        <Card
+                      <Card
                           sx={{
                             backgroundColor: theme.palette.background.paper,
                             borderLeft: '6px solid',
@@ -570,7 +568,6 @@ const ChefOrders = () => {
                             {renderItems(order)}
                           </CardContent>
                         </Card>
-                      </Zoom>
                     </Grid>
                   );
                 })}
@@ -600,8 +597,7 @@ const ChefOrders = () => {
                 const hasPendingItems = order.items.some(i => i.status === 'pending');
                 return (
                   <Grid item xs={12} key={order.id}>
-                    <Zoom in={true} style={{ transitionDelay: '100ms' }}>
-                      <Card
+                    <Card
                         sx={{
                           backgroundColor: theme.palette.background.paper,
                           borderLeft: '4px solid',
@@ -676,7 +672,6 @@ const ChefOrders = () => {
                           {renderItems(order)}
                         </CardContent>
                       </Card>
-                    </Zoom>
                   </Grid>
                 );
               })}

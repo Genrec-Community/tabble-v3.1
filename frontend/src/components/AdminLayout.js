@@ -62,7 +62,10 @@ const AdminLayout = () => {
     return nameWithoutExtension.charAt(0).toUpperCase() + nameWithoutExtension.slice(1);
   };
 
-  // Check database connection on component mount
+  // Check database connection once on mount. Reuses the hotel/password the user
+  // already picked at login (or stored previously), so the "Admin Database
+  // Selection" dialog is NOT shown again after sign-in and doesn't re-appear
+  // every time you navigate between admin pages.
   useEffect(() => {
     // Skip database check for demo route
     if (location.pathname === '/admin/demo') {
@@ -72,38 +75,48 @@ const AdminLayout = () => {
     }
 
     const checkDatabaseConnection = async () => {
-      const selectedDatabase = localStorage.getItem('adminSelectedDatabase');
-      const databasePassword = localStorage.getItem('adminDatabasePassword');
+      // Prefer admin-specific keys, fall back to login credentials
+      const selectedDatabase =
+        localStorage.getItem('adminSelectedDatabase') ||
+        localStorage.getItem('selectedHotel') ||
+        localStorage.getItem('selectedDatabase');
+      const databasePassword =
+        localStorage.getItem('adminDatabasePassword') ||
+        localStorage.getItem('hotelPassword') ||
+        localStorage.getItem('databasePassword');
 
-      if (selectedDatabase && databasePassword) {
-        try {
-          // Import adminService here to avoid circular imports
-          const { adminService } = await import('../services/api');
+      // No hotel selected anywhere - ask the user to pick one
+      if (!selectedDatabase || !databasePassword) {
+        setShowDatabaseSelector(true);
+        return;
+      }
 
-          // Temporarily set the credentials for verification
-          localStorage.setItem('selectedDatabase', selectedDatabase);
-          localStorage.setItem('databasePassword', databasePassword);
+      try {
+        // Import adminService here to avoid circular imports
+        const { adminService } = await import('../services/api');
 
-          await adminService.getCurrentDatabase();
-          setDatabaseConnected(true);
-          setCurrentDatabase(selectedDatabase);
-          console.log('Admin: Database connection verified');
-        } catch (error) {
-          console.error('Admin: Database verification failed:', error);
-          // Clear invalid credentials
-          localStorage.removeItem('adminSelectedDatabase');
-          localStorage.removeItem('adminDatabasePassword');
-          localStorage.removeItem('selectedDatabase');
-          localStorage.removeItem('databasePassword');
-          setShowDatabaseSelector(true);
-        }
-      } else {
+        // Keep the shared credentials (read by the API client) in sync
+        localStorage.setItem('selectedDatabase', selectedDatabase);
+        localStorage.setItem('databasePassword', databasePassword);
+
+        await adminService.getCurrentDatabase();
+        setDatabaseConnected(true);
+        setCurrentDatabase(selectedDatabase);
+        setShowDatabaseSelector(false);
+        console.log('Admin: Database connection verified');
+      } catch (error) {
+        console.error('Admin: Database verification failed:', error);
+        // Clear invalid credentials
+        localStorage.removeItem('adminSelectedDatabase');
+        localStorage.removeItem('adminDatabasePassword');
+        localStorage.removeItem('selectedDatabase');
+        localStorage.removeItem('databasePassword');
         setShowDatabaseSelector(true);
       }
     };
 
     checkDatabaseConnection();
-  }, [location.pathname]);
+  }, []);
 
   const handleDatabaseSuccess = (databaseName) => {
     // Store admin-specific database credentials
