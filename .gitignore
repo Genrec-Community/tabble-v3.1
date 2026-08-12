@@ -16,6 +16,12 @@ backend/.env.local
 backend/.env.production
 backend/.env.*.local
 backend/firebase-service-account.json
+backend/*.pem
+backend/*-service-account.json
+
+# ---- Local env overrides (real secrets) - never commit ----
+frontend/.env.local
+frontend/.env.*.local
 **/__pycache__/
 *.py[cod]
 *.egg-info/
