@@ -44,10 +44,10 @@ services:
 
       # Update after frontend deployment
       - key: FRONTEND_URL
-        value: https://your-frontend-url.com
+        value: https://tabble-v3-1-blond.vercel.app
 
       - key: CORS_ORIGINS
-        value: "*"
+        value: https://tabble-v3-1-blond.vercel.app
 
       - key: DEMO_MODE
         value: "true"
