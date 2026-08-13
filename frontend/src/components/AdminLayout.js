@@ -19,7 +19,6 @@ import {
   Alert,
   Button
 } from '@mui/material';
-import DatabaseSelector from './DatabaseSelector';
 import FoodBankIcon from '@mui/icons-material/FoodBank';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import RestaurantMenuIcon from '@mui/icons-material/RestaurantMenu';
@@ -49,7 +48,6 @@ const AdminLayout = () => {
   const [open, setOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(true);
   const [offersOpen, setOffersOpen] = useState(false);
-  const [showDatabaseSelector, setShowDatabaseSelector] = useState(false);
   const [databaseConnected, setDatabaseConnected] = useState(false);
   const [currentDatabase, setCurrentDatabase] = useState('');
 
@@ -85,9 +83,9 @@ const AdminLayout = () => {
         localStorage.getItem('hotelPassword') ||
         localStorage.getItem('databasePassword');
 
-      // No hotel selected anywhere - ask the user to pick one
+      // No hotel selected anywhere - go to login
       if (!selectedDatabase || !databasePassword) {
-        setShowDatabaseSelector(true);
+        navigate('/admin/login');
         return;
       }
 
@@ -102,7 +100,6 @@ const AdminLayout = () => {
         await adminService.getCurrentDatabase();
         setDatabaseConnected(true);
         setCurrentDatabase(selectedDatabase);
-        setShowDatabaseSelector(false);
         console.log('Admin: Database connection verified');
       } catch (error) {
         console.error('Admin: Database verification failed:', error);
@@ -111,36 +108,12 @@ const AdminLayout = () => {
         localStorage.removeItem('adminDatabasePassword');
         localStorage.removeItem('selectedDatabase');
         localStorage.removeItem('databasePassword');
-        setShowDatabaseSelector(true);
+        navigate('/admin/login');
       }
     };
 
     checkDatabaseConnection();
   }, []);
-
-  const handleDatabaseSuccess = (databaseName) => {
-    // Store admin-specific database credentials
-    const selectedDatabase = localStorage.getItem('selectedDatabase');
-    const databasePassword = localStorage.getItem('databasePassword');
-
-    localStorage.setItem('adminSelectedDatabase', selectedDatabase);
-    localStorage.setItem('adminDatabasePassword', databasePassword);
-
-    setCurrentDatabase(databaseName);
-    setDatabaseConnected(true);
-    setShowDatabaseSelector(false);
-  };
-
-  const handleSwitchDatabase = () => {
-    // Clear current database connection
-    localStorage.removeItem('adminSelectedDatabase');
-    localStorage.removeItem('adminDatabasePassword');
-    localStorage.removeItem('selectedDatabase');
-    localStorage.removeItem('databasePassword');
-    setDatabaseConnected(false);
-    setCurrentDatabase('');
-    setShowDatabaseSelector(true);
-  };
 
   // Toggle drawer
   const handleDrawerToggle = () => {
@@ -500,17 +473,17 @@ const AdminLayout = () => {
                   Welcome to Admin Portal
                 </Typography>
                 <Typography variant="body1">
-                  Please select your hotel database to access the admin features.
-                  Each hotel has its own independent database for managing orders, dishes, and settings.
+                  Please sign in with your hotel credentials to access the admin features.
                 </Typography>
               </Alert>
               <Button
                 variant="contained"
                 size="large"
-                onClick={() => setShowDatabaseSelector(true)}
+                component={RouterLink}
+                to="/admin/login"
                 sx={{ mb: 2 }}
               >
-                Select Database
+                Sign In
               </Button>
               <Button
                 variant="outlined"
@@ -524,13 +497,6 @@ const AdminLayout = () => {
             <Outlet />
           )}
         </Container>
-
-        {/* Database Selector Dialog */}
-        <DatabaseSelector
-          open={showDatabaseSelector}
-          onSuccess={handleDatabaseSuccess}
-          title="Admin Database Selection"
-        />
       </Box>
     </Box>
   );

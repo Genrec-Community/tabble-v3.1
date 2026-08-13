@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Box, Typography, Paper, useTheme } from '@mui/material';
-import DatabaseSelector from './DatabaseSelector';
 import { setHotelInfo } from '../store/slices/authSlice';
 import { adminService } from '../services/api';
 
@@ -9,7 +8,6 @@ const AuthWrapper = ({ children }) => {
   const theme = useTheme();
   const dispatch = useDispatch();
   const { selectedHotel, hotelPassword } = useSelector((state) => state.auth);
-  const [showSelector, setShowSelector] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
 
@@ -19,16 +17,16 @@ const AuthWrapper = ({ children }) => {
 
   const checkAuthentication = async () => {
     setIsChecking(true);
-    
+
     // Check if we have stored credentials
     const storedHotel = localStorage.getItem('selectedHotel') || localStorage.getItem('selectedDatabase');
     const storedPassword = localStorage.getItem('hotelPassword') || localStorage.getItem('databasePassword');
-    
+
     if (storedHotel && storedPassword) {
       try {
         // Try to authenticate with stored credentials
         const response = await adminService.switchHotel(storedHotel, storedPassword);
-        
+
         if (response.success) {
           // Update Redux store
           dispatch(setHotelInfo({ hotel: storedHotel, password: storedPassword }));
@@ -36,18 +34,13 @@ const AuthWrapper = ({ children }) => {
         } else {
           // Clear invalid credentials
           clearStoredCredentials();
-          setShowSelector(true);
         }
       } catch (error) {
         console.error('Authentication check failed:', error);
         clearStoredCredentials();
-        setShowSelector(true);
       }
-    } else {
-      // No stored credentials, show selector
-      setShowSelector(true);
     }
-    
+
     setIsChecking(false);
   };
 
@@ -59,16 +52,10 @@ const AuthWrapper = ({ children }) => {
     localStorage.removeItem('tabbleDatabaseSelected');
   };
 
-  const handleAuthSuccess = (hotelName) => {
-    setIsAuthenticated(true);
-    setShowSelector(false);
-  };
-
   const handleLogout = () => {
     clearStoredCredentials();
     dispatch(setHotelInfo({ hotel: null, password: null }));
     setIsAuthenticated(false);
-    setShowSelector(true);
   };
 
   if (isChecking) {
@@ -103,8 +90,8 @@ const AuthWrapper = ({ children }) => {
     );
   }
 
-  if (!isAuthenticated || showSelector) {
-    // Redirect to dedicated admin login page instead of inline popup
+  if (!isAuthenticated) {
+    // Redirect to dedicated admin login page
     if (typeof window !== 'undefined') {
       window.location.href = '/admin/login';
     }
