@@ -9,28 +9,27 @@ import {
   useTheme
 } from '@mui/material';
 import FoodBankIcon from '@mui/icons-material/FoodBank';
+import ThemeModeToggle from './ThemeModeToggle';
 
 function Layout() {
   const theme = useTheme();
 
-  // Solid black background for the AppBar with subtle orange accent
-  const appBarBackground = '#000000';
-
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <AppBar position="static" sx={{
-        background: appBarBackground,
+        background: theme.palette.background.default,
         boxShadow: 'none',
         borderBottom: '1px solid rgba(255, 165, 0, 0.2)'
       }}>
         <Container maxWidth="xl">
-          <Toolbar disableGutters sx={{ py: 1.5, justifyContent: 'center' }}>
+          <Toolbar disableGutters sx={{ py: 1.5, justifyContent: 'space-between' }}>
             <Box
               sx={{
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                textDecoration: 'none'
+                textDecoration: 'none',
+                flexGrow: 1,
               }}
             >
               <FoodBankIcon sx={{ fontSize: 40, mr: 1.5, color: theme.palette.primary.main }} />
@@ -38,11 +37,12 @@ function Layout() {
                 variant="h4"
                 fontWeight="bold"
                 letterSpacing="1px"
-                sx={{ color: '#FFFFFF' }}
+                sx={{ color: theme.palette.text.primary }}
               >
                 TABBLE
               </Typography>
             </Box>
+            <ThemeModeToggle />
           </Toolbar>
         </Container>
       </AppBar>
@@ -57,9 +57,9 @@ function Layout() {
           py: 3,
           px: 1,
           mt: 'auto',
-          backgroundColor: '#000000',
+          backgroundColor: theme.palette.background.default,
           borderTop: '1px solid rgba(255, 165, 0, 0.2)',
-          color: 'white',
+          color: theme.palette.text.primary,
         }}
       >
         <Container maxWidth="lg">

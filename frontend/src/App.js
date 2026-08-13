@@ -1,10 +1,14 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
+import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Provider } from 'react-redux';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+
+// Theme system (single source of truth for dark/light styling)
+import { getTheme } from './theme';
+import { ThemeModeProvider, useThemeMode } from './themeMode';
 
 // Store and Query Client
 import { store } from './store';
@@ -13,6 +17,7 @@ import { queryClient } from './services/queryClient';
 // Error Boundary
 import ErrorBoundary from './components/ErrorBoundary';
 import ChunkLoadErrorBoundary from './components/ChunkLoadErrorBoundary';
+import GlobalSnackbar from './components/GlobalSnackbar';
 import LoadingSpinner, { PageLoadingSpinner } from './components/LoadingSpinner';
 
 // Authentication Wrapper
@@ -26,7 +31,7 @@ import ChefLayout from './components/ChefLayout';
 // Dynamic public path configuration for chunk loading
 const configurePublicPath = () => {
   const currentPath = window.location.pathname;
-  const publicUrl = process.env.PUBLIC_URL || '';
+  const publicUrl = process.env.PUBLIC_URL || 'http://0.0.0.0:8001';
 
   // If we're in production and chunks are failing to load from /admin path
   if (process.env.NODE_ENV === 'production' && currentPath.includes('/admin')) {
@@ -108,10 +113,14 @@ const lazyLoadWithRetry = (importFunc, retries = 3) => {
 const Home = lazy(() => lazyLoadWithRetry(() => import('./pages/Home')));
 const ChefDashboard = lazy(() => lazyLoadWithRetry(() => import('./pages/chef/Dashboard')));
 const ChefOrders = lazy(() => lazyLoadWithRetry(() => import('./pages/chef/Orders')));
+const ChefLogin = lazy(() => lazyLoadWithRetry(() => import('./pages/chef/Login')));
 const CustomerLogin = lazy(() => lazyLoadWithRetry(() => import('./pages/customer/Login')));
 const CustomerMenu = lazy(() => lazyLoadWithRetry(() => import('./pages/customer/Menu')));
+const CustomerHome = lazy(() => lazyLoadWithRetry(() => import('./pages/customer/Home')));
+const CustomerHistory = lazy(() => lazyLoadWithRetry(() => import('./pages/customer/History')));
+const QRLanding = lazy(() => lazyLoadWithRetry(() => import('./pages/customer/QRLanding')));
+const AdminLogin = lazy(() => lazyLoadWithRetry(() => import('./pages/admin/Login')));
 const AdminDashboard = lazy(() => lazyLoadWithRetry(() => import('./pages/admin/Dashboard')));
-const DashboardDemo = lazy(() => lazyLoadWithRetry(() => import('./pages/admin/DashboardDemo')));
 const AdminDishes = lazy(() => lazyLoadWithRetry(() => import('./pages/admin/Dishes')));
 const AdminOffers = lazy(() => lazyLoadWithRetry(() => import('./pages/admin/Offers')));
 const AdminSpecials = lazy(() => lazyLoadWithRetry(() => import('./pages/admin/Specials')));
@@ -120,6 +129,8 @@ const LoyaltyProgram = lazy(() => lazyLoadWithRetry(() => import('./pages/admin/
 const SelectionOffers = lazy(() => lazyLoadWithRetry(() => import('./pages/admin/SelectionOffers')));
 const TableManagement = lazy(() => lazyLoadWithRetry(() => import('./pages/admin/TableManagement')));
 const AdminSettings = lazy(() => lazyLoadWithRetry(() => import('./pages/admin/Settings')));
+const ChefsManagement = lazy(() => lazyLoadWithRetry(() => import('./pages/admin/Chefs')));
+const SuperAdmin = lazy(() => lazyLoadWithRetry(() => import('./pages/admin/SuperAdmin')));
 
 // Analysis Pages (lazy loaded)
 const AnalysisDashboard = lazy(() => lazyLoadWithRetry(() => import('./pages/analysis/Dashboard')));
@@ -165,340 +176,17 @@ const ChunkErrorFallback = ({ componentName }) => (
   </div>
 );
 
-// Create a theme with luxury hotel aesthetic
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: '#FFA500', // Vibrant Orange as primary color
-      light: '#FFB733', // Light Orange for subtle highlights
-      dark: '#E69500', // Dark Orange for hover states
-      contrastText: '#FFFFFF',
-    },
-    secondary: {
-      main: '#000000', // Black as secondary color
-      light: '#333333', // Dark Gray for secondary text
-      dark: '#000000',
-      contrastText: '#FFFFFF',
-    },
-    error: {
-      main: '#FF385C',
-    },
-    warning: {
-      main: '#FFA500', // Using orange for warnings too
-      light: '#FFB733',
-    },
-    success: {
-      main: '#4DAA57',
-      light: '#6ECF77',
-    },
-    info: {
-      main: '#2196F3',
-    },
-    background: {
-      default: '#000000', // Black background
-      paper: '#121212', // Dark paper background
-    },
-    text: {
-      primary: '#FFFFFF', // White text for dark backgrounds
-      secondary: '#F5F5F5', // Light gray for secondary text
-    },
-  },
-  typography: {
-    fontFamily: '"Montserrat", "Roboto", "Helvetica", "Arial", sans-serif', // Elegant sans-serif font
-    h1: {
-      fontWeight: 700,
-      letterSpacing: '-0.01em',
-      fontSize: '32px',
-    },
-    h2: {
-      fontWeight: 700,
-      letterSpacing: '-0.01em',
-      fontSize: '28px',
-    },
-    h3: {
-      fontWeight: 600,
-      fontSize: '24px',
-    },
-    h4: {
-      fontWeight: 600,
-      fontSize: '22px',
-    },
-    h5: {
-      fontWeight: 600,
-      fontSize: '20px',
-    },
-    h6: {
-      fontWeight: 600,
-      fontSize: '18px',
-    },
-    button: {
-      fontWeight: 600,
-      textTransform: 'none',
-      fontSize: '16px',
-    },
-    subtitle1: {
-      fontWeight: 500,
-      fontSize: '16px',
-    },
-    body1: {
-      fontSize: '16px',
-      lineHeight: 1.5,
-    },
-    body2: {
-      fontSize: '14px',
-      lineHeight: 1.5,
-    },
-  },
-  shape: {
-    borderRadius: 6, // Slightly reduced border radius for more elegant look
-  },
-  shadows: [
-    'none',
-    '0px 2px 4px rgba(0,0,0,0.15)',
-    '0px 4px 8px rgba(0,0,0,0.16)',
-    '0px 6px 12px rgba(0,0,0,0.18)',
-    '0px 8px 16px rgba(0,0,0,0.18)',
-    '0px 10px 20px rgba(0,0,0,0.19)',
-    // ...existing shadows
-  ],
-  components: {
-    MuiCssBaseline: {
-      styleOverrides: {
-        body: {
-          backgroundColor: '#000000',
-          color: '#FFFFFF',
-        },
-        html: {
-          backgroundColor: '#000000',
-        },
-        '#root': {
-          backgroundColor: '#000000',
-          minHeight: '100vh',
-        },
-      },
-    },
-    MuiCard: {
-      styleOverrides: {
-        root: {
-          backgroundColor: '#121212', // Dark background for cards
-          color: '#FFFFFF', // White text
-          boxShadow: '0 8px 20px rgba(0, 0, 0, 0.16)',
-          transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-          '&:hover': {
-            boxShadow: '0 12px 24px rgba(0, 0, 0, 0.18)',
-          },
-          borderTop: '1px solid rgba(255, 165, 0, 0.3)', // Subtle orange accent
-        },
-      },
-    },
-    MuiButton: {
-      styleOverrides: {
-        root: {
-          textTransform: 'none',
-          borderRadius: '4px', // Rounded corners as specified
-          fontWeight: 600,
-          padding: '8px 16px',
-          boxShadow: '0 4px 10px rgba(0, 0, 0, 0.17)',
-          '&:hover': {
-            boxShadow: '0 6px 12px rgba(0, 0, 0, 0.2)',
-          },
-        },
-        contained: {
-          '&.MuiButton-containedPrimary': {
-            background: '#FFA500', // Solid orange for primary buttons
-            '&:hover': {
-              background: '#E69500', // Darker orange on hover
-            },
-          },
-          '&.MuiButton-containedSecondary': {
-            background: '#000000', // Black for secondary buttons
-            '&:hover': {
-              background: '#333333', // Slightly lighter on hover
-            },
-          },
-        },
-        outlined: {
-          borderWidth: '2px',
-          '&.MuiButton-outlinedPrimary': {
-            borderColor: '#FFA500',
-            color: '#FFA500',
-            '&:hover': {
-              borderColor: '#E69500',
-              backgroundColor: 'rgba(255, 165, 0, 0.08)',
-            },
-          },
-        },
-        text: {
-          '&.MuiButton-textPrimary': {
-            color: '#FFA500',
-            '&:hover': {
-              backgroundColor: 'rgba(255, 165, 0, 0.08)',
-            },
-          },
-        },
-      },
-    },
-
-    MuiAppBar: {
-      styleOverrides: {
-        root: {
-          backgroundColor: '#000000', // Black app bar
-          boxShadow: '0 2px 10px rgba(0, 0, 0, 0.15)',
-        },
-      },
-    },
-    MuiChip: {
-      styleOverrides: {
-        root: {
-          fontWeight: 500,
-          borderRadius: '4px',
-        },
-        filled: {
-          '&.MuiChip-colorPrimary': {
-            backgroundColor: '#FFA500',
-          },
-        },
-        outlined: {
-          '&.MuiChip-colorPrimary': {
-            borderColor: '#FFA500',
-            color: '#FFA500',
-          },
-        },
-      },
-    },
-    MuiTableHead: {
-      styleOverrides: {
-        root: {
-          backgroundColor: 'rgba(255, 165, 0, 0.1)', // Subtle orange background
-        },
-      },
-    },
-    MuiTableContainer: {
-      styleOverrides: {
-        root: {
-          border: '1px solid rgba(255, 165, 0, 0.2)', // Orange border around entire table
-          borderRadius: '8px',
-          overflow: 'hidden',
-          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-        },
-      },
-    },
-    MuiTableRow: {
-      styleOverrides: {
-        root: {
-          borderBottom: '1px solid rgba(255, 165, 0, 0.15)', // Orange border between rows
-          '&:hover': {
-            backgroundColor: 'rgba(255, 165, 0, 0.05)', // Subtle orange hover
-          },
-          '&:last-child': {
-            borderBottom: 'none', // Remove border from last row
-          },
-        },
-      },
-    },
-    MuiTableCell: {
-      styleOverrides: {
-        root: {
-          borderBottom: '1px solid rgba(255, 165, 0, 0.15)', // Consistent cell borders
-          '&:not(:last-child)': {
-            borderRight: '1px solid rgba(255, 165, 0, 0.1)', // Vertical borders between cells
-          },
-        },
-        head: {
-          borderBottom: '2px solid rgba(255, 165, 0, 0.3)', // Stronger border for header
-          fontWeight: 'bold',
-        },
-      },
-    },
-    MuiDivider: {
-      styleOverrides: {
-        root: {
-          backgroundColor: 'rgba(255, 165, 0, 0.2)', // Subtle orange dividers
-        },
-      },
-    },
-    MuiTextField: {
-      styleOverrides: {
-        root: {
-          '& .MuiOutlinedInput-root': {
-            '& fieldset': {
-              borderColor: 'rgba(255, 255, 255, 0.23)',
-            },
-            '&:hover fieldset': {
-              borderColor: 'rgba(255, 165, 0, 0.5)',
-            },
-            '&.Mui-focused fieldset': {
-              borderColor: '#FFA500',
-            },
-          },
-          '& .MuiInputLabel-root': {
-            color: '#F5F5F5',
-            '&.Mui-focused': {
-              color: '#FFA500',
-            },
-          },
-          '& .MuiInputBase-input': {
-            color: '#FFFFFF',
-          },
-        },
-      },
-    },
-    MuiListItem: {
-      styleOverrides: {
-        root: {
-          borderBottom: '1px solid rgba(255, 165, 0, 0.1)', // Subtle border between list items
-          '&:last-child': {
-            borderBottom: 'none', // Remove border from last item
-          },
-          '&.Mui-selected': {
-            backgroundColor: 'rgba(255, 165, 0, 0.16)',
-            borderLeft: '3px solid #FFA500', // Orange accent for selected items
-            '&:hover': {
-              backgroundColor: 'rgba(255, 165, 0, 0.2)',
-            },
-          },
-          '&:hover': {
-            backgroundColor: 'rgba(255, 165, 0, 0.05)',
-          },
-        },
-      },
-    },
-    MuiMenuItem: {
-      styleOverrides: {
-        root: {
-          borderBottom: '1px solid rgba(255, 165, 0, 0.1)', // Border between menu items
-          '&:last-child': {
-            borderBottom: 'none', // Remove border from last item
-          },
-          '&:hover': {
-            backgroundColor: 'rgba(255, 165, 0, 0.08)',
-          },
-          '&.Mui-selected': {
-            backgroundColor: 'rgba(255, 165, 0, 0.12)',
-            '&:hover': {
-              backgroundColor: 'rgba(255, 165, 0, 0.16)',
-            },
-          },
-        },
-      },
-    },
-    MuiPaper: {
-      styleOverrides: {
-        root: {
-          backgroundColor: '#121212', // Dark background for papers
-          color: '#FFFFFF', // White text
-          borderRadius: '8px',
-          border: '1px solid rgba(255, 165, 0, 0.15)', // Subtle border around paper components
-          '&.MuiMenu-paper': {
-            border: '1px solid rgba(255, 165, 0, 0.2)', // Stronger border for dropdown menus
-            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.2)',
-            backgroundColor: '#121212',
-          },
-        },
-      },
-    },
-  },
-});
+// ThemedApp uses the mode from ThemeModeProvider and rebuilds the theme reactively
+const ThemedApp = ({ children }) => {
+  const { mode } = useThemeMode();
+  const theme = React.useMemo(() => getTheme(mode), [mode]);
+  return (
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      {children}
+    </ThemeProvider>
+  );
+};
 
 function App() {
   console.log('🚀 DEBUG: App component mounting', {
@@ -533,84 +221,57 @@ function App() {
   return (
     <Provider store={store}>
       <QueryClientProvider client={queryClient}>
-        <ThemeProvider theme={theme}>
-          <CssBaseline />
-          <ChunkLoadErrorBoundary>
-            <AuthWrapper>
-              <Router>
-                <Suspense fallback={
-                  <PageLoadingSpinner message="Loading application components..." />
-                }>
-                  <ErrorBoundary fallback={<ChunkErrorFallback componentName="Application Routes" />}>
-                    <Routes>
-                      {/* Main Layout Routes */}
-                      <Route element={<Layout />}>
-                        <Route
-                          path="/"
-                          element={
-                            <ErrorBoundary>
-                              <Home />
-                            </ErrorBoundary>
-                          }
-                        />
-                      </Route>
+          <ThemeModeProvider>
+            <ThemedApp>
+            <GlobalSnackbar />
+            <ChunkLoadErrorBoundary>
+            <Router>
+              <Suspense fallback={
+                <PageLoadingSpinner message="Loading application components..." />
+              }>
+                <ErrorBoundary fallback={<ChunkErrorFallback componentName="Application Routes" />}>
+                  <Routes>
+                    {/* Standalone login pages — no layout, no auth */}
+                    <Route path="/admin/login" element={<ErrorBoundary><AdminLogin /></ErrorBoundary>} />
+                    <Route path="/chef/login" element={<ErrorBoundary><ChefLogin /></ErrorBoundary>} />
 
-                      {/* Chef Layout Routes */}
-                      <Route element={<ChefLayout />}>
-                        <Route
-                          path="/chef"
-                          element={
-                            <ErrorBoundary>
-                              <ChefDashboard />
-                            </ErrorBoundary>
-                          }
-                        />
-                        <Route
-                          path="/chef/orders"
-                          element={
-                            <ErrorBoundary>
-                              <ChefOrders />
-                            </ErrorBoundary>
-                          }
-                        />
-                      </Route>
+                    {/* Super Admin — standalone with own auth */}
+                    <Route path="/adminofthetabble" element={<ErrorBoundary><SuperAdmin /></ErrorBoundary>} />
 
-                      {/* Main Layout Routes (continued) */}
-                      <Route element={<Layout />}>
-                        {/* Customer Routes */}
-                        <Route
-                          path="/customer"
-                          element={
-                            <ErrorBoundary>
-                              <CustomerLogin />
-                            </ErrorBoundary>
-                          }
-                        />
-                        <Route
-                          path="/customer/menu"
-                          element={
-                            <ErrorBoundary>
-                              <CustomerMenu />
-                            </ErrorBoundary>
-                          }
-                        />
-                      </Route>
+                    {/* QR scan landing — no layout wrapper, no auth */}
+                    <Route
+                      path="/order"
+                      element={
+                        <ErrorBoundary>
+                          <QRLanding />
+                        </ErrorBoundary>
+                      }
+                    />
 
-                      {/* Admin Layout Routes */}
-                      <Route element={<AdminLayout />}>
+                    {/* Home — standalone, full-bleed background */}
+                    <Route path="/" element={<ErrorBoundary><Home /></ErrorBoundary>} />
+
+                    {/* Chef Layout Routes — Firebase auth guard inside ChefLayout */}
+                    <Route element={<ChefLayout />}>
+                      <Route path="/chef" element={<ErrorBoundary><ChefDashboard /></ErrorBoundary>} />
+                      <Route path="/chef/orders" element={<ErrorBoundary><ChefOrders /></ErrorBoundary>} />
+                    </Route>
+
+                    {/* Customer Routes — standalone mobile app (no site chrome,
+                        no homepage chrome). Login -> Home -> Menu -> History. */}
+                    <Route path="/customer" element={<ErrorBoundary><CustomerLogin /></ErrorBoundary>} />
+                    <Route path="/customer/home" element={<ErrorBoundary><CustomerHome /></ErrorBoundary>} />
+                    <Route path="/customer/history" element={<ErrorBoundary><CustomerHistory /></ErrorBoundary>} />
+                    <Route path="/customer/menu" element={<ErrorBoundary><CustomerMenu /></ErrorBoundary>} />
+                    <Route path="/customer/demo-entry" element={<ErrorBoundary><CustomerMenu /></ErrorBoundary>} />
+
+                    {/* Admin Layout Routes — AuthWrapper only here */}
+                    <Route element={<AuthWrapper><AdminLayout /></AuthWrapper>}>
                         <Route
                           path="/admin"
                           element={
                             <ErrorBoundary>
                               <AdminDashboard />
-                            </ErrorBoundary>
-                          }
-                        />
-                        <Route
-                          path="/admin/demo"
-                          element={
-                            <ErrorBoundary>
-                              <DashboardDemo />
                             </ErrorBoundary>
                           }
                         />
@@ -678,6 +339,14 @@ function App() {
                             </ErrorBoundary>
                           }
                         />
+                        <Route
+                          path="/admin/chefs"
+                          element={
+                            <ErrorBoundary>
+                              <ChefsManagement />
+                            </ErrorBoundary>
+                          }
+                        />
 
                         {/* Analysis Routes */}
                         <Route
@@ -726,41 +395,18 @@ function App() {
                         />
                       </Route>
 
-                      {/* Emergency independent route - completely bypass all wrappers */}
-                      <Route
-                        path="/sysdiag"
-                        element={
-                          <ErrorBoundary>
-                            <PerformanceMonitor />
-                          </ErrorBoundary>
-                        }
-                      />
+                      {/* System diagnostics */}
+                      <Route path="/sysdiag" element={<ErrorBoundary><PerformanceMonitor /></ErrorBoundary>} />
+                      <Route path="/emergency-sys" element={<ErrorBoundary><SystemDiagnostics /></ErrorBoundary>} />
+                      <Route path="/backitup" element={<ErrorBoundary><PerformanceMonitor /></ErrorBoundary>} />
 
-                      {/* Ultra emergency route - bypasses even AuthWrapper */}
                     </Routes>
                   </ErrorBoundary>
                 </Suspense>
               </Router>
-            </AuthWrapper>
           </ChunkLoadErrorBoundary>
-
-          {/* Emergency system route outside all wrappers */}
-          <Router>
-            <Suspense fallback={<div style={{ color: 'white' }}>Loading...</div>}>
-              <Routes>
-                <Route
-                  path="/emergency-sys"
-                  element={
-                    <ErrorBoundary>
-                      <SystemDiagnostics />
-                    </ErrorBoundary>
-                  }
-                />
-              </Routes>
-            </Suspense>
-          </Router>
-          {console.log('⚠️ DEBUG: Multiple Router components detected - this may cause routing conflicts in production')}
-        </ThemeProvider>
+            </ThemedApp>
+          </ThemeModeProvider>
         {/* React Query Devtools - only in development */}
         {process.env.NODE_ENV === 'development' && (
           <ReactQueryDevtools initialIsOpen={false} />

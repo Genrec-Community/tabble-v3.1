@@ -38,7 +38,7 @@ export const useMenuData = () => {
       {
         key: 'categories',
         operation: () => customerService.getCategories(),
-        transform: (data) => ['All', ...data]
+        transform: (data) => ['All', ...Array.from(new Set(data.filter(c => c && c !== 'All')))],
       },
       {
         key: 'dishes',
@@ -145,6 +145,9 @@ export const useOrderManagement = (userId, tableNumber) => {
       const tableUnpaidOrders = orders.filter(order =>
         order.status !== 'paid' &&
         order.status !== 'cancelled' &&
+        order.status !== 'merged' &&
+        order.status !== 'rejected' &&
+        order.status !== 'payment_requested' &&
         order.table_number === parseInt(tableNumber)
       );
 
@@ -202,10 +205,40 @@ export const useOrderManagement = (userId, tableNumber) => {
 };
 
 /**
- * Optimized hook for cart management
+ * Optimized hook for cart management with localStorage persistence
  */
 export const useCartManagement = () => {
-  const [cart, setCart] = useState([]);
+  // Get current QR token to identify the session
+  const qrToken = localStorage.getItem('customerQrToken') || 'default';
+  const cartStorageKey = `customerCart_${qrToken}`;
+
+  // Initialize cart from localStorage
+  const [cart, setCart] = useState(() => {
+    try {
+      const savedCart = localStorage.getItem(cartStorageKey);
+      return savedCart ? JSON.parse(savedCart) : [];
+    } catch (error) {
+      console.error('Error loading cart from localStorage:', error);
+      return [];
+    }
+  });
+
+  // Save cart to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem(cartStorageKey, JSON.stringify(cart));
+      localStorage.setItem('customerCartUpdatedAt', new Date().toISOString());
+
+      // Track if cart has items (order is active)
+      if (cart.length > 0) {
+        localStorage.setItem('customerOrderStatus', 'active');
+      } else {
+        localStorage.removeItem('customerOrderStatus');
+      }
+    } catch (error) {
+      console.error('Error saving cart to localStorage:', error);
+    }
+  }, [cart, cartStorageKey]);
 
   const addToCart = useCallback((dish, quantity, remarks) => {
     const actualPrice = dish.is_offer === 1 ?
@@ -261,9 +294,35 @@ export const useCartManagement = () => {
     });
   }, []);
 
+  // Move an item from one index to another (used by drag-to-reorder in the cart)
+  const moveCartItem = useCallback((fromIndex, toIndex) => {
+    setCart(prev => {
+      if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= prev.length || toIndex >= prev.length) {
+        return prev;
+      }
+
+      const newCart = [...prev];
+      const [moved] = newCart.splice(fromIndex, 1);
+      newCart.splice(toIndex, 0, moved);
+
+      return newCart.map((item, idx) => ({
+        ...item,
+        position: idx + 1
+      }));
+    });
+  }, []);
+
   const clearCart = useCallback(() => {
     setCart([]);
-  }, []);
+    // Also clear from localStorage
+    try {
+      localStorage.removeItem(cartStorageKey);
+      localStorage.removeItem('customerOrderStatus');
+      localStorage.removeItem('customerCartUpdatedAt');
+    } catch (error) {
+      console.error('Error clearing cart from localStorage:', error);
+    }
+  }, [cartStorageKey]);
 
   const cartTotal = useMemo(() => {
     return cart.reduce((total, item) => total + (item.price * item.quantity), 0).toFixed(2);
@@ -274,6 +333,7 @@ export const useCartManagement = () => {
     addToCart,
     removeFromCart,
     reorderCart,
+    moveCartItem,
     clearCart,
     cartTotal,
     cartCount: cart.length

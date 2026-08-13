@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+sqlalchemy
+python-multipart
+jinja2
+python-dotenv
+reportlab
+pillow
+httpx
+psutil
+qrcode[pil]==7.4.2
+firebase-admin==6.5.0
+# Tests (backend/tests/) — install separately: pip install pytest
+pytest

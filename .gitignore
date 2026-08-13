@@ -1,60 +1,44 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# Virtual environments
-.venv
-venv/
-
-
-# Node.js
-/frontend/node_modules/
+# ---- Node / React (frontend) ----
+frontend/node_modules/
+frontend/build/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+.vercel
 
-# React build
-frontend/build/
+# ---- Python / FastAPI (backend) ----
+backend/*.db
+backend/*.sqlite
+backend/*.sqlite3
+backend/.venv/
+#backend/.env
+backend/.env.local
+backend/.env.production
+backend/.env.*.local
+backend/firebase-service-account.json
+backend/*.pem
+backend/*-service-account.json
 
+# ---- Local env overrides (real secrets) - never commit ----
+frontend/.env.local
+frontend/.env.*.local
+**/__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
 
+# ---- Uploads / runtime images ----
+backend/app/static/images/*
 
-# Database files
-*.db
-*.sqlite
-*.sqlite3
-
-# IDE
+# ---- OS / IDE ----
+.DS_Store
+Thumbs.db
 .vscode/
 .idea
 *.swp
 *.swo
-.env/
-# OS
-.DS_Store
-Thumbs.db
 
-# Logs
+# ---- Logs / temp ----
 *.log
-
-# Temporary files
 *.tmp
 *.temp

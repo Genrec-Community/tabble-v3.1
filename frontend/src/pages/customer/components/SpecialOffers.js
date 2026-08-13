@@ -13,6 +13,7 @@ import {
 import LocalOfferIcon from '@mui/icons-material/LocalOffer';
 import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
+import { apiBaseUrl } from '../../../utils/apiBaseUrl';
 import { AddButton } from './MenuStyled';
 import AddIcon from '@mui/icons-material/Add';
 
@@ -123,7 +124,8 @@ const SpecialOffers = ({ offers, loading, handleOpenDialog, calculateDiscountedP
             position: 'relative',
             zIndex: 2,
             textTransform: 'uppercase',
-            letterSpacing: '3px',
+            letterSpacing: { xs: '1px', sm: '3px' },
+            fontSize: { xs: '1.3rem', sm: '1.75rem', md: '3rem' },
             background: 'linear-gradient(90deg, rgba(255,165,0,0.8) 0%, #FFA500 50%, rgba(255,165,0,0.8) 100%)',
             backgroundSize: '400px',
             WebkitBackgroundClip: 'text',
@@ -131,7 +133,7 @@ const SpecialOffers = ({ offers, loading, handleOpenDialog, calculateDiscountedP
             animation: `${shine} 3s linear infinite, ${pulsate} 2s infinite ease-in-out`,
           }}
         >
-          <LocalOfferIcon sx={{ mr: 1, fontSize: '2.5rem', color: '#FFA500' }} /> Special Offers
+          <LocalOfferIcon sx={{ mr: 1, fontSize: { xs: '1.5rem', sm: '2.5rem' }, color: '#FFA500' }} /> Special Offers
         </Typography>
         <Divider
           sx={{
@@ -149,7 +151,7 @@ const SpecialOffers = ({ offers, loading, handleOpenDialog, calculateDiscountedP
         sx={{
           position: 'relative',
           width: '100%',
-          height: 400,
+          height: { xs: 320, sm: 360, md: 400 },
           overflow: 'hidden',
           mb: 2,
         }}
@@ -166,8 +168,8 @@ const SpecialOffers = ({ offers, loading, handleOpenDialog, calculateDiscountedP
               zIndex: 10,
               backgroundColor: 'rgba(0,0,0,0.7)',
               color: '#FFA500',
-              width: 40,
-              height: 40,
+              width: 44,
+              height: 44,
               '&:hover': {
                 backgroundColor: 'rgba(0,0,0,0.9)',
               },
@@ -190,8 +192,8 @@ const SpecialOffers = ({ offers, loading, handleOpenDialog, calculateDiscountedP
               zIndex: 10,
               backgroundColor: 'rgba(0,0,0,0.7)',
               color: '#FFA500',
-              width: 40,
-              height: 40,
+              width: 44,
+              height: 44,
               '&:hover': {
                 backgroundColor: 'rgba(0,0,0,0.9)',
               },
@@ -217,7 +219,7 @@ const SpecialOffers = ({ offers, loading, handleOpenDialog, calculateDiscountedP
               sx={{
                 display: 'flex',
                 width: '100%',
-                height: 400,
+                height: { xs: 320, sm: 360, md: 400 },
                 borderRadius: '16px',
                 overflow: 'hidden',
                 boxShadow: '0 15px 35px rgba(0, 0, 0, 0.3)',
@@ -245,7 +247,7 @@ const SpecialOffers = ({ offers, loading, handleOpenDialog, calculateDiscountedP
                     height: '100%',
                     objectFit: 'cover',
                   }}
-                  image={offer.image_path ? `${process.env.REACT_APP_API_BASE_URL}${offer.image_path}` : 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=600&q=80'}
+                  image={offer.image_path ? `${apiBaseUrl}${offer.image_path}` : 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=600&q=80'}
                   alt={offer.name}
                 />
 
@@ -292,6 +294,7 @@ const SpecialOffers = ({ offers, loading, handleOpenDialog, calculateDiscountedP
                     <Typography variant="h4" fontWeight="bold" gutterBottom sx={{
                       color: '#FFA500',
                       mb: 2,
+                      fontSize: { xs: '1.2rem', sm: '1.5rem', md: '2.125rem' },
                       borderBottom: '2px solid rgba(255, 165, 0, 0.3)',
                       pb: 1,
                     }}>
@@ -302,6 +305,11 @@ const SpecialOffers = ({ offers, loading, handleOpenDialog, calculateDiscountedP
                       color: 'rgba(255,255,255,0.9)',
                       mb: 3,
                       lineHeight: 1.5,
+                      fontSize: { xs: '0.85rem', sm: '1rem', md: '1.25rem' },
+                      display: '-webkit-box',
+                      WebkitLineClamp: { xs: 2, sm: 3 },
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
                     }}>
                       {offer.description || 'A delicious dish prepared with the finest ingredients, available for a limited time at a special discount.'}
                     </Typography>
@@ -315,6 +323,7 @@ const SpecialOffers = ({ offers, loading, handleOpenDialog, calculateDiscountedP
                       <Typography variant="h4" sx={{
                         color: '#FFA500',
                         fontWeight: 'bold',
+                        fontSize: { xs: '1.2rem', sm: '1.5rem', md: '2.125rem' },
                       }}>
                         ₹{calculateDiscountedPrice(offer.price, offer.discount)}
                       </Typography>
@@ -365,16 +374,21 @@ const SpecialOffers = ({ offers, loading, handleOpenDialog, calculateDiscountedP
               sx={{
                 width: index === currentIndex ? 40 : 12,
                 height: 12,
-                borderRadius: 6,
-                cursor: 'pointer',
-                backgroundColor: index === currentIndex ? '#FFA500' : 'rgba(255, 165, 0, 0.3)',
-                transition: 'all 0.3s ease',
+                minWidth: 44,
+                minHeight: 44,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                position: 'relative',
-                boxShadow: index === currentIndex ? '0 0 10px rgba(255, 165, 0, 0.5)' : 'none',
-                '&:hover': {
+                cursor: 'pointer',
+                '& > *': {
+                  width: index === currentIndex ? 40 : 12,
+                  height: 12,
+                  borderRadius: 6,
+                  backgroundColor: index === currentIndex ? '#FFA500' : 'rgba(255, 165, 0, 0.3)',
+                  transition: 'all 0.3s ease',
+                  boxShadow: index === currentIndex ? '0 0 10px rgba(255, 165, 0, 0.5)' : 'none',
+                },
+                '&:hover > *': {
                   backgroundColor: index === currentIndex ? '#FFA500' : 'rgba(255, 165, 0, 0.5)',
                   transform: 'scale(1.1)',
                 }
@@ -386,7 +400,9 @@ const SpecialOffers = ({ offers, loading, handleOpenDialog, calculateDiscountedP
                   sx={{
                     color: 'black',
                     fontWeight: 'bold',
-                    fontSize: '0.6rem'
+                    fontSize: '0.6rem',
+                    position: 'relative',
+                    zIndex: 1,
                   }}
                 >
                   {index + 1}/{offers.length}

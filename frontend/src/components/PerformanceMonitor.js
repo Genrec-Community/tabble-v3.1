@@ -8,7 +8,8 @@ import {
   Container,
   Alert,
   CircularProgress,
-  Fade
+  Fade,
+  useTheme
 } from '@mui/material';
 import { runDiagnostics } from '../utils/errorLogger';
 import { runSystemOptimization } from '../utils/cacheManager';
@@ -16,6 +17,7 @@ import { performSystemMaintenance } from '../services/api';
 
 // Performance monitoring and system diagnostics component
 const PerformanceMonitor = () => {
+  const theme = useTheme();
   const [diagnosticKey, setDiagnosticKey] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [status, setStatus] = useState('');
@@ -136,7 +138,7 @@ const PerformanceMonitor = () => {
 
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
-      <Paper elevation={3} sx={{ p: 4, backgroundColor: '#121212', border: '1px solid rgba(255,165,0,0.3)' }}>
+      <Paper elevation={3} sx={{ p: 4, backgroundColor: theme.palette.background.paper, border: '1px solid rgba(255,165,0,0.3)' }}>
         <Typography variant="h4" gutterBottom sx={{ color: '#FFA500', textAlign: 'center', mb: 3 }}>
           System Performance Monitor
         </Typography>

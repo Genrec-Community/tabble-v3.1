@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { Box, Typography, Paper } from '@mui/material';
+import { Box, Typography, Paper, useTheme } from '@mui/material';
 import DatabaseSelector from './DatabaseSelector';
 import { setHotelInfo } from '../store/slices/authSlice';
 import { adminService } from '../services/api';
 
 const AuthWrapper = ({ children }) => {
+  const theme = useTheme();
   const dispatch = useDispatch();
   const { selectedHotel, hotelPassword } = useSelector((state) => state.auth);
   const [showSelector, setShowSelector] = useState(false);
@@ -78,7 +79,7 @@ const AuthWrapper = ({ children }) => {
         alignItems="center"
         minHeight="100vh"
         sx={{
-          background: 'linear-gradient(135deg, #121212 0%, #1e1e1e 100%)',
+          background: theme.palette.background.default,
         }}
       >
         <Paper
@@ -86,7 +87,7 @@ const AuthWrapper = ({ children }) => {
           sx={{
             p: 4,
             textAlign: 'center',
-            backgroundColor: 'rgba(18, 18, 18, 0.9)',
+            backgroundColor: theme.palette.background.paper,
             border: '2px solid rgba(255, 165, 0, 0.3)',
             borderRadius: 2,
           }}
@@ -103,52 +104,11 @@ const AuthWrapper = ({ children }) => {
   }
 
   if (!isAuthenticated || showSelector) {
-    return (
-      <Box
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-        minHeight="100vh"
-        sx={{
-          background: 'linear-gradient(135deg, #121212 0%, #1e1e1e 100%)',
-          backgroundImage: `
-            radial-gradient(circle at 20% 80%, rgba(255, 165, 0, 0.1) 0%, transparent 50%),
-            radial-gradient(circle at 80% 20%, rgba(255, 165, 0, 0.1) 0%, transparent 50%)
-          `,
-        }}
-      >
-        <Box sx={{ width: '100%', maxWidth: 500, px: 2 }}>
-          <Paper
-            elevation={3}
-            sx={{
-              p: 4,
-              mb: 4,
-              textAlign: 'center',
-              backgroundColor: 'rgba(18, 18, 18, 0.9)',
-              border: '2px solid rgba(255, 165, 0, 0.3)',
-              borderRadius: 2,
-            }}
-          >
-            <Typography variant="h4" color="primary" gutterBottom fontWeight="bold">
-              🏨 Tabble
-            </Typography>
-            <Typography variant="h6" color="text.secondary" gutterBottom>
-              Restaurant Management System
-            </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ mt: 2 }}>
-              Please authenticate with your hotel credentials to access the system
-            </Typography>
-          </Paper>
-          
-          <DatabaseSelector
-            open={true}
-            onSuccess={handleAuthSuccess}
-            title="Hotel Authentication"
-            fullScreen={true}
-          />
-        </Box>
-      </Box>
-    );
+    // Redirect to dedicated admin login page instead of inline popup
+    if (typeof window !== 'undefined') {
+      window.location.href = '/admin/login';
+    }
+    return null;
   }
 
   // User is authenticated, show the main app with logout option
@@ -164,7 +124,7 @@ const AuthWrapper = ({ children }) => {
           display: 'flex',
           alignItems: 'center',
           gap: 2,
-          backgroundColor: 'rgba(18, 18, 18, 0.9)',
+          backgroundColor: theme.palette.background.paper,
           border: '1px solid rgba(255, 165, 0, 0.3)',
           borderRadius: 1,
           px: 2,

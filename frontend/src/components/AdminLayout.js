@@ -31,7 +31,9 @@ import ReceiptIcon from '@mui/icons-material/Receipt';
 import TableRestaurantIcon from '@mui/icons-material/TableRestaurant';
 import AnalyticsIcon from '@mui/icons-material/Analytics';
 import SettingsIcon from '@mui/icons-material/Settings';
+import GroupIcon from '@mui/icons-material/Group';
 import MenuIcon from '@mui/icons-material/Menu';
+import ThemeModeToggle from './ThemeModeToggle';
 
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
@@ -60,7 +62,10 @@ const AdminLayout = () => {
     return nameWithoutExtension.charAt(0).toUpperCase() + nameWithoutExtension.slice(1);
   };
 
-  // Check database connection on component mount
+  // Check database connection once on mount. Reuses the hotel/password the user
+  // already picked at login (or stored previously), so the "Admin Database
+  // Selection" dialog is NOT shown again after sign-in and doesn't re-appear
+  // every time you navigate between admin pages.
   useEffect(() => {
     // Skip database check for demo route
     if (location.pathname === '/admin/demo') {
@@ -70,38 +75,48 @@ const AdminLayout = () => {
     }
 
     const checkDatabaseConnection = async () => {
-      const selectedDatabase = localStorage.getItem('adminSelectedDatabase');
-      const databasePassword = localStorage.getItem('adminDatabasePassword');
+      // Prefer admin-specific keys, fall back to login credentials
+      const selectedDatabase =
+        localStorage.getItem('adminSelectedDatabase') ||
+        localStorage.getItem('selectedHotel') ||
+        localStorage.getItem('selectedDatabase');
+      const databasePassword =
+        localStorage.getItem('adminDatabasePassword') ||
+        localStorage.getItem('hotelPassword') ||
+        localStorage.getItem('databasePassword');
 
-      if (selectedDatabase && databasePassword) {
-        try {
-          // Import adminService here to avoid circular imports
-          const { adminService } = await import('../services/api');
+      // No hotel selected anywhere - ask the user to pick one
+      if (!selectedDatabase || !databasePassword) {
+        setShowDatabaseSelector(true);
+        return;
+      }
 
-          // Temporarily set the credentials for verification
-          localStorage.setItem('selectedDatabase', selectedDatabase);
-          localStorage.setItem('databasePassword', databasePassword);
+      try {
+        // Import adminService here to avoid circular imports
+        const { adminService } = await import('../services/api');
 
-          await adminService.getCurrentDatabase();
-          setDatabaseConnected(true);
-          setCurrentDatabase(selectedDatabase);
-          console.log('Admin: Database connection verified');
-        } catch (error) {
-          console.error('Admin: Database verification failed:', error);
-          // Clear invalid credentials
-          localStorage.removeItem('adminSelectedDatabase');
-          localStorage.removeItem('adminDatabasePassword');
-          localStorage.removeItem('selectedDatabase');
-          localStorage.removeItem('databasePassword');
-          setShowDatabaseSelector(true);
-        }
-      } else {
+        // Keep the shared credentials (read by the API client) in sync
+        localStorage.setItem('selectedDatabase', selectedDatabase);
+        localStorage.setItem('databasePassword', databasePassword);
+
+        await adminService.getCurrentDatabase();
+        setDatabaseConnected(true);
+        setCurrentDatabase(selectedDatabase);
+        setShowDatabaseSelector(false);
+        console.log('Admin: Database connection verified');
+      } catch (error) {
+        console.error('Admin: Database verification failed:', error);
+        // Clear invalid credentials
+        localStorage.removeItem('adminSelectedDatabase');
+        localStorage.removeItem('adminDatabasePassword');
+        localStorage.removeItem('selectedDatabase');
+        localStorage.removeItem('databasePassword');
         setShowDatabaseSelector(true);
       }
     };
 
     checkDatabaseConnection();
-  }, [location.pathname]);
+  }, []);
 
   const handleDatabaseSuccess = (databaseName) => {
     // Store admin-specific database credentials
@@ -192,6 +207,11 @@ const AdminLayout = () => {
       path: '/admin/tables'
     },
     {
+      text: 'Chef Accounts',
+      icon: <GroupIcon />,
+      path: '/admin/chefs'
+    },
+    {
       text: 'Analytics',
       icon: <AnalyticsIcon />,
       path: '/analysis'
@@ -236,7 +256,7 @@ const AdminLayout = () => {
         p: 2
       }}>
         <FoodBankIcon sx={{ fontSize: 32, mr: 1.5, color: theme.palette.primary.main }} />
-        <Typography variant="h6" fontWeight="bold" sx={{ color: '#FFFFFF' }}>
+        <Typography variant="h6" fontWeight="bold" sx={{ color: theme.palette.text.primary }}>
           TABBLE ADMIN
         </Typography>
       </Box>
@@ -269,12 +289,12 @@ const AdminLayout = () => {
                     primary={item.text}
                     primaryTypographyProps={{
                       fontWeight: 'medium',
-                      color: '#FFFFFF'
+                      color: theme.palette.text.primary
                     }}
                   />
                   {item.text === 'Menu Management' ?
-                    (menuOpen ? <ExpandLess sx={{ color: '#FFFFFF' }} /> : <ExpandMore sx={{ color: '#FFFFFF' }} />) :
-                    (offersOpen ? <ExpandLess sx={{ color: '#FFFFFF' }} /> : <ExpandMore sx={{ color: '#FFFFFF' }} />)
+                    (menuOpen ? <ExpandLess sx={{ color: theme.palette.text.primary }} /> : <ExpandMore sx={{ color: theme.palette.text.primary }} />) :
+                    (offersOpen ? <ExpandLess sx={{ color: theme.palette.text.primary }} /> : <ExpandMore sx={{ color: theme.palette.text.primary }} />)
                   }
                 </ListItemButton>
               </ListItem>
@@ -308,7 +328,7 @@ const AdminLayout = () => {
                         <ListItemIcon sx={{
                           color: isActive(subItem.path) ?
                             theme.palette.primary.main :
-                            'rgba(255, 255, 255, 0.7)'
+                            theme.palette.text.secondary
                         }}>
                           {subItem.icon}
                         </ListItemIcon>
@@ -317,8 +337,8 @@ const AdminLayout = () => {
                           primaryTypographyProps={{
                             fontWeight: isActive(subItem.path) ? 'bold' : 'medium',
                             color: isActive(subItem.path) ?
-                              '#FFFFFF' :
-                              'rgba(255, 255, 255, 0.7)'
+                              theme.palette.text.primary :
+                              theme.palette.text.secondary
                           }}
                         />
                       </ListItemButton>
@@ -350,7 +370,7 @@ const AdminLayout = () => {
                 <ListItemIcon sx={{
                   color: isActive(item.path) ?
                     theme.palette.primary.main :
-                    'rgba(255, 255, 255, 0.7)'
+                    theme.palette.text.secondary
                 }}>
                   {item.icon}
                 </ListItemIcon>
@@ -359,8 +379,8 @@ const AdminLayout = () => {
                   primaryTypographyProps={{
                     fontWeight: isActive(item.path) ? 'bold' : 'medium',
                     color: isActive(item.path) ?
-                      '#FFFFFF' :
-                      'rgba(255, 255, 255, 0.7)'
+                      theme.palette.text.primary :
+                      theme.palette.text.secondary
                   }}
                 />
               </ListItemButton>
@@ -370,7 +390,7 @@ const AdminLayout = () => {
       </List>
       <Divider sx={{ backgroundColor: 'rgba(255, 165, 0, 0.2)', mt: 2 }} />
       <Box sx={{ p: 2, textAlign: 'center' }}>
-        <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.5)' }}>
+        <Typography variant="body2" sx={{ color: theme.palette.text.secondary }}>
           &copy; {new Date().getFullYear()} Tabble
         </Typography>
       </Box>
@@ -383,7 +403,8 @@ const AdminLayout = () => {
       <AppBar
         position="fixed"
         sx={{
-          backgroundColor: '#000000',
+          backgroundColor: theme.palette.background.default,
+          color: theme.palette.text.primary,
           boxShadow: 'none',
           borderBottom: '1px solid rgba(255, 165, 0, 0.2)',
           width: '100%',
@@ -421,6 +442,7 @@ const AdminLayout = () => {
             {getCurrentPageTitle()}
           </Typography>
 
+          <ThemeModeToggle />
           
         </Toolbar>
       </AppBar>
@@ -438,7 +460,7 @@ const AdminLayout = () => {
           '& .MuiDrawer-paper': {
             width: drawerWidth,
             boxSizing: 'border-box',
-            backgroundColor: '#121212',
+            backgroundColor: theme.palette.background.paper,
             borderRight: '1px solid rgba(255, 165, 0, 0.2)',
             mt: '64px', // Height of AppBar
             height: 'calc(100% - 64px)',

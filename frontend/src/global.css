@@ -8,6 +8,9 @@
 ::-webkit-scrollbar-track {
   background: #121212;
 }
+html[data-theme="light"] ::-webkit-scrollbar-track {
+  background: #E5E5E2;
+}
 ::-webkit-scrollbar-thumb {
   background: #FFA500;
   border-radius: 4px;
@@ -21,10 +24,29 @@
   background-color: rgba(255, 165, 0, 0.3);
   color: #FFFFFF;
 }
+html[data-theme="light"] ::selection {
+  color: #1A1A1A;
+}
 
 /* Smooth scrolling */
 html {
   scroll-behavior: smooth;
+}
+
+/* Safe area insets for notched phones */
+:root {
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-left: env(safe-area-inset-left, 0px);
+  --safe-area-right: env(safe-area-inset-right, 0px);
+}
+
+/* Dynamic viewport height fallback */
+@supports (height: 100dvh) {
+  .vh-full { height: 100dvh; }
+}
+@supports not (height: 100dvh) {
+  .vh-full { height: 100vh; }
 }
 
 /* Luxury arrow bullet points */
@@ -157,4 +179,35 @@ a, button, .MuiCard-root, .MuiPaper-root {
   90% {
     transform: translate3d(0, -2px, 0);
   }
+}
+
+/* Respect prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Mobile touch target minimum (44x44px per WCAG) */
+@media (pointer: coarse) {
+  button, a, [role="button"], .MuiIconButton-root, .MuiChip-root, .MuiTab-root {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* Mobile: prevent text size adjust after orientation change */
+html {
+  -webkit-text-size-adjust: 100%;
+  -ms-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Mobile: prevent horizontal overflow */
+body {
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
 }

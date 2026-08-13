@@ -24,7 +24,8 @@ import {
   TableCell,
   TableContainer,
   TableHead,
-  TableRow
+  TableRow,
+  useTheme
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import LocalOfferIcon from '@mui/icons-material/LocalOffer';
@@ -33,6 +34,7 @@ import { adminService } from '../../services/api';
 import AdminPageHeader from '../../components/AdminPageHeader';
 
 const AdminOffers = () => {
+  const theme = useTheme();
   // State
   const [dishes, setDishes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -371,7 +373,7 @@ const AdminOffers = () => {
                   boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
                   border: '2px solid rgba(255, 165, 0, 0.2)',
                   overflow: 'hidden',
-                  backgroundColor: '#121212',
+                  backgroundColor: theme.palette.background.paper,
                 }}
               >
                 <Table>

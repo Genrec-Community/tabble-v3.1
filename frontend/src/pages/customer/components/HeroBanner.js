@@ -24,24 +24,15 @@ const HeroBanner = ({ tableNumber, uniqueId, databaseName }) => {
     <Box
       sx={{
         position: 'relative',
-        height: '300px',
-        borderRadius: '6px',
+        height: { xs: '184px', sm: '260px', md: '300px' },
+        borderRadius: { xs: '0 0 24px 24px', sm: '24px' },
         overflow: 'hidden',
-        mb: 6,
-        boxShadow: '0 15px 40px rgba(0,0,0,0.3)',
-        background: `linear-gradient(to right, rgba(0,0,0,0.8), rgba(0,0,0,0.6)), url('https://images.unsplash.com/photo-1559339352-11d035aa65de?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1074&q=80')`,
+        mb: { xs: 3, sm: 5 },
+        boxShadow: '0 16px 40px rgba(0,0,0,0.28)',
+        background: `linear-gradient(90deg, rgba(10,10,8,0.93), rgba(10,10,8,0.42)), url('https://images.unsplash.com/photo-1559339352-11d035aa65de?auto=format&fit=crop&w=1074&q=80')`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
-        border: '1px solid rgba(255, 165, 0, 0.3)',
-        '&::after': {
-          content: '""',
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '4px',
-          backgroundColor: '#FFA500',
-        }
+        border: '1px solid rgba(255,255,255,0.1)',
       }}
     >
       <Box
@@ -50,7 +41,7 @@ const HeroBanner = ({ tableNumber, uniqueId, databaseName }) => {
           bottom: 0,
           left: 0,
           width: '100%',
-          p: 4,
+          p: { xs: 2.5, sm: 4 },
           color: 'white',
         }}
       >
@@ -59,9 +50,9 @@ const HeroBanner = ({ tableNumber, uniqueId, databaseName }) => {
             <Typography
               variant="overline"
               sx={{
-                color: '#FFA500',
-                letterSpacing: '3px',
-                fontSize: '1rem',
+                color: '#F7B538',
+                letterSpacing: { xs: '1px', sm: '3px' },
+                fontSize: { xs: '0.64rem', sm: '0.8rem' },
                 mb: 1,
                 display: 'block'
               }}
@@ -69,28 +60,20 @@ const HeroBanner = ({ tableNumber, uniqueId, databaseName }) => {
               LUXURY HOTEL DINING
             </Typography>
             <Typography variant="h3" component="h1" fontWeight="bold" gutterBottom sx={{
-              position: 'relative',
-              '&::after': {
-                content: '""',
-                position: 'absolute',
-                bottom: '-15px',
-                left: '0',
-                width: '80px',
-                height: '3px',
-                backgroundColor: '#FFA500'
-              }
+              fontSize: { xs: '1.55rem', sm: '2rem', md: '3rem' },
+              lineHeight: 1.15,
             }}>
               {formattedDatabaseName ? (
                 <>
-                  <Box component="span" sx={{ color: '#FFA500' }}>{formattedDatabaseName}</Box> Experience
+                  <Box component="span" sx={{ color: '#F7B538' }}>{formattedDatabaseName}</Box> dining
                 </>
               ) : (
                 <>
-                  Exquisite <Box component="span" sx={{ color: '#FFA500' }}>Culinary</Box> Experience
+                  Exquisite <Box component="span" sx={{ color: '#F7B538' }}>Culinary</Box> dining
                 </>
               )}
             </Typography>
-            <Box display="flex" alignItems="center" gap={2} mt={4}>
+            <Box display="flex" alignItems="center" gap={1} mt={{ xs: 1.5, sm: 3 }}>
               <Box display="flex" alignItems="center">
                 <PlaceIcon sx={{ mr: 0.5, fontSize: '1rem', color: '#FFA500' }} />
                 <Typography variant="body2">Table #{tableNumber}</Typography>

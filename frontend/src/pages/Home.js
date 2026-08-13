@@ -1,234 +1,151 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Typography,
-  Grid,
-  Button,
-  Box,
-  Container,
-  Paper,
-  Stack,
-  Fade
-} from '@mui/material';
-import TableSetup from '../components/TableSetup';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-
-
+import { Box, Typography, Button, Container, Grid, Paper, useTheme } from '@mui/material';
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
+import KitchenIcon from '@mui/icons-material/Kitchen';
+import QrCode2Icon from '@mui/icons-material/QrCode2';
+import ThemeModeToggle from '../components/ThemeModeToggle';
 
 const Home = () => {
   const navigate = useNavigate();
-  const [showTableSetup, setShowTableSetup] = useState(false);
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
 
-  // Check for existing database credentials on component mount
-  useEffect(() => {
-    const checkDatabaseCredentials = () => {
-      const selectedDatabase = localStorage.getItem('customerSelectedDatabase');
-      const databasePassword = localStorage.getItem('customerDatabasePassword');
-      const tableNumber = localStorage.getItem('tableNumber');
-
-      console.log('Checking database credentials:', {
-        selectedDatabase: !!selectedDatabase,
-        databasePassword: !!databasePassword,
-        tableNumber: !!tableNumber
-      });
-    };
-
-    checkDatabaseCredentials();
-  }, []);
-
-  const handleTableSetupComplete = () => {
-    setShowTableSetup(false);
-    console.log('Table setup completed - navigating to /customer');
-    navigate('/customer');
+  const handleTryDemo = () => {
+    // Set demo context so customer login works directly
+    localStorage.setItem('customerSelectedDatabase', 'demo');
+    localStorage.setItem('selectedDatabase', 'demo');
+    localStorage.setItem('tableNumber', '1');
+    localStorage.setItem('slotNumber', '1');
+    localStorage.setItem('customerUniqueId', 'DEMO');
+    localStorage.setItem('customerId', 'demo');
+    // Clear password-based auth so QR token path is used
+    localStorage.removeItem('customerDatabasePassword');
+    localStorage.removeItem('databasePassword');
+    navigate('/customer/demo-entry?table_number=1&slot_number=1&unique_id=DEMO&user_id=demo');
   };
 
-  const handleExperienceNowClick = () => {
-    // Check if database credentials already exist
-    const selectedDatabase = localStorage.getItem('customerSelectedDatabase');
-    const databasePassword = localStorage.getItem('customerDatabasePassword');
-    const tableNumber = localStorage.getItem('tableNumber');
+  const cards = [
+    {
+      icon: <AdminPanelSettingsIcon sx={{ fontSize: 48, color: '#FFA500' }} />,
+      title: 'Hotel Owner',
+      desc: 'Manage your restaurant — dishes, tables, orders, staff, and analytics.',
+      action: () => navigate('/admin/login'),
+      label: 'Admin Login',
+      color: '#FFA500',
+    },
+    {
+      icon: <KitchenIcon sx={{ fontSize: 48, color: '#4CAF50' }} />,
+      title: 'Chef',
+      desc: 'View and manage kitchen orders in real time.',
+      action: () => navigate('/chef/login'),
+      label: 'Chef Login',
+      color: '#4CAF50',
+    },
+    {
+      icon: <QrCode2Icon sx={{ fontSize: 48, color: '#2196F3' }} />,
+      title: 'Try Demo',
+      desc: 'Experience the customer ordering flow with demo data.',
+      action: handleTryDemo,
+      label: 'Experience Now',
+      color: '#2196F3',
+    },
+  ];
 
-    if (selectedDatabase && databasePassword && tableNumber) {
-      console.log('Database credentials found - navigating directly to /customer');
-      navigate('/customer');
-    } else {
-      console.log('Database credentials missing - showing table setup');
-      setShowTableSetup(true);
-    }
-  };
-
-  const handleAdminPortalClick = () => {
-    console.log('Admin Portal button clicked - navigating to /admin');
-    navigate('/admin');
-  };
-
-  // Hero section background with dark overlay for restaurant feel
-  const heroBg = `linear-gradient(rgba(0,0,0,0.8), rgba(0,0,0,0.7)), url('https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1920&q=80')`;
-
-
-
-
-
-
-
-
+  // Subtle, uniform overlay for text legibility — no edge vignette.
+  // Light mode gets a soft white scrim so the page reads bright and clean.
+  const overlay = isDark
+    ? 'linear-gradient(rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.55))'
+    : 'linear-gradient(rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.72))';
 
   return (
-    <>
-      {/* Table Setup Dialog */}
-      <TableSetup
-        open={showTableSetup}
-        onClose={handleTableSetupComplete}
-      />
+    <Box
+      sx={{
+        position: 'relative',
+        minHeight: '100vh',
+        background: `${overlay},
+          url('https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1920&q=80')`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        p: 3,
+      }}
+    >
+      {/* Theme toggle — top right, always visible */}
+      <Box sx={{ position: 'absolute', top: 16, right: 16 }}>
+        <Paper
+          elevation={1}
+          sx={{
+            p: 0.5,
+            borderRadius: 2,
+            bgcolor: isDark ? 'rgba(18,18,18,0.75)' : 'rgba(255,255,255,0.8)',
+            border: '1px solid rgba(255, 165, 0, 0.25)',
+          }}
+        >
+          <ThemeModeToggle />
+        </Paper>
+      </Box>
 
-      {/* Hero Section */}
-      <Box
-        sx={{
-          py: { xs: 4, md: 6 },
-          px: 2,
-          mb: 2,
-          background: heroBg,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundAttachment: 'fixed',
-          position: 'relative',
-          '&::after': {
-            content: '""',
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            width: '100%',
-            height: '1px',
-            background: 'linear-gradient(90deg, transparent 0%, rgba(255, 165, 0, 0.5) 50%, transparent 100%)'
-          }
-        }}
+      <Typography
+        variant="h2"
+        fontWeight="bold"
+        sx={{ color: isDark ? '#FFA500' : '#1A1A1A', mb: 1, letterSpacing: 2 }}
       >
-        <Container maxWidth="xl">
-          <Fade in={true} timeout={1000}>
-            <Grid container spacing={4} alignItems="center">
-              <Grid item xs={12} md={7}>
-                <Box sx={{ position: 'relative' }}>
-                  <Typography
-                    variant="overline"
-                    sx={{
-                      color: 'primary.main',
-                      letterSpacing: '3px',
-                      fontSize: '1rem',
-                      mb: 2,
-                      display: 'block'
-                    }}
-                  >
-                    RESTAURANT AUTOMATION SYSTEM
-                  </Typography>
-                  <Typography
-                    variant="h1"
-                    component="h1"
-                    gutterBottom
-                    sx={{
-                      fontWeight: 700,
-                      fontSize: { xs: '2.5rem', md: '3.5rem', lg: '4rem' },
-                      color: 'white',
-                      lineHeight: 1.1,
-                      mb: 3,
-                      position: 'relative',
-                      '&::after': {
-                        content: '""',
-                        position: 'absolute',
-                        bottom: '-15px',
-                        left: '0',
-                        width: '80px',
-                        height: '4px',
-                        backgroundColor: 'primary.main'
-                      }
-                    }}
-                  >
-                    Elevate Your Dining Experience
-                  </Typography>
-                  <Typography
-                    variant="h5"
-                    color="text.secondary"
-                    paragraph
-                    sx={{ mb: 3, maxWidth: '600px', fontWeight: 300, lineHeight: 1.6 }}
-                  >
-                    Tabble brings sophisticated digital ordering and kitchen management to premium hotels and fine dining establishments
-                  </Typography>
-                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3}>
-                    <Button
-                      variant="contained"
-                      color="primary"
-                      size="large"
-                      onClick={handleExperienceNowClick}
-                      endIcon={<ArrowForwardIcon />}
-                      sx={{
-                        py: 1.5,
-                        px: 4,
-                        fontSize: '1rem',
-                        fontWeight: 500,
-                        letterSpacing: '0.5px'
-                      }}
-                    >
-                      Experience Now
-                    </Button>
-                    <Button
-                      variant="outlined"
-                      color="primary"
-                      size="large"
-                      onClick={handleAdminPortalClick}
-                      sx={{
-                        py: 1.5,
-                        px: 4,
-                        fontSize: '1rem',
-                        fontWeight: 500,
-                        letterSpacing: '0.5px',
-                        borderWidth: '2px'
-                      }}
-                    >
-                      Admin Portal
-                    </Button>
-                  </Stack>
-                </Box>
-              </Grid>
-              <Grid item xs={12} md={5} sx={{ display: { xs: 'none', md: 'block' } }}>
-                <Box
+        🍽 Tabble
+      </Typography>
+      <Typography variant="h6" sx={{ color: isDark ? '#E0E0E0' : '#3A3A3A', mb: 6, textAlign: 'center' }}>
+        Smart restaurant ordering — scan, order, enjoy
+      </Typography>
+
+      <Container maxWidth="md">
+        <Grid container spacing={3} justifyContent="center">
+          {cards.map((card) => (
+            <Grid item xs={12} sm={4} key={card.title}>
+              <Paper
+                elevation={isDark ? 6 : 2}
+                sx={{
+                  p: 4,
+                  textAlign: 'center',
+                  bgcolor: isDark ? 'rgba(18,18,18,0.92)' : 'rgba(255,255,255,0.95)',
+                  border: `1px solid ${card.color}40`,
+                  borderRadius: 3,
+                  transition: 'transform 0.2s, box-shadow 0.2s',
+                  '&:hover': {
+                    transform: 'translateY(-6px)',
+                    boxShadow: `0 12px 32px ${card.color}30`,
+                  },
+                }}
+              >
+                {card.icon}
+                <Typography variant="h6" fontWeight="bold" sx={{ color: isDark ? '#fff' : '#1A1A1A', mt: 2, mb: 1 }}>
+                  {card.title}
+                </Typography>
+                <Typography variant="body2" sx={{ color: isDark ? '#999' : '#555555', mb: 3 }}>
+                  {card.desc}
+                </Typography>
+                <Button
+                  variant="contained"
+                  fullWidth
+                  onClick={card.action}
                   sx={{
-                    position: 'relative',
-                    '&::before': {
-                      content: '""',
-                      position: 'absolute',
-                      width: '100%',
-                      height: '100%',
-                      right: -20,
-                      top: -20,
-                      border: '2px solid rgba(255, 165, 0, 0.3)',
-                      borderRadius: '6px',
-                      zIndex: 0
-                    }
+                    bgcolor: card.color,
+                    color: '#000',
+                    fontWeight: 700,
+                    '&:hover': { bgcolor: card.color, opacity: 0.9 },
                   }}
                 >
-                  <Paper
-                    elevation={6}
-                    sx={{
-                      borderRadius: '6px',
-                      overflow: 'hidden',
-                      width: '100%',
-                      boxShadow: '0 20px 40px rgba(0, 0, 0, 0.4)',
-                      position: 'relative',
-                      zIndex: 1
-                    }}
-                  >
-                    <img
-                      src="https://images.unsplash.com/photo-1559339352-11d035aa65de?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1074&q=80"
-                      alt="Luxury dining experience"
-                      style={{ width: '100%', height: 'auto', display: 'block' }}
-                    />
-                  </Paper>
-                </Box>
-              </Grid>
+                  {card.label}
+                </Button>
+              </Paper>
             </Grid>
-          </Fade>
-        </Container>
-      </Box>
-    </>
+          ))}
+        </Grid>
+      </Container>
+    </Box>
   );
 };
 

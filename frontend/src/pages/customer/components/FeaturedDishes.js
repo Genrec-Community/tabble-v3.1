@@ -13,6 +13,7 @@ import {
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import LocalOfferIcon from '@mui/icons-material/LocalOffer';
 import TimerIcon from '@mui/icons-material/Timer';
+import { apiBaseUrl } from '../../../utils/apiBaseUrl';
 import { AddButton, SpecialBadge } from './MenuStyled';
 import AddIcon from '@mui/icons-material/Add';
 
@@ -67,7 +68,7 @@ const FeaturedDishes = ({ dishes, currentCategory, handleOpenDialog, theme }) =>
                   <CardMedia
                     component="img"
                     sx={{ height: '100%', objectFit: 'cover' }}
-                    image={dish.image_path ? `${process.env.REACT_APP_API_BASE_URL}${dish.image_path}` : 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=600&q=80'}
+                    image={dish.image_path ? `${apiBaseUrl}${dish.image_path}` : 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=600&q=80'}
                     alt={dish.name}
                   />
                   <SpecialBadge>

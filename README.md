@@ -1,438 +1,144 @@
-# Tabble-v3
+# Tabble v3.1 — Restaurant QR Ordering System
 
-A modern restaurant management system built with Python FastAPI and React.
-A comprehensive restaurant management system built with FastAPI (backend) and React (frontend), featuring QR code-based table ordering, phone OTP authentication, real-time order management, and multi-database support for independent hotel operations.
+Multi-hotel restaurant management app: customers scan a QR code at a table, browse a menu, order, and request payment; the kitchen tracks orders in real time; the hotel admin manages dishes, tables, offers, loyalty programs, and analytics.
 
-## 🌟 Key Features
+- **Backend**: FastAPI + SQLAlchemy (SQLite — a single local `Tabble.db`) + Firebase Admin
+- **Frontend**: React 18 (Create React App 5) + MUI v5 + Redux Toolkit + React Query + Firebase JS
+- **Deployment**: Render (backend) via `backend/render.yaml`; auto-deploys from the `tabblefinal-backend` branch
 
-### 🍽️ Customer Interface
-- **Phone OTP Authentication**: Secure Fast2SMS-based authentication
-- **Real-time Cart Management**: Live cart updates with special offers
-- **Today's Specials**: Dynamic special dish recommendations
-- **Payment Processing**: Integrated payment with loyalty discounts
-- **Order History**: Track past orders and preferences
+## Repository layout
 
-### 👨‍🍳 Chef Dashboard
-- **Real-time Order Management**: Live order notifications and updates
-- **Kitchen Operations**: Streamlined order acceptance and completion
-- **Order Status Updates**: Instant status changes reflected across all interfaces
+Two independent apps — **no root `package.json` / monorepo tooling**.
 
-### 🏨 Admin Panel
-- **Complete Restaurant Management**: Full control over restaurant operations
-- **Dish Management**: Add, edit, and manage menu items with images
-- **Offers & Specials**: Create and manage promotional offers
-- **Table Management**: Monitor table occupancy and status
-- **Order Tracking**: Complete order lifecycle management
-- **Loyalty Program**: Configurable visit-based discount system
-- **Selection Offers**: Amount-based discount configuration
-- **Settings**: Hotel information and configuration management
+| Path | Purpose |
+|------|---------|
+| `backend/` | FastAPI app. Entrypoint `app/main.py`, 12 routers in `app/routers/`, `app/database.py` (SQLAlchemy models + session manager), `app/storage_adapter.py` (local image storage), `app/models/` (Pydantic schemas), `app/utils/`, `app/services/`, `app/middleware/`. |
+| `frontend/` | React SPA. `src/App.js` (providers + all routes), `src/pages/{customer,chef,admin,analysis}`, `src/components/`, `src/services/api.js`, `src/store/` (Redux), `src/hooks/`, `src/utils/`. |
+| `backend/hotels.csv` | Seeds hotels (`hotel_name,password`) on the first DB creation. |
+| `backend/render.yaml` | Render deploy config (branch: `tabblefinal-backend`). |
 
-### 📊 Analytics Dashboard
-- **Customer Analysis**: Detailed customer behavior insights
-- **Dish Performance**: Menu item popularity and sales metrics
-- **Chef Performance**: Kitchen efficiency tracking
-- **Sales & Revenue**: Comprehensive financial reporting
+## Running it
 
-### 🗄️ Multi-Database Support
-- **Independent Hotel Operations**: Each hotel operates with its own database
-- **Database Authentication**: Secure database access with password protection
-- **Session-based Management**: Consistent database context across all interfaces
-- **Data Isolation**: Complete separation of hotel data for security and privacy
+### Backend
 
-## 📁 Project Structure
-
-```
-tabble/
-├── app/                           # Backend FastAPI application
-│   ├── database.py               # Database configuration and models
-│   ├── main.py                   # FastAPI application entry point
-│   ├── middleware/               # Custom middleware (CORS, session handling)
-│   ├── models/                   # SQLAlchemy database models
-│   ├── routers/                  # API route definitions
-│   │   ├── admin.py             # Admin panel endpoints
-│   │   ├── chef.py              # Chef dashboard endpoints
-│   │   ├── customer.py          # Customer interface endpoints
-│   │   └── analytics.py         # Analytics and reporting endpoints
-│   ├── services/                 # Business logic and external services  
-│   │   ├── otp_service.py       # Fast2SMS OTP authentication
-│   │   └── database_service.py  # Database operations
-│   ├── static/                   # Static file serving
-│   │   └── images/              # Dish and hotel logo images
-│   │       └── dishes/          # Organized by database name
-│   └── utils/                    # Utility functions and helpers
-├── frontend/                      # React frontend application
-│   ├── src/
-│   │   ├── components/          # Reusable React components
-│   │   │   ├── Layout.js        # Main layout wrapper
-│   │   │   ├── AdminLayout.js   # Admin panel layout
-│   │   │   └── ChefLayout.js    # Chef dashboard layout
-│   │   ├── pages/               # Page components
-│   │   │   ├── admin/           # Admin interface pages
-│   │   │   ├── chef/            # Chef dashboard pages
-│   │   │   ├── customer/        # Customer interface pages
-│   │   │   └── analysis/        # Analytics dashboard
-│   │   ├── services/            # API communication services
-│   │   │   └── api.js           # Axios configuration and API calls
-│   │   ├── App.js               # Main React application
-│   │   ├── index.js             # React DOM entry point
-│   │   └── global.css           # Global styling
-│   ├── public/                   # Static assets
-│   │   ├── index.html           # HTML template
-│   │   └── favicon.ico          # Application icon
-│   ├── package.json             # Node.js dependencies
-│   ├── .env.example             # Environment variables template
-│   └── .env                     # Environment configuration
-├── templates/                     # Report generation templates
-│   └── analysis/                # Analytics report templates
-├── hotels.csv                    # Database registry and passwords
-├── init_db.py                    # Database initialization with sample data
-├── create_empty_db.py            # Empty database creation utility
-├── requirements.txt              # Python dependencies
-├── run.py                        # Backend server launcher
-└── README.md                     # Project documentation
+```powershell
+cd backend
+.\.venv\Scripts\python.exe run.py    # serves on 0.0.0.0:8001 with auto-reload
 ```
 
-## 🚀 Quick Start Guide
+- The venv at `backend/.venv` is prebuilt; install once with `pip install -r requirements.txt`.
+- Alternative: `.\.venv\Scripts\python.exe -m app.main` serves on `PORT` (default 8000).
+- API docs: `http://localhost:8001/docs`.
+- **`backend/.env` is not loaded by the code** — there is no `load_dotenv`. Set env vars in your shell/run config, or the in-code defaults apply (see Environment below).
+- Run from `backend/` when you want image uploads to work (`storage_adapter.py` uses CWD-relative `app/static/images/...`).
 
-### Prerequisites
+### Running the tests (backend)
 
-#### For Windows:
-- **Python 3.8+**: Download from [python.org](https://www.python.org/downloads/)
-- **Node.js 16+**: Download from [nodejs.org](https://nodejs.org/downloads/)
-- **Git**: Download from [git-scm.com](https://git-scm.com/downloads)
-
-#### For macOS:
-- **Python 3.8+**: Install via Homebrew: `brew install python3`
-- **Node.js 16+**: Install via Homebrew: `brew install node`
-- **Git**: Install via Homebrew: `brew install git`
-
-### 🔧 Installation & Setup
-
-#### 1. Clone the Repository
-```bash
-git clone <repository-url>
-cd tabble
+```powershell
+cd backend
+pip install pytest                  # once — the only test dependency
+.\.venv\Scripts\python.exe -m pytest
 ```
 
-#### 2. Backend Setup
+50 tests in `backend/tests/`: **unit** (order_utils business logic), **smoke** (boot + seed + auth), **integration** (the full scan → order → chef per-dish accept/reject → bill → paid flow over the API), and **regression** (pins every previously-fixed bug). Each test runs against its own fresh temp SQLite DB — `Tabble.db` is never touched.
 
-##### Windows:
-```cmd
-# Create virtual environment
-python -m venv venv
+### Frontend
 
-# Activate virtual environment
-venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-```
-
-##### macOS/Linux:
-```bash
-# Create virtual environment
-python3 -m venv venv
-
-# Activate virtual environment
-source venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-```
-
-#### 3. Frontend Setup
-
-##### Both Windows and macOS:
-```bash
-# Navigate to frontend directory
+```powershell
 cd frontend
-
-# Copy environment template
-cp .env.example .env
-
-# Install Node.js dependencies
-npm install
+npm start          # dev server on 0.0.0.0:3000 (reachable from the LAN by default)
+npm run build      # production build into build/
 ```
 
-#### 4. Configure Environment Variables
+- No root package.json; run npm commands from `frontend/`.
 
-##### Backend (.env in root directory):
-```env
-SECRET_KEY=your_secret_key_here
-```
+## Environment
 
-##### Frontend (frontend/.env):
-```env
-# Backend API Configuration
-REACT_APP_API_BASE_URL=http://localhost:8000
+### Backend env vars that are actually read (defaults in code)
 
-# Development settings
-NODE_ENV=development
+| Variable | Default | Used for |
+|----------|---------|----------|
+| `DEMO_MODE` | `true` | Seeds demo hotel (`demo`/`demo123`), 6 dishes, 3 tables×2 slots |
+| `CORS_ORIGINS` | dev origins + auto `http://<lan-ip>:3000`/`:8001` | CORS allow-list (comma-separated) |
+| `ADMIN_PASSWORD` | `adminoftabble` | Super admin login at `/adminofthetabble` |
+| `FRONTEND_URL` | auto-detected `http://<lan-ip>:3000` | Base URL embedded in table QR codes |
+| `FRONTEND_PORT` | `3000` | Port used when auto-detecting the QR frontend URL |
+| `POC_MAX_TABLES_PER_HOTEL` | `1` | Hard cap on physical tables per hotel (POC mode) |
+| `FIREBASE_SERVICE_ACCOUNT_JSON` / `FIREBASE_SERVICE_ACCOUNT_BASE64` | — | Firebase Admin credentials (Google sign-in verification) |
+| `FIREBASE_PROJECT_ID` | `tabble-v4` | Firebase project |
+| `HOST` / `PORT` | `0.0.0.0` / `8000` | Only read by `python -m app.main` (run.py hardcodes 8001) |
 
-# Fast2SMS Configuration (for OTP services)
-# FAST2SMS_API_KEY=your_fast2sms_api_key
-```
+Note: `RENDER`, `APP_ENV`, `DATABASE_TYPE`, `SECRET_KEY` appear in `render.yaml` but no code reads them. The app is always SQLite.
 
-## 🗄️ Database Management
+### Frontend env vars
 
-### Understanding the Multi-Database System
+- `REACT_APP_API_BASE_URL` — API base URL. **Dev is `http://localhost:8001`** (see `frontend/.env`, which is tracked). The runtime resolver `src/utils/apiBaseUrl.js` overrides it with `http://<same-host>:8001` when the page is opened from a LAN address (phone on the same WiFi). `REACT_APP_API_PORT` (default `8001`) changes that port.
+- `REACT_APP_FIREBASE_*` (`API_KEY`, `AUTH_DOMAIN`, `PROJECT_ID`, `STORAGE_BUCKET`, `MESSAGING_SENDER_ID`, `APP_ID`, `MEASUREMENT_ID`) — Firebase web-app config; hardcoded fallback keys already exist in `src/firebase.js`.
 
-Tabble supports multiple independent hotel databases, allowing each hotel to operate with complete data isolation. Each database contains:
+## Demo data & accounts
 
-- **Dishes**: Menu items with pricing, categories, and images
-- **Orders**: Customer orders and order items
-- **Persons**: Customer information and visit history
-- **Tables**: Table management and occupancy status
-- **Loyalty Program**: Visit-based discount tiers
-- **Selection Offers**: Amount-based promotional offers
-- **Settings**: Hotel-specific configuration
-- **Feedback**: Customer reviews and ratings
+- Hotels are seeded from `backend/hotels.csv` (columns `hotel_name,password,hotel_id`; `hotel_id` is ignored) only when the Hotel table is empty:
+  `tabble_new` / `myhotel`, `Hotel_Anifa-Trichy` / `Anifa@123`, `user` / `password`
+- With `DEMO_MODE=true` (default) a `demo` / `demo123` hotel with dishes and QR-enabled tables is seeded too.
+- Super admin: `/adminofthetabble`, password `ADMIN_PASSWORD`.
+- Chef: hotel username/password via `/chef/auth/login` (not Firebase). Admin: hotel credentials. Customer: Firebase Google sign-in.
 
-### Database Registry (hotels.csv)
+## Routing & endpoints
 
-The `hotels.csv` file serves as the central registry for all hotel databases:
+### Frontend routes
 
-```csv
-hotel_database,password
-tabble_new.db,myhotel
+- `/` Home · `/order?t={token}` QR landing · `/customer` / `/customer/menu` ordering
+- `/chef/login`, `/chef`, `/chef/orders` — kitchen
+- `/admin/login`, `/admin`, `/admin/dishes|offers|specials|tables|settings|chefs|loyalty|completed-orders|selection-offers` — hotel admin
+- `/analysis`, `/analysis/customer|dish|chef` — analytics
+- `/adminofthetabble` — super admin · `/backitup`, `/sysdiag`, `/emergency-sys` — system monitors
 
-```
+### Key API endpoints (prefix → router)
 
-### Creating a New Hotel Database
+| Prefix | Notable endpoints |
+|--------|-------------------|
+| `/public` | `GET /public/scan/{token}` — QR token → hotel/table/slot; `GET /public/hotels` |
+| `/tables` | `POST /tables/`, `POST /tables/batch`, `PUT /tables/{id}/occupy|free`, `PUT /tables/number/{n}/occupy|free`, `POST /tables/{id}/generate-qr`, `GET /tables/{id}/qr-image` (returns PNG + `x-qr-url` header) |
+| `/settings` | `GET /settings/hotels`, `POST /settings/switch-hotel`, public `show-prices` |
+| `/customer` | `POST /customer/api/login`, `POST /customer/api/orders`, `GET /customer/api/person/{id}/orders`, `PUT /customer/api/orders/{id}/payment|cancel`, `POST /customer/api/auth/google` |
+| `/chef` | `POST /chef/auth/login`, `GET /chef/orders/pending|accepted`, `PUT /chef/orders/{id}/accept|complete`, `PUT /chef/orders/{id}/items/{itemId}/accept|reject` |
+| `/admin` | orders, bills (`/admin/orders/{id}/bill`), dishes/offers CRUD, `/admin/super/auth`, `/admin/super/hotels` (and `/stats`, `/{id}/stats`) |
+| Others | `/feedback`, `/loyalty`, `/selection-offers`, `/analytics`, `/monitoring` |
 
-#### Method 1: Using the create_empty_db.py Script
+Full docs: `http://localhost:8001/docs`.
 
-##### Windows:
-```cmd
-# Activate virtual environment
-venv\Scripts\activate
+## How scanning & ordering works
 
-# Run the database creation script
-python create_empty_db.py
-```
+1. Admin generates a QR per table slot (`POST /tables/{id}/generate-qr`). The token (`uuid4`) is created once and stored on the row; the PNG embeds `{frontend_url}/order?t={token}` (see `FRONTEND_URL`).
+2. Customer scans → opens `/order?t=...` → `QRLanding.js` calls `GET /public/scan/{token}` → stores `customerQrToken`, `customerSelectedDatabase`, `tableNumber`, `slotNumber` in localStorage → navigates to `/customer/menu?...`. `Menu.js` marks the slot occupied (`PUT /tables/number/{n}/occupy?slot_number=...`) if it's still free.
+3. `Menu.js` loads data via the `useMenuOptimized` hooks; the cart is persisted in localStorage as `customerCart_<qrToken>`. Rejected and `payment_requested` orders are excluded from "unpaid order" detection.
+4. Placing an order calls `POST /customer/api/orders` (status `pending`). The chef works **per dish**: `PUT /chef/orders/{id}/items/{itemId}/accept|reject` (reject takes a `{"reason": ...}` body). `OrderItem.status` is `pending/accepted/rejected`; the order status is derived (any accepted → `accepted`, else any pending → `pending`, else all rejected → `rejected`). The customer gets a live snackbar/dialog per decision; rejected items are excluded from bills and totals. "Delivered" (`PUT /chef/orders/{id}/complete`) is blocked while any item is still pending.
+5. **Get Bill** (`PUT /customer/api/orders/{id}/payment`) marks the order `payment_requested` (no payment gateway — settled at the counter). Admin sees the bill on `/admin` and **Generate Bill** for `completed` / `payment_requested` / `paid` orders; **Mark as Paid** (`PUT /admin/orders/{id}/paid`) sets `paid`, increments the customer's `visit_count`, and frees that exact table+slot (green) — only when no other unpaid order is on the slot. Admin can also free any slot manually from `/admin/tables`.
 
-##### macOS/Linux:
-```bash
-# Activate virtual environment
-source venv/bin/activate
+## Testing on your phone (same WiFi)
 
-# Run the database creation script
-python create_empty_db.py
-```
+- Run the backend (`python run.py`, port 8001) and `npm start` (port 3000).
+- The QR PNG now embeds your LAN IP automatically (backend `app/utils/network.py`); the frontend also points API calls at that LAN host in dev (`src/utils/apiBaseUrl.js`).
+- **Regenerate the QR after any URL-related change** — the printed PNG keeps the old URL.
+- If the phone can't connect, allow Node/Python through Windows Firewall for **private networks**.
 
-**Interactive Process:**
-1. The script will prompt you for a database name
-2. Enter the hotel name (without .db extension)
-3. The script creates an empty database with proper schema
-4. Manually add the database entry to `hotels.csv`
+## Deployment (Render)
 
-**Example:**
-```
-Creating a new empty database with the proper schema
-Enter name for the new database (without .db extension): newhotel
+- `backend/render.yaml` defines the `tabble-backend` web service (free tier, Singapore): start command `uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1`, persistent 1 GB disk for `app/static/images`, auto-deploy from branch `tabblefinal-backend`.
+- Caveats: `FRONTEND_URL` is a placeholder (`https://your-frontend-url.com`), `CORS_ORIGINS="*"` conflicts with the code's forced `allow_credentials=True`, and `ADMIN_PASSWORD` is hardcoded. Set real env vars in the Render dashboard before production.
 
-Success! Created empty database 'newhotel.db' with the proper schema
-```
+## Notes & known issues
 
-Then add to `hotels.csv`:
-```csv
-newhotel.db,newhotel123
-```
+- Frontend is plain JavaScript — there is **no TypeScript**. There is **no CI and no standalone linter** in the repo; backend tests run via pytest (see above), the frontend's only validation is `npm run build` (and E2E is manual — the phone/LAN test below).
+- UI end-to-end (scan → order → chef → pay) is deliberately **not automated**: it needs a real browser + phone, so it's covered manually with the phone test below. The API-level equivalent is in the integration tests.
+- The React SPA is also served by the backend when `frontend/build` exists (mounted at `/` in `main.py`), which shadows the legacy Jinja2 HTML routes (`/chef`, `/customer`, `/admin`...). The `templates/` dir those routes reference doesn't exist.
+- `app/services/optimized_queries.py` is dead, unimported code that references non-existent columns — do not wire it up as-is.
+- `__init__.py` is missing in `backend/app/`, `app/routers/`, `app/models/` (namespace packages work, but tooling may complain).
+- Redux store (`src/store/`) and React Query exist, but the customer menu uses the `useMenuOptimized` hooks instead; several services/hooks/components are unimported dead code (see AGENTS.md).
+- `frontend/.env`, `frontend/.env.production`, `frontend/build/`, and `frontend/node_modules/` do not follow ignore rules (no root `.gitignore`) — don't `git add -A` blindly.
 
-#### Method 2: Initialize with Sample Data
+For agents working in this repo, see **[AGENTS.md](AGENTS.md)** for the compact, verified operator guide.
 
-##### Windows:
-```cmd
-# Create database with sample data
-python init_db.py
-```
+---
 
-##### macOS/Linux:
-```bash
-# Create database with sample data
-python init_db.py
-```
-
-**Note:** This creates `tabble_new.db` with sample dishes, users, and configuration.
-
-### Database Schema Details
-
-The `create_empty_db.py` script creates the following tables:
-
-#### Core Tables:
-- **dishes**: Menu items with pricing, categories, offers, and visibility
-- **persons**: Customer profiles with visit tracking
-- **orders**: Order management with status tracking
-- **order_items**: Individual items within orders
-- **tables**: Table management and occupancy status
-
-#### Configuration Tables:
-- **loyalty_program**: Visit-based discount configuration
-- **selection_offers**: Amount-based promotional offers
-- **settings**: Hotel information and branding
-- **feedback**: Customer reviews and ratings
-
-### Running the Application
-
-#### Start Backend Server
-
-##### Windows:
-```cmd
-# Activate virtual environment
-venv\Scripts\activate
-
-# Start the FastAPI server
-python run.py
-```
-
-##### macOS/Linux:
-```bash
-# Activate virtual environment
-source venv/bin/activate
-
-# Start the FastAPI server
-python run.py
-```
-
-The backend will be available at `http://localhost:8000`
-
-#### Start Frontend Development Server
-
-##### Both Windows and macOS:
-```bash
-# Navigate to frontend directory
-cd frontend
-
-# Start React development server
-npm start
-```
-
-The frontend will be available at `http://localhost:3000`
-
-### 🔗 API Documentation
-
-Once the backend is running, access the interactive API documentation:
-- **Swagger UI**: `http://localhost:8000/docs`
-- **ReDoc**: `http://localhost:8000/redoc`
-
-## 🎯 Key Features Implementation
-
-### 🍽️ Table Management
-- **QR Code Generation**: Automatic QR code creation for each table
-- **Real-time Status Monitoring**: Live table occupancy tracking
-- **Session-based Occupancy**: Table status changes based on customer interaction
-- **Multi-database Support**: Table management per hotel database
-
-### 📱 Order Processing
-- **Real-time Order Tracking**: Live order status updates across all interfaces
-- **Kitchen Notifications**: Instant order notifications to chef dashboard
-- **Status Synchronization**: Order status changes reflect immediately
-- **Payment Integration**: Secure payment processing with loyalty discounts
-
-### 📊 Analytics and Reporting
-- **Custom Report Templates**: Configurable analytics reports
-- **PDF Generation**: Automated report exports
-- **Performance Metrics**: Comprehensive business intelligence
-- **Multi-dimensional Analysis**: Customer, dish, and chef performance tracking
-
-### 🔐 Authentication & Security
-- **Fast2SMS Phone OTP**: Secure customer authentication
-- **Database Password Protection**: Hotel database access control
-- **Session Management**: Secure session handling across interfaces
-- **Data Isolation**: Complete separation of hotel data
-
-## 🚨 Troubleshooting
-
-### Common Issues
-
-#### Backend Issues:
-```bash
-# If you get "Module not found" errors
-pip install -r requirements.txt
-
-# If database connection fails
-python create_empty_db.py
-
-# If port 8000 is already in use
-# Edit run.py and change the port number
-```
-
-#### Frontend Issues:
-```bash
-# If npm install fails
-npm cache clean --force
-npm install
-
-# If environment variables aren't loading
-# Check that .env file exists in frontend directory
-cp .env.example .env
-
-# If API calls fail
-# Verify REACT_APP_API_BASE_URL in frontend/.env
-```
-
-#### Database Issues:
-```bash
-# If database schema is outdated
-python init_db.py --force-reset
-
-# If hotels.csv is missing entries
-# Manually add your database to hotels.csv
-```
-
-### Platform-Specific Notes
-
-#### Windows:
-- Use `venv\Scripts\activate` to activate virtual environment
-- Use `python` command (not `python3`)
-- Ensure Python is added to PATH during installation
-
-#### macOS:
-- Use `source venv/bin/activate` to activate virtual environment
-- Use `python3` command for Python 3.x
-- Install Xcode Command Line Tools if needed: `xcode-select --install`
-
-## 🔄 Development Workflow
-
-### Adding a New Hotel Database
-
-1. **Create Empty Database:**
-   ```bash
-   python create_empty_db.py
-   ```
-
-2. **Add to Registry:**
-   Edit `hotels.csv` and add your database entry:
-   ```csv
-   yourhotel.db,yourpassword123
-   ```
-
-3. **Configure Hotel Settings:**
-   - Access admin panel: `http://localhost:3000/admin`
-   - Navigate to Settings
-   - Configure hotel information
-
-4. **Add Menu Items:**
-   - Use admin panel to add dishes
-   - Upload dish images to `app/static/images/dishes/yourhotel/`
-
-### Deployment Considerations
-
-#### Production Environment Variables:
-```env
-# Backend
-SECRET_KEY=your_production_secret_key
-DATABASE_URL=your_production_database_url
-
-# Frontend
-REACT_APP_API_BASE_URL=https://your-domain.com/api
-NODE_ENV=production
-```
-
-#### Image Storage:
-- Images are stored in `app/static/images/dishes/{database_name}/`
-- Ensure proper directory permissions for image uploads
-- Consider using cloud storage for production deployments
-
-
-# tabble-v3.1
+**Tabble v3.1** — QR ordering. Proprietary; all rights reserved.

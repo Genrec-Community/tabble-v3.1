@@ -11,6 +11,7 @@ import {
 import WhatshotIcon from '@mui/icons-material/Whatshot';
 import { AddButton } from './MenuStyled';
 import AddIcon from '@mui/icons-material/Add';
+import { apiBaseUrl } from '../../../utils/apiBaseUrl';
 
 // Define keyframes for the shine animation
 const shine = keyframes`
@@ -102,7 +103,8 @@ const TodaySpecials = ({ specials, loading, handleOpenDialog }) => {
               position: 'relative',
               zIndex: 2,
               textTransform: 'uppercase',
-              letterSpacing: '2px',
+              letterSpacing: { xs: '1px', sm: '2px' },
+              fontSize: { xs: '1.1rem', sm: '1.5rem', md: '2.125rem' },
               background: 'linear-gradient(90deg, rgba(255,165,0,0.8) 0%, #FFA500 50%, rgba(255,165,0,0.8) 100%)',
               backgroundSize: '400px',
               WebkitBackgroundClip: 'text',
@@ -110,7 +112,7 @@ const TodaySpecials = ({ specials, loading, handleOpenDialog }) => {
               animation: `${shine} 3s linear infinite`,
             }}
           >
-            <WhatshotIcon sx={{ mr: 1, fontSize: '2rem' }} /> Today's Chef Special
+            <WhatshotIcon sx={{ mr: 1, fontSize: { xs: '1.2rem', sm: '2rem' } }} /> Today's Chef Special
           </Typography>
         </Box>
         <Divider
@@ -125,22 +127,23 @@ const TodaySpecials = ({ specials, loading, handleOpenDialog }) => {
         />
       </Box>
 
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: 4,
-          pb: 2,
-        }}
-      >
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: { xs: 2, sm: 4 },
+            pb: 2,
+          }}
+        >
         {specials.map((special, index) => (
           <Card
             key={`special-${special.id}`}
             sx={{
-              width: 340,
-              height: 380,
+              width: { xs: '100%', sm: 340 },
+              maxWidth: 400,
+              height: { xs: 320, sm: 380 },
               borderRadius: '12px',
               overflow: 'hidden',
               boxShadow: '0 15px 35px rgba(0, 0, 0, 0.3)',
@@ -171,7 +174,7 @@ const TodaySpecials = ({ specials, loading, handleOpenDialog }) => {
                       transform: 'scale(1.05)',
                     }
                   }}
-                  image={special.image_path ? `${process.env.REACT_APP_API_BASE_URL}${special.image_path}` : 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=600&q=80'}
+                  image={special.image_path ? `${apiBaseUrl}${special.image_path}` : 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=600&q=80'}
                   alt={special.name}
                 />
 
@@ -215,8 +218,8 @@ const TodaySpecials = ({ specials, loading, handleOpenDialog }) => {
                     position: 'absolute',
                     bottom: -15,
                     right: 20,
-                    width: 70,
-                    height: 70,
+                    width: { xs: 56, sm: 70 },
+                    height: { xs: 56, sm: 70 },
                     borderRadius: '50%',
                     backgroundColor: '#121212',
                     border: '2px solid #FFA500',
@@ -229,7 +232,7 @@ const TodaySpecials = ({ specials, loading, handleOpenDialog }) => {
                     zIndex: 10,
                   }}
                 >
-                  <Typography variant="h6" sx={{ color: '#FFA500' }} fontWeight="bold">
+                  <Typography variant="h6" sx={{ color: '#FFA500', fontSize: { xs: '0.85rem', sm: '1.25rem' } }} fontWeight="bold">
                     ₹{special.price.toFixed(2)}
                   </Typography>
                 </Box>
@@ -238,7 +241,7 @@ const TodaySpecials = ({ specials, loading, handleOpenDialog }) => {
               {/* Content section - taking up 40% of the card */}
               <Box sx={{
                 height: '40%',
-                p: 3,
+                p: { xs: 2, sm: 3 },
                 pt: 2,
                 display: 'flex',
                 flexDirection: 'column',
@@ -248,12 +251,14 @@ const TodaySpecials = ({ specials, loading, handleOpenDialog }) => {
                 <Box>
                   <Typography variant="h5" component="div" fontWeight="bold" sx={{
                     color: '#FFA500',
-                    mb: 1
+                    mb: 1,
+                    fontSize: { xs: '1rem', sm: '1.25rem', md: '1.5rem' },
                   }}>
                     {special.name}
                   </Typography>
                   <Typography variant="body1" sx={{
                     color: 'rgba(255,255,255,0.8)',
+                    fontSize: { xs: '0.85rem', sm: '1rem' },
                     display: '-webkit-box',
                     WebkitLineClamp: 2,
                     WebkitBoxOrient: 'vertical',
