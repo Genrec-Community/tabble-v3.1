@@ -44,10 +44,10 @@ services:
 
       # Update after frontend deployment
       - key: FRONTEND_URL
-        value: https://tabble-v3-1-blond.vercel.app
+        value: https://www.tabble.in
 
       - key: CORS_ORIGINS
-        value: https://tabble-v3-1-blond.vercel.app
+        value: https://www.tabble.in,https://tabble.in
 
       - key: DEMO_MODE
         value: "true"
@@ -65,4 +65,4 @@ services:
 
     # Auto-deploy from backend branch
     autoDeploy: true
-    branch: tabblefinal-backend
+    branch: main
