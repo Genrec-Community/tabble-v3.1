@@ -23,7 +23,7 @@ Variables actually read (`os.getenv`):
 | `ADMIN_PASSWORD` | `adminoftabble` | Super admin at `/admin/super/auth` |
 | `FRONTEND_URL` | `http://<auto-detected lan>:3000` | Base URL embedded in table QR PNGs |
 | `FRONTEND_PORT` | `3000` | Port when auto-detecting the QR base URL |
-| `POC_MAX_TABLES_PER_HOTEL` | `1` | Hard cap on physical tables per hotel |
+| `POC_MAX_TABLES_PER_HOTEL` | `1000` | Soft cap on physical tables per hotel (effectively unlimited) |
 | `FIREBASE_SERVICE_ACCOUNT_JSON` | — | Firebase Admin service-account JSON |
 | `FIREBASE_SERVICE_ACCOUNT_BASE64` | — | Same credentials, base64-encoded (wins over JSON) |
 | `FIREBASE_PROJECT_ID` | `tabble-v4` | Firebase project |

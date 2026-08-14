@@ -52,6 +52,10 @@ services:
       - key: DEMO_MODE
         value: "true"
 
+      # Tables per hotel — effectively unlimited
+      - key: POC_MAX_TABLES_PER_HOTEL
+        value: "1000"
+
       - key: APP_ENV
         value: production
 

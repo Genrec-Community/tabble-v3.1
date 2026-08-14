@@ -23,7 +23,17 @@ def _load_service_account():
     """
     base64_cred = os.getenv("FIREBASE_SERVICE_ACCOUNT_BASE64")
     if base64_cred:
-        return json.loads(base64.b64decode(base64_cred).decode("utf-8"))
+        try:
+            compact = "".join(base64_cred.split())
+            raw = base64.b64decode(compact, validate=True)
+            return json.loads(raw.decode("utf-8"))
+        except Exception as e:
+            raise ValueError(
+                "FIREBASE_SERVICE_ACCOUNT_BASE64 is set but is not valid "
+                f"base64-encoded service-account JSON ({e}). Fix it by base64-"
+                "encoding the service-account JSON file (e.g. `base64 -w0 "
+                "firebase-service-account.json`) and updating the env var."
+            ) from e
 
     json_cred = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON")
     if json_cred:

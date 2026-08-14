@@ -63,7 +63,7 @@ npm run build      # production build into build/
 | `ADMIN_PASSWORD` | `adminoftabble` | Super admin login at `/adminofthetabble` |
 | `FRONTEND_URL` | auto-detected `http://<lan-ip>:3000` | Base URL embedded in table QR codes |
 | `FRONTEND_PORT` | `3000` | Port used when auto-detecting the QR frontend URL |
-| `POC_MAX_TABLES_PER_HOTEL` | `1` | Hard cap on physical tables per hotel (POC mode) |
+| `POC_MAX_TABLES_PER_HOTEL` | `1000` | Soft cap on physical tables per hotel (effectively unlimited) |
 | `FIREBASE_SERVICE_ACCOUNT_JSON` / `FIREBASE_SERVICE_ACCOUNT_BASE64` | — | Firebase Admin credentials (Google sign-in verification) |
 | `FIREBASE_PROJECT_ID` | `tabble-v4` | Firebase project |
 | `HOST` / `PORT` | `0.0.0.0` / `8000` | Only read by `python -m app.main` (run.py hardcodes 8001) |

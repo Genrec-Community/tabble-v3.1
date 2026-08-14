@@ -20,11 +20,11 @@ router = APIRouter(
 
 
 def _max_tables_per_hotel() -> int:
-    """Return the physical-table limit for this POC installation."""
+    """Return the physical-table limit per hotel (practically unlimited)."""
     try:
-        return max(1, int(os.getenv("POC_MAX_TABLES_PER_HOTEL", "1")))
+        return max(1, int(os.getenv("POC_MAX_TABLES_PER_HOTEL", "1000")))
     except ValueError:
-        return 1
+        return 1000
 
 
 def _heartbeat_ttl_seconds() -> int:
