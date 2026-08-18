@@ -215,6 +215,57 @@ class TestPaidFlowRegression:
                     if t["table_number"] == 1 and t["slot_number"] == 1)
         assert slot["is_occupied"] is True  # order2 still active
 
+    def test_mark_paid_on_merged_order_resolves_to_bill(self, client, headers):
+        """Regression: customer "Get Bill" merges active orders on a slot into one
+        bill and marks the others 'merged'. The admin's stale list could then click
+        'Mark as Paid' on a merged order and get a 400. It must resolve to the bill
+        target instead of erroring."""
+        person = register_person(client, headers, "merged_pay_user")
+        menu = demo_menu(client, headers)
+        dosa = dish_by_name(menu, "Masala Dosa")
+
+        order1 = create_order(client, headers, person["id"],
+                              items=[{"dish_id": dosa["id"], "quantity": 1, "remarks": None}])
+        order2 = create_order(client, headers, person["id"],
+                              items=[{"dish_id": dosa["id"], "quantity": 2, "remarks": None}])
+        for oid in (order1["id"], order2["id"]):
+            client.put(f"/chef/orders/{oid}/accept", headers=headers)
+            client.put(f"/chef/orders/{oid}/complete", headers=headers)
+
+        # customer asks for the bill on order2 -> both merge into order1
+        r = client.put(f"/customer/api/orders/{order2['id']}/payment", headers=headers)
+        assert r.status_code == 200
+
+        # admin dashboard still shows the stale order2 row -> mark it paid
+        r = client.put(f"/admin/orders/{order2['id']}/paid", headers=headers)
+        assert r.status_code == 200, r.text
+
+        # the bill (order1) is now paid, order2 stays merged, slot freed
+        orders = client.get("/admin/orders", headers=headers).json()
+        by_id = {o["id"]: o for o in orders}
+        assert by_id[order1["id"]]["status"] == "paid"
+        assert by_id[order2["id"]]["status"] == "merged"
+        slot = next(t for t in demo_tables(client, headers)
+                    if t["table_number"] == 1 and t["slot_number"] == 1)
+        assert slot["is_occupied"] is False
+
+    def test_double_mark_paid_is_idempotent_and_visits_count_once(self, client, headers):
+        person = register_person(client, headers, "double_pay_user")
+        menu = demo_menu(client, headers)
+        dosa = dish_by_name(menu, "Masala Dosa")
+        order = create_order(client, headers, person["id"],
+                             items=[{"dish_id": dosa["id"], "quantity": 1, "remarks": None}])
+        client.put(f"/chef/orders/{order['id']}/accept", headers=headers)
+        client.put(f"/chef/orders/{order['id']}/complete", headers=headers)
+
+        # double click / two admin tabs hitting the endpoint at the same time
+        r1 = client.put(f"/admin/orders/{order['id']}/paid", headers=headers)
+        r2 = client.put(f"/admin/orders/{order['id']}/paid", headers=headers)
+        assert r1.status_code == 200 and r2.status_code == 200
+
+        person_now = client.get(f"/customer/api/person/{person['id']}", headers=headers).json()
+        assert person_now["visit_count"] == 1
+
 
 class TestQrTokenRegression:
     def test_new_table_gets_qr_token_automatically(self, client):
@@ -300,11 +351,19 @@ class TestSingleBillMerge:
         assert r.status_code == 200
         assert r.json()["message"] == "Bill requested successfully"
 
-    def test_merged_order_cannot_be_paid_directly(self, client, headers):
+    def test_merged_order_can_be_paid_by_resolving_to_bill(self, client, headers):
+        """Regression: marking a stale (merged) order paid used to 400 when the
+        admin dashboard showed it before the customer pressed Get Bill. It must
+        resolve to the bill order and settle it instead of erroring."""
         _, order1, order2 = self._two_delivered_orders(client, headers, "onebill_paid_user")
         client.put(f"/customer/api/orders/{order1['id']}/payment", headers=headers)
         r = client.put(f"/admin/orders/{order2['id']}/paid", headers=headers)
-        assert r.status_code == 400
+        assert r.status_code == 200, r.text
+        bill = client.get(f"/customer/api/orders/{order1['id']}", headers=headers).json()
+        assert bill["status"] == "paid"
+        slot = next(t for t in demo_tables(client, headers)
+                    if t["table_number"] == 1 and t["slot_number"] == 1)
+        assert slot["is_occupied"] is False
 
 
 class TestRejectedItemsExcluded:

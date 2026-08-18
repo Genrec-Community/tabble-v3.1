@@ -430,6 +430,8 @@ def delete_dish(
 def get_order_stats(request: Request, db: Session = Depends(get_session_database)):
     from sqlalchemy import func, and_
 
+    hotel_id = get_hotel_id_from_request(request)
+
     # Get today's date range (start and end of today in UTC)
     today_start = datetime.now(timezone.utc).replace(
         hour=0, minute=0, second=0, microsecond=0
@@ -439,29 +441,44 @@ def get_order_stats(request: Request, db: Session = Depends(get_session_database
     )
 
     # Overall statistics
-    total_orders = db.query(Order).count()
-    pending_orders = db.query(Order).filter(Order.status == "pending").count()
-    completed_orders = db.query(Order).filter(Order.status == "completed").count()
-    payment_requested = (
-        db.query(Order).filter(Order.status == "payment_requested").count()
+    total_orders = db.query(Order).filter(Order.hotel_id == hotel_id).count()
+    pending_orders = (
+        db.query(Order)
+        .filter(Order.hotel_id == hotel_id, Order.status == "pending")
+        .count()
     )
-    paid_orders = db.query(Order).filter(Order.status == "paid").count()
+    completed_orders = (
+        db.query(Order)
+        .filter(Order.hotel_id == hotel_id, Order.status == "completed")
+        .count()
+    )
+    payment_requested = (
+        db.query(Order)
+        .filter(Order.hotel_id == hotel_id, Order.status == "payment_requested")
+        .count()
+    )
+    paid_orders = (
+        db.query(Order)
+        .filter(Order.hotel_id == hotel_id, Order.status == "paid")
+        .count()
+    )
 
     # Today's statistics
     total_orders_today = (
         db.query(Order)
-        .filter(and_(Order.created_at >= today_start, Order.created_at <= today_end))
+        .filter(
+            Order.hotel_id == hotel_id,
+            and_(Order.created_at >= today_start, Order.created_at <= today_end),
+        )
         .count()
     )
 
     pending_orders_today = (
         db.query(Order)
         .filter(
-            and_(
-                Order.status == "pending",
-                Order.created_at >= today_start,
-                Order.created_at <= today_end,
-            )
+            Order.hotel_id == hotel_id,
+            Order.status == "pending",
+            and_(Order.created_at >= today_start, Order.created_at <= today_end),
         )
         .count()
     )
@@ -469,11 +486,9 @@ def get_order_stats(request: Request, db: Session = Depends(get_session_database
     completed_orders_today = (
         db.query(Order)
         .filter(
-            and_(
-                Order.status == "completed",
-                Order.created_at >= today_start,
-                Order.created_at <= today_end,
-            )
+            Order.hotel_id == hotel_id,
+            Order.status == "completed",
+            and_(Order.created_at >= today_start, Order.created_at <= today_end),
         )
         .count()
     )
@@ -481,11 +496,9 @@ def get_order_stats(request: Request, db: Session = Depends(get_session_database
     paid_orders_today = (
         db.query(Order)
         .filter(
-            and_(
-                Order.status == "paid",
-                Order.created_at >= today_start,
-                Order.created_at <= today_end,
-            )
+            Order.hotel_id == hotel_id,
+            Order.status == "paid",
+            and_(Order.created_at >= today_start, Order.created_at <= today_end),
         )
         .count()
     )
@@ -495,6 +508,7 @@ def get_order_stats(request: Request, db: Session = Depends(get_session_database
         db.query(func.sum(Dish.price * OrderItem.quantity).label("revenue_today"))
         .join(OrderItem, Dish.id == OrderItem.dish_id)
         .join(Order, OrderItem.order_id == Order.id)
+        .filter(Order.hotel_id == hotel_id)
         .filter(Order.status == "paid")
         .filter(and_(Order.created_at >= today_start, Order.created_at <= today_end))
     )
@@ -534,6 +548,28 @@ def mark_order_paid(
     if db_order is None:
         raise HTTPException(status_code=404, detail="Order not found")
 
+    # The customer may have pressed "Get Bill" while the admin dashboard was
+    # showing a stale order list — that merges every active order on the slot
+    # into one bill and marks the others "merged". Resolve to the bill target
+    # so marking the bill paid still succeeds instead of erroring with a 400.
+    if db_order.status == "merged":
+        bill_order = (
+            db.query(Order)
+            .filter(
+                Order.hotel_id == hotel_id,
+                Order.table_number == db_order.table_number,
+                Order.slot_number == db_order.slot_number,
+                Order.status.in_(["completed", "payment_requested"]),
+                Order.id != db_order.id,
+            )
+            .order_by(Order.created_at.asc(), Order.id.asc())
+            .first()
+        )
+        if bill_order is not None:
+            db_order = bill_order
+        else:
+            return {"message": "Order was merged into another bill and is already settled"}
+
     if db_order.status == "paid":
         return {"message": "Order is already paid"}
 
@@ -549,8 +585,26 @@ def mark_order_paid(
     if db_order.total_amount is None:
         compute_order_totals(db, db_order)
 
-    db_order.status = "paid"
-    db_order.updated_at = datetime.now(timezone.utc)
+    # Claim the transition atomically so a double click or a second admin
+    # tab can never pay the same order twice (which would double the visit
+    # count and can surface as "database is locked" on commit).
+    claimed = (
+        db.query(Order)
+        .filter(
+            Order.id == db_order.id,
+            Order.status.in_(["completed", "payment_requested"]),
+        )
+        .update(
+            {
+                Order.status: "paid",
+                Order.updated_at: datetime.now(timezone.utc),
+            },
+            synchronize_session=False,
+        )
+    )
+    if not claimed:
+        db.rollback()
+        return {"message": "Order is already paid"}
 
     # Increment visit count on payment — only counts completed payments
     if db_order.person_id:

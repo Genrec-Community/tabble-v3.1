@@ -75,6 +75,7 @@ const AdminDashboard = () => {
     severity: 'success'
   });
   const [refreshing, setRefreshing] = useState(false);
+  const [markingAsPaid, setMarkingAsPaid] = useState(false);
 
   // Fetch stats and orders
   useEffect(() => {
@@ -190,6 +191,8 @@ const AdminDashboard = () => {
 
   // Mark order as paid
   const handleMarkAsPaid = async (orderId) => {
+    if (markingAsPaid) return;
+    setMarkingAsPaid(true);
     try {
       await adminService.markOrderAsPaid(orderId);
 
@@ -209,11 +212,19 @@ const AdminDashboard = () => {
       await fetchCompletedOrders();
     } catch (error) {
       console.error('Error marking order as paid:', error);
+      // Show the real server reason (e.g. the order was merged into another bill)
+      const detail = error?.response?.data?.detail;
       setSnackbar({
         open: true,
-        message: 'Failed to mark order as paid',
+        message: typeof detail === 'string'
+          ? `Failed to mark order as paid: ${detail}`
+          : 'Failed to mark order as paid',
         severity: 'error'
       });
+      // Refresh so a stale/merged order disappears from the list
+      await fetchCompletedOrders();
+    } finally {
+      setMarkingAsPaid(false);
     }
   };
 
@@ -1048,9 +1059,10 @@ const AdminDashboard = () => {
               variant="contained"
               color="success"
               startIcon={<PaidIcon />}
+              disabled={markingAsPaid}
               onClick={() => handleMarkAsPaid(selectedOrder.id)}
             >
-              Mark as Paid
+              {markingAsPaid ? 'Marking as Paid...' : 'Mark as Paid'}
             </Button>
           )}
         </DialogActions>

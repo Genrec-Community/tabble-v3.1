@@ -5,7 +5,17 @@ from typing import List, Dict, Any
 from datetime import datetime, timedelta, timezone
 import calendar
 
-from ..database import get_db, Dish, Order, OrderItem, Person, Table, Feedback, get_session_db
+from ..database import (
+    get_db,
+    Dish,
+    Order,
+    OrderItem,
+    Person,
+    Table,
+    Feedback,
+    get_session_db,
+    get_hotel_id_from_request,
+)
 from ..models.dish import Dish as DishModel
 from ..models.order import Order as OrderModel
 from ..models.user import Person as PersonModel
@@ -49,8 +59,9 @@ def get_dashboard_stats(
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid end_date format. Use ISO format (YYYY-MM-DDTHH:MM:SS)")
 
-    # Base query for orders
-    orders_query = db.query(Order)
+    # Base query for orders (scoped to the signed-in hotel)
+    hotel_id = get_hotel_id_from_request(request)
+    orders_query = db.query(Order).filter(Order.hotel_id == hotel_id)
 
     # Apply date filters if provided
     if start_datetime:
@@ -66,6 +77,7 @@ def get_dashboard_stats(
         )
         .join(OrderItem, Dish.id == OrderItem.dish_id)
         .join(Order, OrderItem.order_id == Order.id)
+        .filter(Order.hotel_id == hotel_id)
         .filter(Order.status == "paid")
     )
 
@@ -85,13 +97,13 @@ def get_dashboard_stats(
         person_subquery = orders_query.with_entities(Order.person_id).distinct().subquery()
         total_customers = db.query(Person).filter(Person.id.in_(person_subquery)).count()
     else:
-        total_customers = db.query(Person).count()
+        total_customers = db.query(Person).filter(Person.hotel_id == hotel_id).count()
 
     # Total orders
     total_orders = orders_query.count()
 
     # Total dishes
-    total_dishes = db.query(Dish).count()
+    total_dishes = db.query(Dish).filter(Dish.hotel_id == hotel_id).count()
 
     # Average order value
     avg_order_value_query = (
@@ -103,6 +115,7 @@ def get_dashboard_stats(
                 .scalar_subquery()
             ).label("avg_order_value")
         )
+        .filter(Order.hotel_id == hotel_id)
         .filter(Order.status == "paid")
     )
 
@@ -133,6 +146,7 @@ def get_dashboard_stats(
 # Get top customers by order count
 @router.get("/top-customers")
 def get_top_customers(request: Request, limit: int = 10, db: Session = Depends(get_session_database)):
+    hotel_id = get_hotel_id_from_request(request)
     # Get customers with most orders
     top_customers_by_orders = (
         db.query(
@@ -149,6 +163,7 @@ def get_top_customers(request: Request, limit: int = 10, db: Session = Depends(g
             ).label("total_spent"),
         )
         .join(Order, Person.id == Order.person_id)
+        .filter(Order.hotel_id == hotel_id)
         .group_by(Person.id)
         .order_by(desc("order_count"))
         .limit(limit)
@@ -174,6 +189,7 @@ def get_top_customers(request: Request, limit: int = 10, db: Session = Depends(g
 # Get top selling dishes
 @router.get("/top-dishes")
 def get_top_dishes(request: Request, limit: int = 10, db: Session = Depends(get_session_database)):
+    hotel_id = get_hotel_id_from_request(request)
     # Get dishes with most orders
     top_dishes = (
         db.query(
@@ -186,6 +202,7 @@ def get_top_dishes(request: Request, limit: int = 10, db: Session = Depends(get_
         )
         .join(OrderItem, Dish.id == OrderItem.dish_id)
         .join(Order, OrderItem.order_id == Order.id)
+        .filter(Order.hotel_id == hotel_id)
         .filter(Order.status == "paid")
         .group_by(Dish.id)
         .order_by(desc("total_ordered"))
@@ -211,6 +228,7 @@ def get_top_dishes(request: Request, limit: int = 10, db: Session = Depends(get_
 # Get sales by category
 @router.get("/sales-by-category")
 def get_sales_by_category(request: Request, db: Session = Depends(get_session_database)):
+    hotel_id = get_hotel_id_from_request(request)
     # Get sales by category
     sales_by_category = (
         db.query(
@@ -220,6 +238,7 @@ def get_sales_by_category(request: Request, db: Session = Depends(get_session_da
         )
         .join(OrderItem, Dish.id == OrderItem.dish_id)
         .join(Order, OrderItem.order_id == Order.id)
+        .filter(Order.hotel_id == hotel_id)
         .filter(Order.status == "paid")
         .group_by(Dish.category)
         .order_by(desc("total_revenue"))
@@ -241,6 +260,7 @@ def get_sales_by_category(request: Request, db: Session = Depends(get_session_da
 # Get sales over time (daily for the last 30 days)
 @router.get("/sales-over-time")
 def get_sales_over_time(request: Request, days: int = 30, db: Session = Depends(get_session_database)):
+    hotel_id = get_hotel_id_from_request(request)
     # Calculate the date range
     end_date = datetime.now(timezone.utc)
     start_date = end_date - timedelta(days=days)
@@ -257,6 +277,7 @@ def get_sales_over_time(request: Request, days: int = 30, db: Session = Depends(
                 .scalar_subquery()
             ).label("total_sales"),
         )
+        .filter(Order.hotel_id == hotel_id)
         .filter(Order.status == "paid")
         .filter(Order.created_at >= start_date)
         .filter(Order.created_at <= end_date)
@@ -296,6 +317,7 @@ def get_sales_over_time(request: Request, days: int = 30, db: Session = Depends(
 # Get chef performance metrics
 @router.get("/chef-performance")
 def get_chef_performance(request: Request, days: int = 30, db: Session = Depends(get_session_database)):
+    hotel_id = get_hotel_id_from_request(request)
     # Calculate the date range
     end_date = datetime.now(timezone.utc)
     start_date = end_date - timedelta(days=days)
@@ -303,6 +325,7 @@ def get_chef_performance(request: Request, days: int = 30, db: Session = Depends
     # Get completed orders count and average time to complete
     completed_orders = (
         db.query(Order)
+        .filter(Order.hotel_id == hotel_id)
         .filter(Order.status.in_(["completed", "paid"]))
         .filter(Order.created_at >= start_date)
         .filter(Order.created_at <= end_date)
@@ -320,6 +343,7 @@ def get_chef_performance(request: Request, days: int = 30, db: Session = Depends
                 .scalar_subquery()
             ).label("avg_items")
         )
+        .filter(Order.hotel_id == hotel_id)
         .filter(Order.status.in_(["completed", "paid"]))
         .filter(Order.created_at >= start_date)
         .filter(Order.created_at <= end_date)
@@ -334,6 +358,7 @@ def get_chef_performance(request: Request, days: int = 30, db: Session = Depends
             extract('dow', Order.created_at).label("day_of_week"),
             func.count(Order.id).label("order_count")
         )
+        .filter(Order.hotel_id == hotel_id)
         .filter(Order.created_at >= start_date)
         .filter(Order.created_at <= end_date)
         .group_by(extract('dow', Order.created_at))
@@ -358,8 +383,9 @@ def get_chef_performance(request: Request, days: int = 30, db: Session = Depends
 # Get table utilization statistics
 @router.get("/table-utilization")
 def get_table_utilization(request: Request, db: Session = Depends(get_session_database)):
+    hotel_id = get_hotel_id_from_request(request)
     # Get all tables
-    tables = db.query(Table).all()
+    tables = db.query(Table).filter(Table.hotel_id == hotel_id).all()
 
     # Get order count by table
     table_orders = (
@@ -373,6 +399,7 @@ def get_table_utilization(request: Request, db: Session = Depends(get_session_da
                 .scalar_subquery()
             ).label("total_revenue"),
         )
+        .filter(Order.hotel_id == hotel_id)
         .group_by(Order.table_number)
         .all()
     )
@@ -426,13 +453,21 @@ def get_customer_frequency(
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid end_date format. Use ISO format (YYYY-MM-DDTHH:MM:SS)")
 
+    hotel_id = get_hotel_id_from_request(request)
+
     # Get visit count distribution
-    visit_counts_query = db.query(Person.visit_count)
+    visit_counts_query = db.query(Person.visit_count).filter(
+        Person.hotel_id == hotel_id
+    )
 
     # Apply date filters if provided
     if start_datetime or end_datetime:
         # Get person IDs who placed orders in the date range
-        orders_query = db.query(Order.person_id).distinct()
+        orders_query = (
+            db.query(Order.person_id)
+            .distinct()
+            .filter(Order.hotel_id == hotel_id)
+        )
 
         if start_datetime:
             orders_query = orders_query.filter(Order.created_at >= start_datetime)
@@ -503,8 +538,9 @@ def get_feedback_analysis(
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid end_date format. Use ISO format (YYYY-MM-DDTHH:MM:SS)")
 
-    # Base query for feedback
-    feedback_query = db.query(Feedback)
+    # Base query for feedback (scoped to the signed-in hotel)
+    hotel_id = get_hotel_id_from_request(request)
+    feedback_query = db.query(Feedback).filter(Feedback.hotel_id == hotel_id)
 
     # Apply date filters if provided
     if start_datetime:
@@ -535,6 +571,7 @@ def get_feedback_analysis(
     recent_feedback = (
         db.query(Feedback, Person.username)
         .outerjoin(Person, Feedback.person_id == Person.id)
+        .filter(Feedback.hotel_id == hotel_id)
         .filter(Feedback.comment != None)
         .filter(Feedback.comment != "")
     )
