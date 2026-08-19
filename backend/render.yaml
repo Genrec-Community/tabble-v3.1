@@ -10,7 +10,7 @@ services:
     # Build configuration
     buildCommand: |
       pip install --upgrade pip
-      pip install -r requirements.txt
+      pip install --retries 10 --timeout 60 -r requirements.txt
       mkdir -p app/static/images
 
     # Start command
@@ -32,6 +32,13 @@ services:
 
       - key: PYTHON_VERSION
         value: "3.11.9"
+
+      # pip resilience — files.pythonhosted.org occasionally 502s; retry instead of failing the build
+      - key: PIP_RETRIES
+        value: "10"
+
+      - key: PIP_TIMEOUT
+        value: "60"
 
       - key: PORT
         generateValue: true
