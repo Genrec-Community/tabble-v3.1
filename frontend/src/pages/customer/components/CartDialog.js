@@ -21,7 +21,6 @@ const CartDialog = ({
   onClose,
   cart,
   handleRemoveFromCart,
-  calculateTotal,
   handlePlaceOrder,
   handleMoveCartItem,
   specials = [],
@@ -305,26 +304,6 @@ const CartDialog = ({
                 );
               })}
             </Box>
-
-            {/* Order summary */}
-            <Box sx={{
-              mx: { xs: 2, sm: 3 },
-              my: 2,
-              px: 2,
-              py: 1.5,
-              borderRadius: '14px',
-              backgroundColor: theme.palette.background.default,
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-            }}>
-              <Typography variant="body1" color={theme.palette.text.primary} fontWeight="bold">
-                Total
-              </Typography>
-              <Typography variant="h6" fontWeight="bold" color="#FFA500">
-                ₹{calculateTotal()}
-              </Typography>
-            </Box>
           </Box>
         )}
 
@@ -412,7 +391,7 @@ const CartDialog = ({
               • All prices are inclusive of taxes
             </Typography>
             <Typography variant="caption" color={theme.palette.text.disabled} display="block">
-              • Orders can be cancelled within 60 seconds of placing
+              • Orders can be cancelled until the chef accepts them
             </Typography>
             <Typography variant="caption" color={theme.palette.text.disabled} display="block">
               • For assistance, please contact our staff

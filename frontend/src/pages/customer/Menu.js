@@ -115,7 +115,6 @@ const CustomerMenu = () => {
     removeFromCart,
     moveCartItem,
     clearCart,
-    cartTotal,
     cartCount
   } = useCartManagement();
 
@@ -133,6 +132,7 @@ const CustomerMenu = () => {
   const [quantity, setQuantity] = useState(1);
   const [remarks, setRemarks] = useState('');
   const [cartDialogOpen, setCartDialogOpen] = useState(false);
+  const [cancelOrderDialog, setCancelOrderDialog] = useState({ open: false, orderId: null });
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [feedbackDialogOpen, setFeedbackDialogOpen] = useState(false);
@@ -459,6 +459,29 @@ const CustomerMenu = () => {
     }
   }, [cart, tableNumber, uniqueId, userId, markOrderPlaced, clearCart, fetchOrders]);
 
+  // Cancel an order that is still waiting for the kitchen (pending only —
+  // once the chef accepts any dish the backend rejects the cancellation).
+  const handleCancelRequest = useCallback((order) => {
+    setCancelOrderDialog({ open: true, orderId: order.id });
+  }, []);
+
+  const handleCancelConfirm = useCallback(async () => {
+    const orderId = cancelOrderDialog.orderId;
+    setCancelOrderDialog({ open: false, orderId: null });
+    if (!orderId) return;
+    try {
+      await customerService.cancelOrder(orderId);
+      setSnackbar({
+        open: true,
+        message: `Order #${orderId} cancelled`,
+        severity: 'success'
+      });
+      await fetchOrders();
+    } catch (error) {
+      setSnackbar(showUserFriendlyError(error, 'cancelling order'));
+    }
+  }, [cancelOrderDialog.orderId, fetchOrders]);
+
   // Optimized bill request handler
   const handleRequestPayment = useCallback(async () => {
     try {
@@ -738,6 +761,18 @@ const CustomerMenu = () => {
               ))}
             </Box>
           </Box>
+          {activeTableOrder.status === 'pending' && (
+            <Box display="flex" justifyContent="flex-end" mt={1}>
+              <Button
+                size="small"
+                color="error"
+                variant="outlined"
+                onClick={() => handleCancelRequest(activeTableOrder)}
+              >
+                Cancel Order
+              </Button>
+            </Box>
+          )}
         </Paper>
       )}
 
@@ -1132,7 +1167,6 @@ const CustomerMenu = () => {
         onClose={handleCloseCartDialog}
         cart={cart}
         handleRemoveFromCart={handleRemoveFromCart}
-        calculateTotal={() => cartTotal}
         handlePlaceOrder={handlePlaceOrder}
         currentOrder={currentOrder}
         handleMoveCartItem={moveCartItem}
@@ -1140,6 +1174,27 @@ const CustomerMenu = () => {
         handleOpenDialog={handleOpenDialog}
         calculateDiscountedPrice={calculateDiscountedPrice}
       />
+
+      {/* Cancel Order confirmation */}
+      <Dialog
+        open={cancelOrderDialog.open}
+        onClose={() => setCancelOrderDialog({ open: false, orderId: null })}
+      >
+        <DialogTitle>Cancel Order #{cancelOrderDialog.orderId}?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary">
+            This order is still waiting for the kitchen. You can only cancel before the chef accepts it.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCancelOrderDialog({ open: false, orderId: null })} sx={{ color: theme.palette.text.secondary }}>
+            Keep Order
+          </Button>
+          <Button onClick={handleCancelConfirm} color="error" variant="contained">
+            Cancel Order
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Payment Dialog */}
       <Dialog
