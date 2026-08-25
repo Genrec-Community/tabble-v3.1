@@ -260,6 +260,19 @@ const CartDialog = ({
                             fontWeight: 'bold',
                           }}
                         />
+                        {item.option_label && (
+                          <Chip
+                            label={item.option_label}
+                            size="small"
+                            sx={{
+                              height: '20px',
+                              fontSize: '0.72rem',
+                              backgroundColor: 'rgba(25, 118, 210, 0.12)',
+                              color: '#1565C0',
+                              fontWeight: 'bold',
+                            }}
+                          />
+                        )}
                       </Box>
                       {item.is_offer === 1 && (
                         <Chip

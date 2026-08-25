@@ -146,12 +146,24 @@ def generate_multi_order_bill_pdf(orders: List, settings):
     customer_name = ""
     if hasattr(first_order, 'person_name') and first_order.person_name:
         customer_name = first_order.person_name
+    elif hasattr(first_order, 'customer_name') and first_order.customer_name:
+        customer_name = first_order.customer_name
 
-    bill_info_data = [
-        ["Name:", customer_name],
-        [f"Date: {datetime.now().strftime('%d/%m/%y')}", f"Dine In: {first_order.table_number}"],
-        [f"{datetime.now().strftime('%H:%M')}", f"Bill No.: {first_order.id}"]
-    ]
+    is_parcel = bool(getattr(first_order, 'is_parcel', 0))
+
+    if is_parcel:
+        bill_info_data = [
+            ["Name:", customer_name or "-"],
+            ["Type:", "PARCEL"],
+            [f"Date: {datetime.now().strftime('%d/%m/%y')}", f"Token No.: {getattr(first_order, 'token_number', None) or first_order.id}"],
+            [f"{datetime.now().strftime('%H:%M')}", f"Bill No.: {first_order.id}"]
+        ]
+    else:
+        bill_info_data = [
+            ["Name:", customer_name],
+            [f"Date: {datetime.now().strftime('%d/%m/%y')}", f"Dine In: {first_order.table_number}"],
+            [f"{datetime.now().strftime('%H:%M')}", f"Bill No.: {first_order.id}"]
+        ]
 
     bill_info_table = Table(bill_info_data, colWidths=[doc.width/2-20, doc.width/2-20])
     bill_info_table.setStyle(TableStyle([
@@ -190,6 +202,9 @@ def generate_multi_order_bill_pdf(orders: List, settings):
                 continue  # rejected dishes were not served — excluded from the bill
 
             dish_name = item.dish.name if item.dish else "Unknown Dish"
+            option_label = getattr(item, 'option_label', None)
+            if option_label:
+                dish_name = f"{dish_name} ({option_label})"
             price = item.price if item.price is not None else (item.dish.price if item.dish else 0)
             quantity = item.quantity
             total = price * quantity

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List
@@ -393,7 +393,7 @@ def set_table_free(table_id: int, request: Request, db: Session = Depends(get_se
 
 # Set table as occupied by table number and slot
 @router.put("/number/{table_number}/occupy", response_model=Table)
-def set_table_occupied_by_number(table_number: int, request: Request, slot_number: int = 1, db: Session = Depends(get_session_database)):
+def set_table_occupied_by_number(table_number: int, request: Request, slot_number: int = 1, guest_count: int = None, db: Session = Depends(get_session_database)):
     hotel_id = get_hotel_id_from_request(request)
     if not hotel_id:
         raise HTTPException(status_code=400, detail="No hotel context set")
@@ -414,6 +414,8 @@ def set_table_occupied_by_number(table_number: int, request: Request, slot_numbe
         raise HTTPException(status_code=400, detail="Table is already occupied")
 
     db_table.is_occupied = True
+    if guest_count is not None:
+        db_table.guest_count = max(1, guest_count)
     db_table.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(db_table)
@@ -437,6 +439,34 @@ def set_table_free_by_number(table_number: int, request: Request, slot_number: i
 
     db_table.is_occupied = False
     db_table.current_order_id = None
+    db_table.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(db_table)
+    return db_table
+
+
+# Update the guest count for a table slot (asked once per session)
+@router.put("/number/{table_number}/guest-count", response_model=Table)
+def set_guest_count(
+    table_number: int,
+    request: Request,
+    slot_number: int = 1,
+    guest_count: int = Query(...),
+    db: Session = Depends(get_session_database),
+):
+    hotel_id = get_hotel_id_from_request(request)
+    if not hotel_id:
+        raise HTTPException(status_code=400, detail="No hotel context set")
+
+    db_table = db.query(TableModel).filter(
+        TableModel.table_number == table_number,
+        TableModel.slot_number == slot_number,
+        TableModel.hotel_id == hotel_id
+    ).first()
+    if not db_table:
+        raise HTTPException(status_code=404, detail="Table slot not found")
+
+    db_table.guest_count = max(1, guest_count)
     db_table.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(db_table)

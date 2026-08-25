@@ -319,6 +319,7 @@ class Dish(Base):
     is_special = Column(Integer, default=0)  # 0 = not special, 1 = today's special
     is_vegetarian = Column(Integer, default=1)  # 1 = vegetarian, 0 = non-vegetarian
     visibility = Column(Integer, default=1)  # 1 = visible, 0 = hidden (soft delete)
+    options = Column(Text, nullable=True)  # JSON array of serving-size labels e.g. ["1/2","2/4","3/6","4/8"]
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(
         DateTime,
@@ -352,6 +353,10 @@ class Order(Base):
     loyalty_discount_percentage = Column(
         Float, default=0
     )  # Loyalty discount percentage applied
+    is_parcel = Column(Integer, default=0)  # 1 = takeaway/parcel order created by admin
+    token_number = Column(Integer, nullable=True)  # Parcel token number (per hotel per day)
+    customer_name = Column(String, nullable=True)  # Optional, parcel orders
+    customer_phone = Column(String, nullable=True)  # Optional, parcel orders
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(
         DateTime,
@@ -404,6 +409,7 @@ class OrderItem(Base):
     quantity = Column(Integer, default=1)
     price = Column(Float, nullable=True)  # Price at time of order
     remarks = Column(Text, nullable=True)
+    option_label = Column(String, nullable=True)  # Serving-size label e.g. "2/4" for soups
     status = Column(String, default="pending")  # per-dish: pending, accepted, rejected
     rejection_reason = Column(String, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
@@ -484,6 +490,7 @@ class Table(Base):
     is_occupied = Column(Boolean, default=False)
     current_order_id = Column(Integer, ForeignKey("orders.id"), nullable=True)
     qr_token = Column(String, unique=True, nullable=True, index=True)
+    guest_count = Column(Integer, nullable=True)  # Number of guests at the table slot
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(
         DateTime,
@@ -499,6 +506,21 @@ class Table(Base):
     # Relationships
     hotel = relationship("Hotel", back_populates="tables")
     current_order = relationship("Order", foreign_keys=[current_order_id])
+
+
+class SlotCart(Base):
+    __tablename__ = "slot_carts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    hotel_id = Column(Integer, ForeignKey("hotels.id"), nullable=False, index=True)
+    qr_token = Column(String, unique=True, nullable=False, index=True)
+    items = Column(Text, nullable=False, default="[]")  # JSON array of cart line items
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
 
 
 class Settings(Base):
@@ -594,6 +616,13 @@ def create_tables():
         "ALTER TABLE persons ADD COLUMN display_name VARCHAR",
         "ALTER TABLE persons ADD COLUMN photo_url VARCHAR",
         "ALTER TABLE settings ADD COLUMN show_prices INTEGER DEFAULT 1",
+        "ALTER TABLE tables ADD COLUMN guest_count INTEGER",
+        "ALTER TABLE dishes ADD COLUMN options TEXT",
+        "ALTER TABLE order_items ADD COLUMN option_label VARCHAR",
+        "ALTER TABLE orders ADD COLUMN is_parcel INTEGER DEFAULT 0",
+        "ALTER TABLE orders ADD COLUMN token_number INTEGER",
+        "ALTER TABLE orders ADD COLUMN customer_name VARCHAR",
+        "ALTER TABLE orders ADD COLUMN customer_phone VARCHAR",
     ]
     try:
         with engine.connect() as conn:

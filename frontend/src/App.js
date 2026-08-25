@@ -131,6 +131,7 @@ const TableManagement = lazy(() => lazyLoadWithRetry(() => import('./pages/admin
 const AdminSettings = lazy(() => lazyLoadWithRetry(() => import('./pages/admin/Settings')));
 const ChefsManagement = lazy(() => lazyLoadWithRetry(() => import('./pages/admin/Chefs')));
 const SuperAdmin = lazy(() => lazyLoadWithRetry(() => import('./pages/admin/SuperAdmin')));
+const AdminParcel = lazy(() => lazyLoadWithRetry(() => import('./pages/admin/Parcel')));
 
 // Analysis Pages (lazy loaded)
 const AnalysisDashboard = lazy(() => lazyLoadWithRetry(() => import('./pages/analysis/Dashboard')));
@@ -344,6 +345,14 @@ function App() {
                           element={
                             <ErrorBoundary>
                               <ChefsManagement />
+                            </ErrorBoundary>
+                          }
+                        />
+                        <Route
+                          path="/admin/parcel"
+                          element={
+                            <ErrorBoundary>
+                              <AdminParcel />
                             </ErrorBoundary>
                           }
                         />

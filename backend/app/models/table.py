@@ -9,6 +9,7 @@ class TableBase(BaseModel):
     is_occupied: bool = False
     current_order_id: Optional[int] = None
     qr_token: Optional[str] = None
+    guest_count: Optional[int] = None
 
 
 class TableCreate(BaseModel):

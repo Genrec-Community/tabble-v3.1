@@ -14,6 +14,7 @@ class DishBase(BaseModel):
     is_special: Optional[int] = 0
     is_vegetarian: Optional[int] = 1  # 1 = vegetarian, 0 = non-vegetarian
     visibility: Optional[int] = 1
+    options: Optional[str] = None  # JSON array of serving-size labels e.g. ["1/2","2/4"]
 
 class DishCreate(DishBase):
     pass
@@ -30,6 +31,7 @@ class DishUpdate(DishBase):
     is_special: Optional[int] = None
     is_vegetarian: Optional[int] = None
     visibility: Optional[int] = None
+    options: Optional[str] = None
 
 class Dish(DishBase):
     id: int

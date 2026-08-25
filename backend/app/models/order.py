@@ -8,6 +8,7 @@ class OrderItemBase(BaseModel):
     dish_id: int
     quantity: int = 1
     remarks: Optional[str] = None
+    option_label: Optional[str] = None
 
 
 class OrderItemCreate(OrderItemBase):
@@ -20,6 +21,7 @@ class OrderItem(OrderItemBase):
     created_at: datetime
     status: Optional[str] = None  # pending, accepted, rejected
     rejection_reason: Optional[str] = None
+    option_label: Optional[str] = None
     dish: Optional[Dish] = None
 
     # Add dish_name property to ensure it's always available
@@ -63,6 +65,10 @@ class Order(OrderBase):
     loyalty_discount_amount: Optional[float] = 0
     selection_offer_discount_amount: Optional[float] = 0
     loyalty_discount_percentage: Optional[float] = 0
+    is_parcel: Optional[int] = 0
+    token_number: Optional[int] = None
+    customer_name: Optional[str] = None
+    customer_phone: Optional[str] = None
 
     class Config:
         from_attributes = True  # Updated from orm_mode for Pydantic V2

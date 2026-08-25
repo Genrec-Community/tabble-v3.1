@@ -69,6 +69,8 @@ const DishFormDialog = ({ open, mode, dish, categories, onClose, onSave }) => {
     is_vegetarian: 1,
     selectedCategories: [],
     newCategory: '',
+    servingOptions: [],
+    optionInput: '',
     image: null,
     imagePreview: null
   });
@@ -86,6 +88,8 @@ const DishFormDialog = ({ open, mode, dish, categories, onClose, onSave }) => {
         is_vegetarian: dish.is_vegetarian !== undefined ? dish.is_vegetarian : 1,
         selectedCategories: parseCategories(dish.category),
         newCategory: '',
+        servingOptions: parseCategories(dish.options),
+        optionInput: '',
         image: null,
         imagePreview: dishImageUrl(dish.image_path)
       });
@@ -97,6 +101,8 @@ const DishFormDialog = ({ open, mode, dish, categories, onClose, onSave }) => {
         is_vegetarian: 1,
         selectedCategories: [],
         newCategory: '',
+        servingOptions: [],
+        optionInput: '',
         image: null,
         imagePreview: null
       });
@@ -148,6 +154,7 @@ const DishFormDialog = ({ open, mode, dish, categories, onClose, onSave }) => {
       name: values.name.trim(),
       description: values.description.trim(),
       categories: JSON.stringify(finalCategories),
+      options: JSON.stringify(values.servingOptions.filter(Boolean)),
       price: parseFloat(values.price),
       is_vegetarian: values.is_vegetarian
     };
@@ -270,6 +277,66 @@ const DishFormDialog = ({ open, mode, dish, categories, onClose, onSave }) => {
                 sx={{ mt: 1.5 }}
                 helperText="Typed here will be added to the selected ones above."
               />
+            </Grid>
+
+            <Grid item xs={12}>
+              <Divider sx={{ my: 1 }} />
+              <Typography variant="subtitle2" gutterBottom>
+                Serving-size Options (optional — e.g. soups)
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <TextField
+                  variant="outlined"
+                  fullWidth
+                  size="small"
+                  placeholder='e.g. 1/2  (press Add or Enter)'
+                  value={values.optionInput}
+                  onChange={(e) => setField('optionInput', e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const label = values.optionInput.trim();
+                      if (label && !values.servingOptions.includes(label)) {
+                        setField('servingOptions', [...values.servingOptions, label]);
+                      }
+                      setField('optionInput', '');
+                    }
+                  }}
+                />
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => {
+                    const label = values.optionInput.trim();
+                    if (label && !values.servingOptions.includes(label)) {
+                      setField('servingOptions', [...values.servingOptions, label]);
+                    }
+                    setField('optionInput', '');
+                  }}
+                >
+                  Add
+                </Button>
+              </Box>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: values.servingOptions.length ? 1 : 0 }}>
+                {values.servingOptions.map((opt) => (
+                  <Chip
+                    key={opt}
+                    label={opt}
+                    size="small"
+                    onDelete={() => setField('servingOptions', values.servingOptions.filter((o) => o !== opt))}
+                  />
+                ))}
+              </Box>
+              <Button
+                size="small"
+                sx={{ mt: 1, textTransform: 'none' }}
+                onClick={() => setField('servingOptions', ['1/2', '2/4', '3/6', '4/8'])}
+              >
+                Use soup preset (1/2 · 2/4 · 3/6 · 4/8)
+              </Button>
+              <FormHelperText>
+                Customers must pick one of these sizes before adding the dish to the cart.
+              </FormHelperText>
             </Grid>
 
             <Grid item xs={12}>

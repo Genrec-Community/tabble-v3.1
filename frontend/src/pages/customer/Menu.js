@@ -131,6 +131,10 @@ const CustomerMenu = () => {
   const [selectedDish, setSelectedDish] = useState(null);
   const [quantity, setQuantity] = useState(1);
   const [remarks, setRemarks] = useState('');
+  const [dishOptions, setDishOptions] = useState([]);
+  const [selectedOption, setSelectedOption] = useState(null);
+  const [guestDialogOpen, setGuestDialogOpen] = useState(false);
+  const [guestCountInput, setGuestCountInput] = useState('2');
   const [cartDialogOpen, setCartDialogOpen] = useState(false);
   const [cancelOrderDialog, setCancelOrderDialog] = useState({ open: false, orderId: null });
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
@@ -351,7 +355,15 @@ const CustomerMenu = () => {
     const markTableAsOccupied = async () => {
       if (tableNumber && slotNumber) {
         try {
-          await customerService.setTableOccupiedByNumber(parseInt(tableNumber), parseInt(slotNumber));
+          const occupiedTable = await customerService.setTableOccupiedByNumber(
+            parseInt(tableNumber), parseInt(slotNumber)
+          );
+          // First device on this slot — ask how many guests are seated so the
+          // hotel can see the head count. Skipped when the slot was already
+          // occupied (someone else already answered).
+          if (occupiedTable && occupiedTable.guest_count == null) {
+            setGuestDialogOpen(true);
+          }
         } catch (error) {
           handleApiError(error, 'marking table as occupied');
         }
@@ -359,6 +371,19 @@ const CustomerMenu = () => {
     };
     markTableAsOccupied();
   }, [tableNumber, slotNumber]);
+
+  const handleGuestCountSave = useCallback(async () => {
+    setGuestDialogOpen(false);
+    const count = parseInt(guestCountInput);
+    if (!isNaN(count) && count > 0) {
+      await customerService.setGuestCount(parseInt(tableNumber), parseInt(slotNumber), count);
+      setSnackbar({
+        open: true,
+        message: `Seated guests: ${count}`,
+        severity: 'success'
+      });
+    }
+  }, [guestCountInput, tableNumber, slotNumber]);
 
   // Heartbeat + auto-release — proves this customer is still browsing, so
   // the backend can free the slot when the browser is closed. The slot stays
@@ -387,6 +412,14 @@ const CustomerMenu = () => {
     setSelectedDish(dish);
     setQuantity(1);
     setRemarks('');
+    // Parse serving-size options (e.g. soups: 1/2, 2/4, 3/6, 4/8)
+    let options = [];
+    try {
+      const parsed = dish.options ? JSON.parse(dish.options) : [];
+      if (Array.isArray(parsed)) options = parsed;
+    } catch (e) { options = []; }
+    setDishOptions(options);
+    setSelectedOption(options.length > 0 ? null : undefined);
     setOpenDialog(true);
   }, []);
 
@@ -398,7 +431,17 @@ const CustomerMenu = () => {
   const handleAddToCart = useCallback(() => {
     if (!selectedDish) return;
 
-    const newItem = addToCart(selectedDish, quantity, remarks);
+    // A serving-size option is required when the dish defines options
+    if (dishOptions.length > 0 && !selectedOption) {
+      setSnackbar({
+        open: true,
+        message: 'Please select a serving size first',
+        severity: 'warning'
+      });
+      return;
+    }
+
+    addToCart(selectedDish, quantity, remarks, dishOptions.length > 0 ? selectedOption : null);
     setOpenDialog(false);
 
     setSnackbar({
@@ -406,7 +449,7 @@ const CustomerMenu = () => {
       message: `${selectedDish.name} added to cart`,
       severity: 'success'
     });
-  }, [selectedDish, quantity, remarks, addToCart]);
+  }, [selectedDish, quantity, remarks, dishOptions, selectedOption, addToCart]);
 
   // Optimized cart handlers using the hook
   const handleRemoveFromCart = useCallback((index) => {
@@ -436,7 +479,8 @@ const CustomerMenu = () => {
         items: sortedCart.map(item => ({
           dish_id: item.dish_id,
           quantity: item.quantity,
-          remarks: item.remarks
+          remarks: item.remarks,
+          ...(item.option_label ? { option_label: item.option_label } : {})
         }))
       };
 
@@ -1075,6 +1119,32 @@ const CustomerMenu = () => {
                 </Box>
               </Box>
 
+              {/* Serving-size options (e.g. soups: 1/2, 2/4, 3/6, 4/8) */}
+              {dishOptions.length > 0 && (
+                <Box mt={2.5}>
+                  <Typography variant="subtitle1" gutterBottom fontWeight="bold" sx={{ color: theme.palette.text.primary }}>
+                    Serving Size <Typography component="span" variant="caption" sx={{ color: theme.palette.text.disabled, fontWeight: 500 }}>(required)</Typography>
+                  </Typography>
+                  <Box display="flex" flexWrap="wrap" gap={1}>
+                    {dishOptions.map((option) => (
+                      <Chip
+                        key={option}
+                        label={option}
+                        clickable
+                        onClick={() => setSelectedOption(option)}
+                        sx={{
+                          fontWeight: selectedOption === option ? 800 : 600,
+                          border: '2px solid',
+                          borderColor: selectedOption === option ? '#FFA500' : theme.palette.divider,
+                          backgroundColor: selectedOption === option ? 'rgba(255,165,0,0.15)' : 'transparent',
+                          color: theme.palette.text.primary,
+                        }}
+                      />
+                    ))}
+                  </Box>
+                </Box>
+              )}
+
               {/* Special Instructions */}
               <Box mt={2.5} mb={2.5}>
                 <Typography variant="subtitle1" gutterBottom fontWeight="bold" sx={{ color: theme.palette.text.primary }}>
@@ -1530,6 +1600,28 @@ const CustomerMenu = () => {
             }}
           >
             Got it
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Guest count — asked once when this device opens the slot first */}
+      <Dialog open={guestDialogOpen} onClose={() => setGuestDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle fontWeight="bold">How many guests are seated?</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            fullWidth
+            type="number"
+            inputProps={{ min: 1 }}
+            value={guestCountInput}
+            onChange={(e) => setGuestCountInput(e.target.value)}
+            sx={{ mt: 1 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setGuestDialogOpen(false)}>Skip</Button>
+          <Button onClick={handleGuestCountSave} variant="contained" sx={{ backgroundColor: '#FFA500', '&:hover': { backgroundColor: '#FFB800' } }}>
+            Save
           </Button>
         </DialogActions>
       </Dialog>

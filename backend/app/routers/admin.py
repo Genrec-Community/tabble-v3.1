@@ -45,7 +45,7 @@ def get_session_database(request: Request):
 # Get all orders with customer information
 @router.get("/orders", response_model=List[OrderModel])
 def get_all_orders(
-    request: Request, status: str = None, db: Session = Depends(get_session_database)
+    request: Request, status: str = None, is_parcel: bool = None, db: Session = Depends(get_session_database)
 ):
     hotel_id = get_hotel_id_from_request(request)
 
@@ -53,6 +53,9 @@ def get_all_orders(
 
     if status:
         query = query.filter(Order.status == status)
+
+    if is_parcel is not None:
+        query = query.filter(Order.is_parcel == (1 if is_parcel else 0))
 
     # Order by most recent first
     orders = query.order_by(Order.created_at.desc()).all()
@@ -239,6 +242,7 @@ async def create_dish(
     is_vegetarian: Optional[int] = Form(
         1
     ),  # Optional with default: 1 = vegetarian, 0 = non-vegetarian
+    options: Optional[str] = Form(None),  # JSON array of serving-size labels
     image: Optional[UploadFile] = File(None),
     db: Session = Depends(get_session_database),
 ):
@@ -266,6 +270,20 @@ async def create_dish(
         # Default category if nothing provided
         final_category = json.dumps(["General"])
 
+    # Normalize serving-size options to a JSON string of labels
+    final_options = None
+    if options:
+        try:
+            parsed_options = json.loads(options)
+            if isinstance(parsed_options, list):
+                labels = [
+                    entry.get("label") if isinstance(entry, dict) else str(entry)
+                    for entry in parsed_options
+                ]
+                final_options = json.dumps([label for label in labels if label])
+        except json.JSONDecodeError:
+            final_options = None
+
     # Create dish object
     db_dish = Dish(
         hotel_id=hotel_id,
@@ -278,6 +296,7 @@ async def create_dish(
         is_offer=is_offer,
         is_special=is_special,
         is_vegetarian=is_vegetarian,
+        options=final_options,
     )
 
     # Save dish to database
@@ -325,6 +344,7 @@ async def update_dish(
     is_offer: Optional[int] = Form(None),  # Whether this dish is part of offers
     is_special: Optional[int] = Form(None),  # Whether this dish is today's special
     is_vegetarian: Optional[int] = Form(None),  # 1 = vegetarian, 0 = non-vegetarian
+    options: Optional[str] = Form(None),  # JSON array of serving-size labels
     image: Optional[UploadFile] = File(None),
     db: Session = Depends(get_session_database),
 ):
@@ -370,6 +390,24 @@ async def update_dish(
         db_dish.is_special = is_special
     if is_vegetarian is not None:
         db_dish.is_vegetarian = is_vegetarian
+
+    # Serving-size options — empty string clears them
+    import json as _json
+
+    if options is not None:
+        final_options = None
+        if options:
+            try:
+                parsed_options = _json.loads(options)
+                if isinstance(parsed_options, list):
+                    labels = [
+                        entry.get("label") if isinstance(entry, dict) else str(entry)
+                        for entry in parsed_options
+                    ]
+                    final_options = _json.dumps([label for label in labels if label])
+            except _json.JSONDecodeError:
+                final_options = None
+        db_dish.options = final_options
 
     # Handle image upload if provided
     if image:
@@ -530,6 +568,98 @@ def get_order_stats(request: Request, db: Session = Depends(get_session_database
         "paid_orders_today": paid_orders_today,
         "revenue_today": round(revenue_today, 2),
     }
+
+
+# ---------------- Parcel (takeaway) orders — created by admin ----------------
+
+class ParcelOrderItemIn(BaseModel):
+    dish_id: int
+    quantity: int = 1
+    remarks: Optional[str] = None
+    option_label: Optional[str] = None
+
+
+class ParcelOrderCreate(BaseModel):
+    items: List[ParcelOrderItemIn]
+    customer_name: Optional[str] = None
+    customer_phone: Optional[str] = None
+
+
+def _next_parcel_token(db: Session, hotel_id: int) -> int:
+    """Daily token sequence per hotel — starts at 1 every day (UTC)."""
+    day_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    last = (
+        db.query(func.max(Order.token_number))
+        .filter(
+            Order.hotel_id == hotel_id,
+            Order.is_parcel == 1,
+            Order.created_at >= day_start,
+        )
+        .scalar()
+    )
+    return (last or 0) + 1
+
+
+@router.post("/api/orders", response_model=OrderModel)
+def create_parcel_order(
+    order: ParcelOrderCreate, request: Request, db: Session = Depends(get_session_database)
+):
+    """Admin creates a takeaway/parcel order directly — no table, no slot,
+    no customer device involved. Status is `completed` immediately so the
+    existing bill PDF + mark-as-paid flow works unchanged."""
+    hotel_id = get_hotel_id_from_request(request)
+    if not order.items:
+        raise HTTPException(status_code=400, detail="Parcel order needs at least one item")
+
+    db_order = Order(
+        hotel_id=hotel_id,
+        table_number=0,
+        slot_number=0,
+        unique_id="PARCEL",
+        person_id=None,
+        status="completed",
+        is_parcel=1,
+        token_number=_next_parcel_token(db, hotel_id),
+        customer_name=(order.customer_name or "").strip() or None,
+        customer_phone=(order.customer_phone or "").strip() or None,
+    )
+    db.add(db_order)
+    db.commit()
+    db.refresh(db_order)
+
+    for item in order.items:
+        dish = db.query(Dish).filter(
+            Dish.hotel_id == hotel_id,
+            Dish.id == item.dish_id,
+        ).first()
+        if not dish:
+            continue
+
+        db_item = OrderItem(
+            hotel_id=hotel_id,
+            order_id=db_order.id,
+            dish_id=dish.id,
+            quantity=max(1, item.quantity),
+            price=dish.price,
+            remarks=item.remarks,
+            option_label=item.option_label,
+        )
+        db.add(db_item)
+
+    from ..services.order_utils import compute_order_totals
+
+    db.commit()
+    db.refresh(db_order)
+    compute_order_totals(db, db_order)
+    db.commit()
+    db.refresh(db_order)
+    return db_order
+
+
+@router.get("/parcel/next-token")
+def get_next_parcel_token(request: Request, db: Session = Depends(get_session_database)):
+    hotel_id = get_hotel_id_from_request(request)
+    return {"token_number": _next_parcel_token(db, hotel_id)}
 
 
 # Mark order as paid (hotel admin — after generating the bill).

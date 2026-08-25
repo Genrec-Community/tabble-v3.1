@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status, Query
 from sqlalchemy.orm import Session
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import uuid
 from datetime import datetime, timezone, timedelta
 from pydantic import BaseModel
 
-from ..database import get_db, Dish, Order, OrderItem, Person, get_session_db, get_hotel_id_from_request
+from ..database import get_db, Dish, Order, OrderItem, Person, SlotCart, Table, get_session_db, get_hotel_id_from_request
 from ..models.dish import Dish as DishModel
 from ..models.order import OrderCreate, Order as OrderModel
 from ..models.user import (
@@ -21,6 +21,27 @@ class GoogleAuthRequest(BaseModel):
     id_token: str
     table_number: int
     slot_number: int = 1
+
+
+class CartItemIn(BaseModel):
+    dish_id: int
+    quantity: int = 1
+    remarks: Optional[str] = None
+    option_label: Optional[str] = None
+    image: Optional[str] = None
+    original_price: Optional[float] = None
+    discount: Optional[float] = None
+    is_offer: Optional[int] = None
+
+
+class CartItemUpdate(BaseModel):
+    quantity: Optional[int] = None
+    remarks: Optional[str] = None
+    option_label: Optional[str] = None
+
+
+class CartReorderIn(BaseModel):
+    line_ids: List[int]
 
 router = APIRouter(
     prefix="/customer",
@@ -276,11 +297,23 @@ def create_order(
             quantity=item.quantity,
             price=dish.price,  # Store price at time of order
             remarks=item.remarks,
+            option_label=getattr(item, "option_label", None),
         )
         db.add(db_item)
 
     db.commit()
     db.refresh(db_order)
+
+    # Clear the shared slot cart — its items are now a placed order
+    from ..database import SlotCart
+
+    qr_token = get_qr_token_from_request(request)
+    if qr_token:
+        db.query(SlotCart).filter(
+            SlotCart.hotel_id == hotel_id,
+            SlotCart.qr_token == qr_token,
+        ).delete()
+        db.commit()
 
     return db_order
 
@@ -513,4 +546,229 @@ def google_auth(payload: GoogleAuthRequest, request: Request, db: Session = Depe
         "visit_count": person.visit_count,
         "is_new_user": is_new_user,
     }
-    return person
+
+
+# ---------------- Shared slot cart (one QR = one shared cart) ----------------
+
+def get_qr_token_from_request(request: Request) -> Optional[str]:
+    qr_token = request.headers.get("x-qr-token")
+    if not qr_token or qr_token == "default":
+        qr_token = request.query_params.get("qr_token")
+    return qr_token
+
+
+def _load_cart_items(cart: SlotCart) -> list:
+    import json
+    try:
+        items = json.loads(cart.items or "[]")
+        return items if isinstance(items, list) else []
+    except (json.JSONDecodeError, TypeError):
+        return []
+
+
+def _save_cart_items(db: Session, cart: SlotCart, items: list):
+    import json
+    cart.items = json.dumps(items)
+    cart.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    return items
+
+
+def _get_or_create_cart(db: Session, hotel_id: int, qr_token: str) -> SlotCart:
+    cart = db.query(SlotCart).filter(
+        SlotCart.hotel_id == hotel_id,
+        SlotCart.qr_token == qr_token,
+    ).first()
+    if not cart:
+        cart = SlotCart(hotel_id=hotel_id, qr_token=qr_token, items="[]")
+        db.add(cart)
+        db.commit()
+        db.refresh(cart)
+    return cart
+
+
+def _next_line_id(items: list) -> int:
+    return max((i.get("line_id", 0) for i in items), default=0) + 1
+
+
+@router.get("/api/cart")
+def get_cart(
+    request: Request,
+    qr_token: str = Query(None),
+    db: Session = Depends(get_session_database),
+):
+    hotel_id = get_hotel_id_from_request(request)
+    token = qr_token or get_qr_token_from_request(request)
+    if not token:
+        raise HTTPException(status_code=400, detail="qr_token is required")
+
+    cart = db.query(SlotCart).filter(
+        SlotCart.hotel_id == hotel_id,
+        SlotCart.qr_token == token,
+    ).first()
+    return {
+        "items": _load_cart_items(cart) if cart else [],
+        "updated_at": cart.updated_at.isoformat() if cart and cart.updated_at else None,
+    }
+
+
+@router.post("/api/cart/items")
+def add_cart_item(
+    item: CartItemIn,
+    request: Request,
+    qr_token: str = Query(None),
+    db: Session = Depends(get_session_database),
+):
+    hotel_id = get_hotel_id_from_request(request)
+    token = qr_token or get_qr_token_from_request(request)
+    if not token:
+        raise HTTPException(status_code=400, detail="qr_token is required")
+
+    dish = db.query(Dish).filter(
+        Dish.hotel_id == hotel_id,
+        Dish.id == item.dish_id,
+    ).first()
+    if not dish:
+        raise HTTPException(status_code=404, detail="Dish not found")
+
+    cart = _get_or_create_cart(db, hotel_id, token)
+    items = _load_cart_items(cart)
+    new_item = {
+        "line_id": _next_line_id(items),
+        "dish_id": dish.id,
+        "dish_name": dish.name,
+        "price": dish.price,
+        "quantity": max(1, item.quantity),
+        "remarks": item.remarks,
+        "option_label": item.option_label,
+        "image": item.image,
+        "original_price": item.original_price if item.original_price is not None else dish.price,
+        "discount": item.discount or 0,
+        "is_offer": item.is_offer or 0,
+        "position": len(items) + 1,
+        "added_at": datetime.now(timezone.utc).isoformat(),
+    }
+    items.append(new_item)
+    _save_cart_items(db, cart, items)
+    return {"items": items}
+
+
+@router.put("/api/cart/items/{line_id}")
+def update_cart_item(
+    line_id: int,
+    update: CartItemUpdate,
+    request: Request,
+    qr_token: str = Query(None),
+    db: Session = Depends(get_session_database),
+):
+    hotel_id = get_hotel_id_from_request(request)
+    token = qr_token or get_qr_token_from_request(request)
+    if not token:
+        raise HTTPException(status_code=400, detail="qr_token is required")
+
+    cart = db.query(SlotCart).filter(
+        SlotCart.hotel_id == hotel_id,
+        SlotCart.qr_token == token,
+    ).first()
+    if not cart:
+        raise HTTPException(status_code=404, detail="Cart not found")
+
+    items = _load_cart_items(cart)
+    for entry in items:
+        if entry.get("line_id") == line_id:
+            if update.quantity is not None:
+                if update.quantity <= 0:
+                    items.remove(entry)
+                else:
+                    entry["quantity"] = update.quantity
+            if update.remarks is not None:
+                entry["remarks"] = update.remarks
+            if update.option_label is not None:
+                entry["option_label"] = update.option_label
+            _save_cart_items(db, cart, items)
+            return {"items": items}
+
+    raise HTTPException(status_code=404, detail="Cart item not found")
+
+
+@router.put("/api/cart/reorder")
+def reorder_cart_items(
+    payload: CartReorderIn,
+    request: Request,
+    qr_token: str = Query(None),
+    db: Session = Depends(get_session_database),
+):
+    """Persist a new display order for the shared cart's line items."""
+    hotel_id = get_hotel_id_from_request(request)
+    token = qr_token or get_qr_token_from_request(request)
+    if not token:
+        raise HTTPException(status_code=400, detail="qr_token is required")
+
+    cart = db.query(SlotCart).filter(
+        SlotCart.hotel_id == hotel_id,
+        SlotCart.qr_token == token,
+    ).first()
+    if not cart:
+        raise HTTPException(status_code=404, detail="Cart not found")
+
+    items = _load_cart_items(cart)
+    by_id = {entry.get("line_id"): entry for entry in items}
+    reordered = [by_id[line_id] for line_id in payload.line_ids if line_id in by_id]
+    reordered += [entry for entry in items if entry.get("line_id") not in payload.line_ids]
+
+    for idx, entry in enumerate(reordered):
+        entry["position"] = idx + 1
+
+    _save_cart_items(db, cart, reordered)
+    return {"items": reordered}
+
+
+@router.delete("/api/cart/items/{line_id}")
+def delete_cart_item(
+    line_id: int,
+    request: Request,
+    qr_token: str = Query(None),
+    db: Session = Depends(get_session_database),
+):
+    hotel_id = get_hotel_id_from_request(request)
+    token = qr_token or get_qr_token_from_request(request)
+    if not token:
+        raise HTTPException(status_code=400, detail="qr_token is required")
+
+    cart = db.query(SlotCart).filter(
+        SlotCart.hotel_id == hotel_id,
+        SlotCart.qr_token == token,
+    ).first()
+    if not cart:
+        raise HTTPException(status_code=404, detail="Cart not found")
+
+    items = _load_cart_items(cart)
+    remaining = [entry for entry in items if entry.get("line_id") != line_id]
+    if len(remaining) == len(items):
+        raise HTTPException(status_code=404, detail="Cart item not found")
+
+    # Renumber positions so ordering stays stable
+    for idx, entry in enumerate(remaining):
+        entry["position"] = idx + 1
+
+    _save_cart_items(db, cart, remaining)
+    return {"items": remaining}
+
+
+@router.delete("/api/cart")
+def clear_cart(
+    request: Request,
+    qr_token: str = Query(None),
+    db: Session = Depends(get_session_database),
+):
+    hotel_id = get_hotel_id_from_request(request)
+    token = qr_token or get_qr_token_from_request(request)
+    if not token:
+        raise HTTPException(status_code=400, detail="qr_token is required")
+
+    db.query(SlotCart).filter(
+        SlotCart.hotel_id == hotel_id,
+        SlotCart.qr_token == token,
+    ).delete()
+    db.commit()
+    return {"message": "Cart cleared", "items": []}

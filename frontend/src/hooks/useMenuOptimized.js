@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { customerService } from '../services/api';
 import { handleApiError, safeAsync, withRetry } from '../utils/errorHandler';
 
@@ -205,14 +205,16 @@ export const useOrderManagement = (userId, tableNumber) => {
 };
 
 /**
- * Optimized hook for cart management with localStorage persistence
+ * Hook for cart management backed by a SERVER-SIDE shared slot cart.
+ * One QR code = one shared cart, so everyone who scans the same QR sees and
+ * edits the same cart live (polled every 5 s). localStorage is only used as
+ * an offline mirror of the last known server state.
  */
 export const useCartManagement = () => {
-  // Get current QR token to identify the session
+  // Get current QR token to identify the shared slot session
   const qrToken = localStorage.getItem('customerQrToken') || 'default';
   const cartStorageKey = `customerCart_${qrToken}`;
 
-  // Initialize cart from localStorage
   const [cart, setCart] = useState(() => {
     try {
       const savedCart = localStorage.getItem(cartStorageKey);
@@ -223,14 +225,17 @@ export const useCartManagement = () => {
     }
   });
 
-  // Save cart to localStorage whenever it changes
-  useEffect(() => {
-    try {
-      localStorage.setItem(cartStorageKey, JSON.stringify(cart));
-      localStorage.setItem('customerCartUpdatedAt', new Date().toISOString());
+  // Timestamp of the last local mutation — polling skips right after a
+  // mutation so the optimistic update is never clobbered by a stale poll.
+  const lastMutationAt = useRef(0);
 
-      // Track if cart has items (order is active)
-      if (cart.length > 0) {
+  const applyServerCart = useCallback((items) => {
+    if (!Array.isArray(items)) return;
+    setCart(items);
+    try {
+      localStorage.setItem(cartStorageKey, JSON.stringify(items));
+      localStorage.setItem('customerCartUpdatedAt', new Date().toISOString());
+      if (items.length > 0) {
         localStorage.setItem('customerOrderStatus', 'active');
       } else {
         localStorage.removeItem('customerOrderStatus');
@@ -238,41 +243,73 @@ export const useCartManagement = () => {
     } catch (error) {
       console.error('Error saving cart to localStorage:', error);
     }
-  }, [cart, cartStorageKey]);
+  }, [cartStorageKey]);
 
-  const addToCart = useCallback((dish, quantity, remarks) => {
+  // Pull the shared cart from the server
+  const fetchCart = useCallback(async () => {
+    if (qrToken === 'default') return; // no QR session — nothing to sync
+    try {
+      const data = await customerService.getCart();
+      applyServerCart(data.items || []);
+    } catch (error) {
+      // Offline / server hiccup — keep showing the mirrored cart
+    }
+  }, [qrToken, applyServerCart]);
+
+  useEffect(() => {
+    fetchCart();
+
+    const interval = setInterval(() => {
+      // Skip one cycle right after a local mutation
+      if (Date.now() - lastMutationAt.current < 2000) return;
+      fetchCart();
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [fetchCart]);
+
+  const addToCart = useCallback((dish, quantity, remarks, optionLabel = null) => {
     const actualPrice = dish.is_offer === 1 ?
       parseFloat((dish.price - (dish.price * dish.discount / 100)).toFixed(2)) :
       dish.price;
 
-    const newItem = {
+    lastMutationAt.current = Date.now();
+    customerService.addCartItem({
       dish_id: dish.id,
-      dish_name: dish.name,
-      price: actualPrice,
+      quantity,
+      remarks,
+      option_label: optionLabel,
+      image: dish.image_path,
       original_price: dish.price,
       discount: dish.discount,
       is_offer: dish.is_offer,
-      quantity,
-      remarks,
-      image: dish.image_path,
-      added_at: new Date().toISOString(),
-      position: cart.length + 1
-    };
-
-    setCart(prev => [...prev, newItem]);
-    return newItem;
-  }, [cart.length]);
+    })
+      .then((data) => applyServerCart(data.items))
+      .catch(() => {
+        lastMutationAt.current = 0;
+        fetchCart();
+      });
+  }, [applyServerCart, fetchCart]);
 
   const removeFromCart = useCallback((index) => {
     setCart(prev => {
-      const newCart = [...prev];
-      newCart.splice(index, 1);
-      return newCart.map((item, idx) => ({
-        ...item,
-        position: idx + 1
-      }));
+      const item = prev[index];
+      if (!item || item.line_id === undefined) return prev;
+      lastMutationAt.current = Date.now();
+      customerService.deleteCartItem(item.line_id)
+        .then((data) => applyServerCart(data.items))
+        .catch(() => { lastMutationAt.current = 0; fetchCart(); });
+      return prev.filter((_, idx) => idx !== index);
     });
-  }, []);
+  }, [applyServerCart, fetchCart]);
+
+  const persistOrder = useCallback((newCart) => {
+    setCart(newCart);
+    lastMutationAt.current = Date.now();
+    customerService.reorderCartItems(newCart.map(i => i.line_id))
+      .then((data) => applyServerCart(data.items))
+      .catch(() => { lastMutationAt.current = 0; fetchCart(); });
+  }, [applyServerCart, fetchCart]);
 
   const reorderCart = useCallback((index, direction) => {
     setCart(prev => {
@@ -287,12 +324,11 @@ export const useCartManagement = () => {
       const newIndex = direction === 'up' ? index - 1 : index + 1;
       [newCart[index], newCart[newIndex]] = [newCart[newIndex], newCart[index]];
 
-      return newCart.map((item, idx) => ({
-        ...item,
-        position: idx + 1
-      }));
+      newCart.forEach((item, idx) => { item.position = idx + 1; });
+      persistOrder(newCart);
+      return newCart;
     });
-  }, []);
+  }, [persistOrder]);
 
   // Move an item from one index to another (used by drag-to-reorder in the cart)
   const moveCartItem = useCallback((fromIndex, toIndex) => {
@@ -305,16 +341,20 @@ export const useCartManagement = () => {
       const [moved] = newCart.splice(fromIndex, 1);
       newCart.splice(toIndex, 0, moved);
 
-      return newCart.map((item, idx) => ({
-        ...item,
-        position: idx + 1
-      }));
+      newCart.forEach((item, idx) => { item.position = idx + 1; });
+      persistOrder(newCart);
+      return newCart;
     });
-  }, []);
+  }, [persistOrder]);
 
-  const clearCart = useCallback(() => {
+  const clearCart = useCallback(async () => {
     setCart([]);
-    // Also clear from localStorage
+    lastMutationAt.current = Date.now();
+    try {
+      await customerService.clearCart();
+    } catch (error) {
+      // Server may already be empty — ignore
+    }
     try {
       localStorage.removeItem(cartStorageKey);
       localStorage.removeItem('customerOrderStatus');
@@ -335,6 +375,7 @@ export const useCartManagement = () => {
     reorderCart,
     moveCartItem,
     clearCart,
+    refreshCart: fetchCart,
     cartTotal,
     cartCount: cart.length
   };

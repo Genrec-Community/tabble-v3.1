@@ -285,14 +285,97 @@ export const customerService = {
   },
 
   // Set a table as occupied by table number (slot-scoped — two QRs per table)
-  setTableOccupiedByNumber: async (tableNumber, slotNumber = 1) => {
+  setTableOccupiedByNumber: async (tableNumber, slotNumber = 1, guestCount = null) => {
     try {
-      const response = await api.put(`/tables/number/${tableNumber}/occupy?slot_number=${slotNumber}`);
+      let url = `/tables/number/${tableNumber}/occupy?slot_number=${slotNumber}`;
+      if (guestCount) url += `&guest_count=${guestCount}`;
+      const response = await api.put(url);
       return response.data;
     } catch (error) {
 
       // Don't throw error, just log it
       return null;
+    }
+  },
+
+  // Update how many guests are at this table slot
+  setGuestCount: async (tableNumber, slotNumber = 1, guestCount = 1) => {
+    try {
+      const response = await api.put(
+        `/tables/number/${tableNumber}/guest-count?slot_number=${slotNumber}&guest_count=${guestCount}`
+      );
+      return response.data;
+    } catch (error) {
+
+      return null;
+    }
+  },
+
+  // ---- Shared slot cart (one QR = one shared cart across devices) ----
+
+  // Get the shared cart for this table slot
+  getCart: async () => {
+    try {
+      const response = await api.get('/customer/api/cart');
+      return response.data;
+    } catch (error) {
+
+      throw error;
+    }
+  },
+
+  // Add a line item to the shared cart
+  addCartItem: async (item) => {
+    try {
+      const response = await api.post('/customer/api/cart/items', item);
+      return response.data;
+    } catch (error) {
+
+      throw error;
+    }
+  },
+
+  // Update a line item of the shared cart (quantity / remarks / option)
+  updateCartItem: async (lineId, update) => {
+    try {
+      const response = await api.put(`/customer/api/cart/items/${lineId}`, update);
+      return response.data;
+    } catch (error) {
+
+      throw error;
+    }
+  },
+
+  // Remove a line item from the shared cart
+  deleteCartItem: async (lineId) => {
+    try {
+      const response = await api.delete(`/customer/api/cart/items/${lineId}`);
+      return response.data;
+    } catch (error) {
+
+      throw error;
+    }
+  },
+
+  // Clear the shared cart
+  clearCart: async () => {
+    try {
+      const response = await api.delete('/customer/api/cart');
+      return response.data;
+    } catch (error) {
+
+      throw error;
+    }
+  },
+
+  // Persist a new display order for the shared cart's line items
+  reorderCartItems: async (lineIds) => {
+    try {
+      const response = await api.put('/customer/api/cart/reorder', { line_ids: lineIds });
+      return response.data;
+    } catch (error) {
+
+      throw error;
     }
   },
 
@@ -667,10 +750,33 @@ export const adminService = {
   },
 
   // Get all orders
-  getOrders: async (status = null) => {
+  getOrders: async (status = null, isParcel = null) => {
     try {
       const params = status ? { status } : {};
+      if (isParcel !== null) params.is_parcel = isParcel;
       const response = await api.get('/admin/orders', { params });
+      return response.data;
+    } catch (error) {
+
+      throw error;
+    }
+  },
+
+  // Create a takeaway/parcel order on behalf of a walk-in customer
+  createParcelOrder: async (orderData) => {
+    try {
+      const response = await api.post('/admin/api/orders', orderData);
+      return response.data;
+    } catch (error) {
+
+      throw error;
+    }
+  },
+
+  // Get the next daily parcel token number
+  getNextParcelToken: async () => {
+    try {
+      const response = await api.get('/admin/parcel/next-token');
       return response.data;
     } catch (error) {
 

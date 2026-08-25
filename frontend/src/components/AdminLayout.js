@@ -31,6 +31,7 @@ import TableRestaurantIcon from '@mui/icons-material/TableRestaurant';
 import AnalyticsIcon from '@mui/icons-material/Analytics';
 import SettingsIcon from '@mui/icons-material/Settings';
 import GroupIcon from '@mui/icons-material/Group';
+import TakeoutDiningIcon from '@mui/icons-material/TakeoutDining';
 import MenuIcon from '@mui/icons-material/Menu';
 import ThemeModeToggle from './ThemeModeToggle';
 
@@ -173,6 +174,11 @@ const AdminLayout = () => {
       text: 'Completed Orders',
       icon: <ReceiptIcon />,
       path: '/admin/completed-orders'
+    },
+    {
+      text: 'Parcel Orders',
+      icon: <TakeoutDiningIcon />,
+      path: '/admin/parcel'
     },
     {
       text: 'Table Management',

@@ -672,6 +672,13 @@ const TableManagement = () => {
                                 size="small"
                                 sx={{ height: 20, fontSize: '0.65rem' }}
                               />
+                              {slot.is_occupied && slot.guest_count != null && (
+                                <Chip
+                                  label={`${slot.guest_count} guest${slot.guest_count === 1 ? '' : 's'}`}
+                                  size="small"
+                                  sx={{ height: 20, fontSize: '0.65rem', backgroundColor: 'rgba(255,165,0,0.15)', color: '#FFA500' }}
+                                />
+                              )}
                               {slot.is_occupied && (
                                 <Tooltip title="Free this seat (admin override)">
                                   <IconButton
