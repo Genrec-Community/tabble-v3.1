@@ -9,4 +9,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ping App
-        run: curl -s "https://tabble-v3-1-at1a.onrender.com/health"
+        run: curl -s "https://genrecai-freellmapi.onrender.com/"
