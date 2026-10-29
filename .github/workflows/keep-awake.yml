@@ -1,16 +1,1 @@
-name: Keep App Awake
 
-on:
-  schedule:
-    - cron: "* * * * *"
-  workflow_dispatch:
-
-jobs:
-  ping:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Ping FreeLLMAPI Health Endpoint
-        run: |
-          curl --fail --show-error --silent \
-            --max-time 30 \
-            "https://genrecai-freellmapi.onrender.com/api/ping"
